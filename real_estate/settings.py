@@ -168,8 +168,8 @@ EMAIL_USE_SSL = False
 
 
 if PRODUCTION:
-    AWS_ACCESS_KEY_ID = 'AKIAWL5SMRGLVFTNZLOH'
-    AWS_SECRET_ACCESS_KEY = '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'
+    AWS_ACCESS_KEY_ID = 'A'
+    AWS_SECRET_ACCESS_KEY = 'CH2I7JZ02L0FOY'
     AWS_STORAGE_BUCKET_NAME = 'cnp-realestate-dev'
     AWS_S3_REGION_NAME = 'ap-south-1'
     AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com'
@@ -188,17 +188,18 @@ if PRODUCTION:
     DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
 else:
     STATIC_URL = '/static/'
-    STATIC_ROOT = location('public/static/')
     STATICFILES_DIRS = (
         location('static'),
     )
-    MEDIA_ROOT = os.path.join(BASE_DIR, 'public/media')
     MEDIA_URL = '/media/'
+
+STATIC_ROOT = location('public/static/')
+MEDIA_ROOT = os.path.join(BASE_DIR, 'public/media')
 
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:4200',
     'http://localhost.5000',
     'http://localhost.3000',
-    'http://64.225.84.50',
+    # 'http://64.225.84.50',
     'http://139.59.71.1'
 ]
