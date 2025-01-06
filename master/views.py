@@ -1,0 +1,52 @@
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import viewsets
+from rest_framework.filters import SearchFilter
+from rest_framework.permissions import IsAuthenticated
+from master.serializers import *
+
+
+# Create your views here.
+
+class CountryViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    queryset = Country.objects.all()
+    serializer_class = CountrySerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_fields = ['name', 'code']
+    search_fields = ['name', 'code']
+
+
+class StateViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    queryset = State.objects.all()
+    serializer_class = StateSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_fields = ['name', 'country']
+    search_fields = ['name', 'country']
+
+
+class CityViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    queryset = City.objects.all()
+    serializer_class = CitySerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_fields = ['name', 'state']
+    search_fields = ['name', 'state']
+
+
+class BannerImageViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    queryset = BannerImage.objects.all()
+    serializer_class = BannerImageSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_fields = ['page_name',]
+    search_fields = ['page_name',]
+
+
+class GstViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    queryset = GST.objects.all()
+    serializer_class = GSTSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_fields = ['method',]
+    search_fields = ['method',]
