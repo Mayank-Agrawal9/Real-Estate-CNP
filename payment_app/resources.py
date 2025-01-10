@@ -14,5 +14,5 @@ class WalletResource(resources.ModelResource):
 class TransactionResource(resources.ModelResource):
     class Meta:
         model = Transaction
-        import_id_fields = ('id',)
-        exclude = EXCLUDE_FOR_API
+        import_id_fields = ('sender', 'receiver')
+        exclude = ('date_created', 'updated_by', 'date_updated', 'created_by')

@@ -200,11 +200,13 @@ class UserKycAPIView(APIView):
                 role = basic_details["role"]
 
                 if role == "super_agency":
-                    update_super_agency_profile(user, data)
+                    update_super_agency_profile(user, data, "super_agency")
                 elif role == "agency":
-                    update_super_agency_profile(user, data)
+                    update_super_agency_profile(user, data, "agency")
                 elif role == "field_agent":
-                    update_super_agency_profile(user, data)
+                    update_super_agency_profile(user, data, "field_agent")
+                elif role == "p2pm":
+                    update_super_agency_profile(user, data, "field_agent")
 
                 return Response({"message": "Data updated successfully!"}, status=status.HTTP_200_OK)
 

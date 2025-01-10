@@ -34,42 +34,43 @@ class UserWalletViewSet(viewsets.ModelViewSet):
         recipient = serializer.validated_data['recipient']
         amount = serializer.validated_data['amount']
 
-        if not sender.profile.is_kyc and sender.profile.is_kyc_verified:
+        if not (sender.profile.is_kyc and sender.profile.is_kyc_verified):
             return Response(
                 {"error": "You has not completed KYC verification."},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        if not recipient.profile.is_kyc and recipient.profile.is_kyc_verified:
+        if not (recipient.profile.is_kyc and recipient.profile.is_kyc_verified):
             return Response(
-                {"error": "Recipient has not completed KYC verification."},
+                {"error": "Recipient has not completed their KYC verification."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
         sender_wallet = UserWallet.objects.get(user=sender)
         recipient_wallet, _ = UserWallet.objects.get_or_create(user=recipient)
 
-        sender_wallet.main_wallet_balance -= amount
+        sender_wallet.app_wallet_balance -= Decimal(amount)
         sender_wallet.save()
 
-        recipient_wallet.main_wallet_balance += amount
+        recipient_wallet.app_wallet_balance += Decimal(amount)
         recipient_wallet.save()
 
-        transaction = Transaction.objects.create(
+        Transaction.objects.create(
+            created_by=request.user,
             sender=sender,
             receiver=recipient,
             amount=amount,
             transaction_status='approved',
-            transaction_type='transfer',
-            status='approved'
+            transaction_type='send',
+            status='active'
         )
-        return Response({"message": "Payment successful", "transaction_id": transaction.id}, status=status.HTTP_200_OK)
+        return Response({"message": "Payment successful transfer."}, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=['post'], url_path='send-money-to-wallet')
     def send_money_to_main_wallet(self, request):
         user_wallet = UserWallet.objects.get(user=request.user)
         transfer_amount = Decimal(request.data.get('amount', 0))
 
-        if not request.user.profile.is_kyc and request.user.profile.is_kyc_verified:
+        if not (request.user.profile.is_kyc and request.user.profile.is_kyc_verified):
             return Response(
                 {"error": "You has not completed KYC verification."},
                 status=status.HTTP_400_BAD_REQUEST
@@ -96,6 +97,16 @@ class UserWalletViewSet(viewsets.ModelViewSet):
         user_wallet.main_wallet_balance += amount_after_fee
         user_wallet.save()
 
+        Transaction.objects.create(
+            created_by=request.user,
+            sender=request.user,
+            amount=amount_after_fee,
+            transaction_status='approved',
+            transaction_type='transfer',
+            status='active',
+            taxable_amount=fee
+        )
+
         return Response(
             {
                 "message": "Transfer successful.",
@@ -110,7 +121,7 @@ class UserWalletViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'], url_path='withdraw-payment')
     def withdraw_payment(self, request):
-        if not request.user.profile.is_kyc and request.user.profile.is_kyc_verified:
+        if not (request.user.profile.is_kyc and request.user.profile.is_kyc_verified):
             return Response(
                 {"error": "You has not completed KYC verification."},
                 status=status.HTTP_400_BAD_REQUEST
@@ -118,14 +129,16 @@ class UserWalletViewSet(viewsets.ModelViewSet):
         serializer = WithdrawRequestSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         amount = serializer.validated_data['amount']
-        transaction = Transaction.objects.create(
+        taxable_amount = (Decimal(amount) * Decimal('0.05'))
+        Transaction.objects.create(
+            created_by=request.user,
             sender=request.user,
             amount=amount,
+            taxable_amount=taxable_amount,
             transaction_type='withdraw',
-            status='pending'
+            transaction_status='pending'
         )
-        return Response({"message": "Withdraw request created", "transaction_id": transaction.id},
-                        status=status.HTTP_201_CREATED)
+        return Response({"message": "Withdraw request created."}, status=status.HTTP_201_CREATED)
 
 
 class TransactionViewSet(viewsets.ModelViewSet):
@@ -136,7 +149,8 @@ class TransactionViewSet(viewsets.ModelViewSet):
     search_fields = ['transaction_id', 'deposit_transaction_id']
 
     def get_queryset(self):
-        return Transaction.objects.filter(Q(sender=self.request.user) | Q(receiver=self.request.user), status='active')
+        return Transaction.objects.filter(Q(sender=self.request.user) | Q(receiver=self.request.user),
+                                          status='active').order_by('-date_created')
 
     @action(detail=False, methods=['post'], url_path='add-money-to-wallet')
     def add_money_to_wallet(self, request):
@@ -148,13 +162,12 @@ class TransactionViewSet(viewsets.ModelViewSet):
             return Response(
                 {"error": "KYC verification is incomplete, you can not add the money."}, status=status.HTTP_400_BAD_REQUEST)
 
-        transaction = Transaction.objects.create(
-            sender=sender, transaction_status='pending', transaction_type='deposit', ** serializer.validated_data
+        Transaction.objects.create(
+            sender=sender, transaction_status='pending', transaction_type='deposit', **serializer.validated_data
         )
 
         return Response({
-                "message": "Request for payment deposit sent successfully.",
-                "transaction_id": transaction.id}, status=status.HTTP_200_OK
+                "message": "Request for payment deposit sent successfully."}, status=status.HTTP_200_OK
         )
 
 

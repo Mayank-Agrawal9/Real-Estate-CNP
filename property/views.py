@@ -4,9 +4,7 @@ from rest_framework.decorators import action
 from rest_framework.filters import SearchFilter
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.views import APIView
 
-from accounts.models import Profile
 from property.models import Media, Property
 from property.serializers import CreatePropertySerializer, PropertySerializer, PropertyListSerializer, MediaSerializer, \
     EditPropertySerializer
@@ -27,18 +25,22 @@ class PropertyViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], url_path='get-all-property')
     def get_all_property(self, request):
-        if not request.user.profile.is_kyc or not request.user.profile.is_kyc_verified:
+        if not (request.user.profile.is_kyc and request.user.profile.is_kyc_verified):
             return Response(
                 {"error": "KYC not completed or verified."},
                 status=status.HTTP_403_FORBIDDEN,
             )
-        properties = Property.objects.filter(user=self.request.user, status='active')
+        properties = Property.objects.filter(user=request.user, status='active')
+        page = self.paginate_queryset(properties)
+        if page is not None:
+            serializer = PropertyListSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
         serializer = PropertyListSerializer(properties, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=['post'], url_path='create-property')
     def create_property(self, request):
-        if not request.user.profile.is_kyc or not request.user.profile.is_kyc_verified:
+        if not (request.user.profile.is_kyc or not request.user.profile.is_kyc_verified):
             return Response(
                 {"error": "KYC not completed or verified."},
                 status=status.HTTP_403_FORBIDDEN,

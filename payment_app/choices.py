@@ -2,6 +2,7 @@ TRANSACTION_TYPE_CHOICES = [
     ('investment', 'Investment'),
     ('deposit', 'Deposit'),
     ('withdraw', 'Withdraw'),
+    ('send', 'Send'),
     ('transfer', 'Transfer'),
     ('reward', 'Reward'),
     ('commission', 'Commission'),

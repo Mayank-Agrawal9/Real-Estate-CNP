@@ -44,6 +44,7 @@ class Transaction(ModelMixin):
     receiver = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
                                  related_name='received_transactions')
     amount = models.DecimalField(max_digits=10, decimal_places=2)
+    taxable_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     transaction_type = models.CharField(max_length=10, choices=TRANSACTION_TYPE_CHOICES)
     transaction_status = models.CharField(max_length=10, choices=TRANSACTION_STATUS_CHOICES, default='pending')
     payment_slip = models.ImageField(upload_to='payment_slips/', null=True, blank=True)
@@ -55,4 +56,4 @@ class Transaction(ModelMixin):
     verified_on = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
-        return f"{self.transaction_type} by {self.user.username} for {self.amount}"
+        return f"{self.transaction_type} for {self.amount}"

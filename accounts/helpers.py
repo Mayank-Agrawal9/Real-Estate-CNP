@@ -18,52 +18,61 @@ def generate_unique_referral_code():
             return referral_code
 
 
-def update_super_agency_profile(user, data):
-        basic_details = data["basic_details"]
-        company_details = data["company_details"]
-        bank_details = data["bank_details"]
-        documents = data.get("documents_for_kyc", [])
+def update_super_agency_profile(user, data, role):
+    profile = update_profile(user, data["basic_details"], role)
+    update_super_agency(user, profile, data["company_details"])
+    update_bank_details(user, data["bank_details"])
+    update_user_documents(user, data.get("documents_for_kyc", []))
 
-        profile = Profile.objects.filter(user=user).first()
-        if not profile:
-            raise ValidationError("Profile not found for the user.")
 
-        profile.father_name = basic_details["father_name"]
-        profile.mobile_number = basic_details["mobile_number"]
-        profile.pan_number = basic_details["pan_number"]
-        profile.aadhar_number = basic_details["aadhar_number"]
-        profile.role = "super_agency"
-        profile.is_kyc = True
-        profile.save()
+def update_profile(user, basic_details, role):
+    profile = Profile.objects.filter(user=user).first()
+    if not profile:
+        raise ValidationError("Profile not found for the user.")
 
-        SuperAgency.objects.update_or_create(
-            profile=profile,
-            defaults={
-                "created_by": user,
-                "name": company_details["name"],
-                "type": company_details["type"],
-                "phone_number": company_details.get("phone_number"),
-                "pan_number": company_details.get("pan_number"),
-                "email": company_details["email"],
-                "office_address": company_details.get("office_address"),
-            }
+    profile.father_name = basic_details["father_name"]
+    profile.mobile_number = basic_details["mobile_number"]
+    profile.pan_number = basic_details["pan_number"]
+    profile.aadhar_number = basic_details["aadhar_number"]
+    profile.role = role
+    profile.is_kyc = True
+    profile.save()
+    return profile
+
+
+def update_super_agency(user, profile, company_details):
+    SuperAgency.objects.update_or_create(
+        profile=profile,
+        defaults={
+            "created_by": user,
+            "name": company_details["name"],
+            "type": company_details["type"],
+            "phone_number": company_details.get("phone_number"),
+            "pan_number": company_details.get("pan_number"),
+            "email": company_details["email"],
+            "office_address": company_details.get("office_address"),
+        }
+    )
+
+
+def update_bank_details(user, bank_details):
+    BankDetails.objects.update_or_create(
+        user=user,
+        defaults={
+            "created_by": user,
+            "account_number": bank_details["account_number"],
+            "account_holder_name": bank_details["account_holder_name"],
+            "ifsc_code": bank_details["ifsc_code"],
+            "bank_name": bank_details["bank_name"],
+            "bank_address": bank_details.get("bank_address"),
+        }
+    )
+
+
+def update_user_documents(user, documents):
+    for doc in documents:
+        UserPersonalDocument.objects.update_or_create(
+            created_by=user,
+            attachment=doc["attachment"],
+            defaults={"type": doc["type"]},
         )
-
-        BankDetails.objects.update_or_create(
-            user=user,
-            defaults={
-                "created_by": user,
-                "account_number": bank_details["account_number"],
-                "account_holder_name": bank_details["account_holder_name"],
-                "ifsc_code": bank_details["ifsc_code"],
-                "bank_name": bank_details["bank_name"],
-                "bank_address": bank_details.get("bank_address"),
-            }
-        )
-
-        for doc in documents:
-            UserPersonalDocument.objects.update_or_create(
-                created_by=user,
-                attachment=doc["attachment"],
-                defaults={"type": doc["type"]},
-            )
