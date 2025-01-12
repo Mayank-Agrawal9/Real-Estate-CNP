@@ -1,8 +1,8 @@
-from datetime import datetime
+from datetime import datetime, date
 from decimal import Decimal
 
-from agency.models import SuperAgency
-from payment_app.models import UserWallet
+from agency.models import SuperAgency, Agency, FieldAgent, PPDAccount
+from payment_app.models import UserWallet, Transaction
 
 
 class CommissionCalculator:
@@ -59,12 +59,19 @@ def distribute_monthly_rent_for_super_agency():
     first_of_month = today.replace(day=1)
 
     if today == first_of_month:
-        super_agencies = SuperAgency.objects.filter(user__kyc__is_verified=True)
+        super_agencies = SuperAgency.objects.filter(profile__is_kyc_verified=True, profile__is_kyc=True)
 
         for agency in super_agencies:
-            wallet, created = UserWallet.objects.get_or_create(user=agency.user)
+            wallet, created = UserWallet.objects.get_or_create(user=agency.profile.user)
             wallet.app_wallet_balance += 50000
             wallet.save()
+            Transaction.objects.create(
+                receiver=agency.profile.user,
+                amount=50000,
+                transaction_type='rent',
+                transaction_status='approved',
+                remarks='Super Agency Rent Payment Send by CNP'
+            )
 
         return "Monthly rent distributed successfully."
 
@@ -76,15 +83,21 @@ def distribute_monthly_rent_for_agency():
     first_of_month = today.replace(day=1)
 
     if today == first_of_month:
-        super_agencies = SuperAgency.objects.filter(user__kyc__is_verified=True)
+        agencies = Agency.objects.filter(created_by__profile__is_kyc_verified=True, created_by__profile__is_kyc=True)
 
-        for agency in super_agencies:
-            wallet, created = Wallet.objects.get_or_create(user=agency.user)
-            wallet.main_wallet_balance += agency.rent_per_month
+        for agency in agencies:
+            wallet, created = UserWallet.objects.get_or_create(user=agency.created_by)
+            wallet.app_wallet_balance += 25000
             wallet.save()
+            Transaction.objects.create(
+                receiver=agency.created_by,
+                amount=25000,
+                transaction_type='rent',
+                transaction_status='approved',
+                remarks='Agency Rent Payment Send by CNP'
+            )
 
         return "Monthly rent distributed successfully."
-
     return "Today is not the first of the month. No distribution performed."
 
 
@@ -93,13 +106,57 @@ def distribute_monthly_rent_for_field_agent():
     first_of_month = today.replace(day=1)
 
     if today == first_of_month:
-        super_agencies = SuperAgency.objects.filter(user__kyc__is_verified=True)
+        field_agents = FieldAgent.objects.filter(profile__is_kyc=True, profile__is_kyc_verified=True)
 
-        for agency in super_agencies:
-            wallet, created = Wallet.objects.get_or_create(user=agency.user)
-            wallet.main_wallet_balance += agency.rent_per_month
+        for agent in field_agents:
+            wallet, created = UserWallet.objects.get_or_create(user=agent.profile.user)
+            wallet.app_wallet_balance += 1500
             wallet.save()
+            Transaction.objects.create(
+                receiver=agent.profile.user,
+                amount=1500,
+                transaction_type='rent',
+                transaction_status='approved',
+                remarks='Field Agent Rent Payment Send by CNP'
+            )
 
         return "Monthly rent distributed successfully."
-
     return "Today is not the first of the month. No distribution performed."
+
+
+def process_monthly_rentals():
+    """
+    Process monthly rentals for all active PPD accounts.
+    The rental will be sent every month until the account is withdrawn or inactive.
+    """
+    today = date.today()
+    active_accounts = PPDAccount.objects.filter(is_active=True)
+    results = []
+
+    for account in active_accounts:
+        try:
+            deposit_date = account.deposit_date
+            months_since_deposit = (today.year - deposit_date.year) * 12 + (today.month - deposit_date.month)
+
+            if months_since_deposit >= 0:
+                monthly_rental = Decimal(account.amount_deposited) * Decimal('0.02')
+
+                wallet, created = UserWallet.objects.get_or_create(user=account.user)
+                wallet.app_wallet_balance += monthly_rental
+                wallet.save()
+
+                Transaction.objects.create(
+                    receiver=account.user,
+                    amount=monthly_rental,
+                    transaction_type='interest',
+                    transaction_status='approved',
+                    remarks='Property Payment Deposit Interest Send by CNP'
+                )
+
+                results.append(
+                    f"Monthly rental of ₹{monthly_rental} processed for {account.user.username}."
+                )
+        except Exception as e:
+            results.append(f"Failed for {account.user.username}: {str(e)}")
+
+    return results

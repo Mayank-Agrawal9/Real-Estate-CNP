@@ -32,6 +32,7 @@ class Profile(ModelMixin):
     gender = models.CharField(max_length=25, choices=GENDER_CHOICE, null=True, blank=True)
     father_name = models.CharField(max_length=200, null=True, blank=True)
     picture = models.ImageField(upload_to='profile', blank=True, null=True)
+    qr_code = models.ImageField(upload_to='profile', blank=True, null=True)
     mobile_number = models.CharField(max_length=15, null=True, blank=True)
     pan_number = models.CharField(max_length=10, null=True, blank=True)
     aadhar_number = models.CharField(max_length=12, null=True, blank=True)

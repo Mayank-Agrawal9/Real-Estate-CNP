@@ -14,6 +14,14 @@ REFUND_CHOICES = [
     ('no_refund', 'No Refund after 1 year'),
 ]
 
+
+REFUND_STATUS_CHOICES = [
+    ('pending', 'Pending'),
+    ('approved', 'Approved'),
+    ('rejected', 'Rejected')
+]
+
+
 INVESTMENT_TYPE_CHOICES = [
     ('super_agency', 'Super Agency'),
     ('agency', 'Agency'),

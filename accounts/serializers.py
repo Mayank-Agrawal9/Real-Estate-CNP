@@ -41,7 +41,8 @@ class BasicDetailsSerializer(serializers.Serializer):
     mobile_number = serializers.CharField(required=True)
     pan_number = serializers.CharField(required=True)
     aadhar_number = serializers.CharField(required=True)
-    role = serializers.ChoiceField(choices=["super_agency"], required=True)
+    referral_code = serializers.CharField(required=False)
+    role = serializers.ChoiceField(choices=["super_agency", "agency", "field_agent"], required=True)
 
 
 class CompanyDetailsSerializer(serializers.Serializer):
@@ -69,6 +70,23 @@ class DocumentSerializer(serializers.Serializer):
 
 class SuperAgencyKycSerializer(serializers.Serializer):
     basic_details = BasicDetailsSerializer(required=True)
-    company_details = CompanyDetailsSerializer(required=True)
+    company_details = CompanyDetailsSerializer(required=False)
     bank_details = BankDetailsSerializer(required=True)
     documents_for_kyc = DocumentSerializer(many=True, required=False)
+
+    def validate(self, attrs):
+        """
+        Custom validation to make company_details optional
+        when the role in basic_details is 'field_agent'.
+        """
+        basic_details = attrs.get("basic_details", {})
+        role = basic_details.get("role")
+
+        if role == "field_agent":
+            attrs.pop("company_details", None)
+        elif not attrs.get("company_details"):
+            raise serializers.ValidationError(
+                {"company_details": "This field is required for roles other than 'field_agent'."}
+            )
+
+        return attrs

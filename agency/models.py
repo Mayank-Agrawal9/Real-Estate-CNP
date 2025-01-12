@@ -1,3 +1,4 @@
+import datetime
 from decimal import Decimal
 
 from django.contrib.auth.models import User
@@ -5,7 +6,7 @@ from django.db import models
 
 from accounts.choices import COMPANY_TYPE
 from accounts.models import Profile
-from agency.choices import REWARD_CHOICES, REFUND_CHOICES, INVESTMENT_TYPE_CHOICES
+from agency.choices import REWARD_CHOICES, REFUND_CHOICES, INVESTMENT_TYPE_CHOICES, REFUND_STATUS_CHOICES
 from real_estate.model_mixin import ModelMixin
 
 
@@ -32,6 +33,11 @@ class SuperAgency(ModelMixin):
 class Agency(ModelMixin):
     company = models.ForeignKey(SuperAgency, on_delete=models.CASCADE, related_name="agencies")
     name = models.CharField(max_length=250)
+    type = models.CharField(max_length=250, choices=COMPANY_TYPE, default='enterprise')
+    phone_number = models.CharField(max_length=15, null=True, blank=True)
+    pan_number = models.CharField(max_length=10, null=True, blank=True)
+    email = models.EmailField(null=True, blank=True)
+    office_address = models.TextField(null=True, blank=True)
     turnover = models.DecimalField(max_digits=15, decimal_places=2, default=0)
 
     def __str__(self):
@@ -73,7 +79,12 @@ class Commission(ModelMixin):
 
 class RefundPolicy(ModelMixin):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='refund_user')
-    refund_type = models.CharField(max_length=20, choices=REFUND_CHOICES)
+    refund_type = models.CharField(max_length=20, choices=REFUND_CHOICES, default='no_refund')
+    refund_status = models.CharField(max_length=20, choices=REFUND_STATUS_CHOICES, default='pending')
+    refund_initiate_date = models.DateField(default=datetime.datetime.today())
+    refund_process_date = models.DateField(null=True, blank=True)
+    refund_process_by = models.ForeignKey(User, on_delete=models.CASCADE,
+                                          related_name='refund_process_user', null=True, blank=True)
     amount_refunded = models.DecimalField(max_digits=15, decimal_places=2)
     deduction_percentage = models.DecimalField(max_digits=5, decimal_places=2)
 
@@ -81,13 +92,48 @@ class RefundPolicy(ModelMixin):
         return f"Refund for {self.user.username} - {self.refund_type}"
 
 
-class PPDModel(ModelMixin):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='ppd_user')
-    deposit_amount = models.DecimalField(max_digits=15, decimal_places=2)
-    monthly_rental = models.DecimalField(max_digits=10, decimal_places=2)
+class PPDAccount(ModelMixin):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="ppd_accounts")
+    deposit_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    deposit_date = models.DateField(auto_now_add=True)
+    monthly_rental = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    is_active = models.BooleanField(default=True)
+    has_purchased_property = models.BooleanField(default=False)
+    withdrawal_date = models.DateField(null=True, blank=True)
+    withdrawal_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    remarks = models.TextField(null=True, blank=True)
+
+    def save(self, *args, **kwargs):
+        if not self.monthly_rental:
+            self.monthly_rental = Decimal(self.deposit_amount) * Decimal('0.02')
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"PPD Model for {self.user.username} - Deposit: {self.deposit_amount}"
+
+    def deposit_duration(self):
+        # Calculate the duration of the deposit in years
+        if self.withdrawal_date:
+            return (self.withdrawal_date - self.deposit_date).days / 365
+        return (datetime.datetime.now().date() - self.deposit_date).days / 365
+
+    def calculate_deduction(self):
+        # Calculate the deduction based on withdrawal conditions
+        years = self.deposit_duration()
+        if self.has_purchased_property or years >= 6:
+            return Decimal(0)  # No deduction
+        elif years < 1:
+            return Decimal('0.40')  # 40% deduction
+        elif years < 3:
+            return Decimal('0.35')  # 35% deduction
+        elif years < 6:
+            return Decimal('0.25')  # 25% deduction
+        return Decimal(0)  # Fallback
+
+    def calculate_withdrawal_amount(self):
+        # Calculate the final amount user will receive on withdrawal
+        deduction = self.calculate_deduction()
+        return self.deposit_amount * (Decimal(1) - deduction)
 
 
 class FundWithdrawal(ModelMixin):

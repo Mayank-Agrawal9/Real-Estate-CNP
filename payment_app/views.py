@@ -195,7 +195,7 @@ class ApproveTransactionView(APIView):
                 wallet.save()
 
             elif transaction.transaction_type == 'deposit':
-                wallet = UserWallet.objects.get(user=transaction.receiver)
+                wallet = UserWallet.objects.filter(user=transaction.receiver).last()
                 wallet.main_wallet_balance += transaction.amount
                 wallet.save()
 

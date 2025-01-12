@@ -38,7 +38,7 @@ class UserWallet(ModelMixin):
 
 
 class Transaction(ModelMixin):
-    transaction_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    transaction_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     sender = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
                                related_name='sent_transactions')
     receiver = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,

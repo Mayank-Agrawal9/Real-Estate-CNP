@@ -13,13 +13,14 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.helpers import generate_unique_referral_code, update_super_agency_profile
+from accounts.helpers import generate_unique_referral_code, update_super_agency_profile, generate_qr_code_with_email, \
+    update_agency_profile, update_field_agent_profile
 from accounts.models import OTP, Profile, BankDetails, UserPersonalDocument
 from accounts.serializers import RequestOTPSerializer, VerifyOTPSerializer, ResendOTPSerializer, ProfileSerializer, \
     SuperAgencyKycSerializer, BasicDetailsSerializer, CompanyDetailsSerializer, BankDetailsSerializer, \
     DocumentSerializer
-from agency.models import SuperAgency
-from payment_app.models import UserWallet
+from agency.models import SuperAgency, FieldAgent, Agency
+from payment_app.models import UserWallet, Transaction
 from real_estate import settings
 
 
@@ -38,13 +39,13 @@ class RequestOTPView(APIView):
                     "valid_until": datetime.datetime.now() + datetime.timedelta(minutes=10),
                 },
             )
-            # send_mail(
-            #     "Your OTP Code",
-            #     f"Your OTP code is {otp_code}. It is valid for 10 minutes.",
-            #     settings.DEFAULT_FROM_EMAIL,
-            #     [email],
-            #     fail_silently=False,
-            # )
+            send_mail(
+                "Your OTP Code",
+                f"Your OTP code is {otp_code}. It is valid for 10 minutes.",
+                settings.DEFAULT_FROM_EMAIL,
+                [email],
+                fail_silently=False,
+            )
             return Response({"message": "OTP sent to your email."}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -70,7 +71,9 @@ class VerifyOTPView(APIView):
             otp_entry.delete()
             user, created = User.objects.get_or_create(username=email, defaults={"email": email})
             referral_code = generate_unique_referral_code()
-            profile, _ = Profile.objects.get_or_create(user=user, created_by=user, referral_code=referral_code)
+            qr_code_file = generate_qr_code_with_email(email)
+            profile, _ = Profile.objects.get_or_create(user=user, created_by=user,
+                                                       referral_code=referral_code, qr_code=qr_code_file)
             UserWallet.objects.get_or_create(user=user, created_by=user)
             token, _ = Token.objects.get_or_create(user=user)
 
@@ -83,6 +86,7 @@ class VerifyOTPView(APIView):
                 "referral_code": referral_code,
                 "name": user.get_full_name(),
                 "email": user.email,
+                "qr_code_url": profile.qr_code.url if profile.qr_code else None,
             }, status=status.HTTP_200_OK)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -168,9 +172,22 @@ class UserKycAPIView(APIView):
             return Response({"error": "Profile not found."}, status=status.HTTP_404_NOT_FOUND)
 
         basic_details = BasicDetailsSerializer(profile).data
-        company_details = CompanyDetailsSerializer(
-            SuperAgency.objects.filter(profile=profile).first()
-        ).data
+
+        if profile.role == "field_agent":
+            company_details_instance = None
+        elif profile.role == "agency":
+            company_details_instance = Agency.objects.filter(created_by=user).first()
+        elif profile.role == "super_agency":
+            company_details_instance = SuperAgency.objects.filter(profile=profile).first()
+        else:
+            company_details_instance = None
+
+        company_details = (
+            CompanyDetailsSerializer(company_details_instance).data
+            if company_details_instance
+            else None
+        )
+
         bank_details = BankDetailsSerializer(
             BankDetails.objects.filter(user=user).first()
         ).data
@@ -198,23 +215,97 @@ class UserKycAPIView(APIView):
             with transaction.atomic():
                 basic_details = data["basic_details"]
                 role = basic_details["role"]
-
                 if role == "super_agency":
                     update_super_agency_profile(user, data, "super_agency")
                 elif role == "agency":
-                    update_super_agency_profile(user, data, "agency")
+                    update_agency_profile(user, data, "agency")
                 elif role == "field_agent":
-                    update_super_agency_profile(user, data, "field_agent")
+                    update_field_agent_profile(user, data, "field_agent")
                 elif role == "p2pm":
                     update_super_agency_profile(user, data, "field_agent")
-
-                return Response({"message": "Data updated successfully!"}, status=status.HTTP_200_OK)
+            return Response({"message": "Data updated successfully!"}, status=status.HTTP_200_OK)
 
         except ValidationError as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            error_message = e.detail if isinstance(e.detail, str) else e.detail[0]
+            return Response({"error": error_message}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({"error": "Something went wrong", "details": str(e)},
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                            status=status.HTTP_400_BAD_REQUEST)
+
+
+class VerifyAndUpdateProfile(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def update_wallet_and_transaction_(self, user, amount, remarks):
+        wallet, _ = UserWallet.objects.get_or_create(user=user)
+        wallet.app_wallet_balance += amount
+        wallet.save()
+        Transaction.objects.create(
+            created_by=user,
+            sender=user,
+            amount=amount,
+            transaction_type='commission',
+            transaction_status='approved',
+            remarks=remarks
+        )
+
+    def update_transaction_of_user_(self, request_user, id):
+        update_transaction = Transaction.objects.filter(id=id).last()
+        if update_transaction:
+            update_transaction.transaction_status = 'approved'
+            update_transaction.verified_by = request_user
+            update_transaction.verified_on = datetime.datetime.now()
+            update_transaction.save()
+
+    def post(self, request):
+        user_id = request.data.get('user_id')
+        transaction_id = int(request.data.get('transaction_id'))
+        amount = int(request.data.get('amount'))
+        try:
+            with transaction.atomic():
+                profile = Profile.objects.filter(user=user_id).last()
+                if profile.is_kyc and profile.is_kyc_verified:
+                    return Response({"error": "KYC is already verified for this user."},
+                                    status=status.HTTP_400_BAD_REQUEST)
+                profile.is_kyc_verified = True
+                profile.verified_by = request.user
+                profile.verified_on = datetime.datetime.now()
+                profile.save()
+                self.update_transaction_of_user_(transaction_id, request.user)
+
+                if profile.role == 'agency':
+                    super_agency = Agency.objects.filter(created_by=profile.user).last()
+                    if super_agency and super_agency.company:
+                        commission = Decimal(str(amount * 0.25))
+                        self.update_wallet_and_transaction_(
+                            super_agency.company.profile.user,
+                            commission,
+                            'Commission added due to agency added.'
+                        )
+                elif profile.role == 'field_agent':
+                    agency = FieldAgent.objects.filter(profile=profile).last()
+                    if agency:
+                        # Commission for agency
+                        if agency.agency:
+                            commission = Decimal(str(amount * 0.25))
+                            self.update_wallet_and_transaction_(
+                                agency.agency.created_by,
+                                commission,
+                                'Commission added due to field agent added.'
+                            )
+                        # Commission for super agency
+                        if agency.agency and agency.agency.company:
+                            commission = Decimal(str(amount * 0.05))
+                            self.update_wallet_and_transaction_(
+                                agency.agency.company.profile.user,
+                                commission,
+                                'Commission added due to field agent added.'
+                            )
+
+                return Response({"message": "Profile verified and amounts distributed successfully."},
+                                status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class GetUserFriendReferralCodeDetails(APIView):

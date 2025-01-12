@@ -55,12 +55,13 @@ class RefundPolicyAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
     list_filter = ('status', )
 
 
-@admin.register(PPDModel)
-class PPDModelAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
+@admin.register(PPDAccount)
+class PPDAccountAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
     resource_class = PPDModelResource
-    search_fields = ['user__username', 'user__email']
     raw_id_fields = ('created_by', 'updated_by', 'user')
-    list_filter = ('status', )
+    list_display = ('user', 'deposit_amount', 'deposit_date', 'monthly_rental', 'is_active', 'has_purchased_property')
+    list_filter = ('is_active', 'has_purchased_property', 'deposit_date')
+    search_fields = ('user__username',)
 
 
 @admin.register(FundWithdrawal)

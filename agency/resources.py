@@ -47,7 +47,7 @@ class RefundPolicyResource(resources.ModelResource):
 
 class PPDModelResource(resources.ModelResource):
     class Meta:
-        model = PPDModel
+        model = PPDAccount
         import_id_fields = ('id',)
         exclude = ('date_created', 'updated_by', 'date_updated', 'created_by')
 

@@ -22,7 +22,7 @@ COMPANY_TYPE = (
 USER_ROLE = (
     ('customer', 'Customer'),
     ('field_agent', 'Field Agent'),
-    ('agent', 'Agent'),
+    ('agency', 'Agency'),
     ('super_agency', 'Super Agency'),
     ('p2pmb', 'Person to Person'),
 )

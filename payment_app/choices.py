@@ -7,6 +7,8 @@ TRANSACTION_TYPE_CHOICES = [
     ('reward', 'Reward'),
     ('commission', 'Commission'),
     ('refund', 'Refund'),
+    ('rent', 'Rent'),
+    ('interest', 'Interest')
 ]
 
 TRANSACTION_STATUS_CHOICES = [
