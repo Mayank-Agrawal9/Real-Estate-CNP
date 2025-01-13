@@ -29,7 +29,7 @@ location = lambda x: os.path.join(os.path.realpath(BASE_DIR), x)
 SECRET_KEY = 'django-insecure-vu_k3)s3bx=9gtu!42$i*k*b4(x=v@b(fej&z3em($7*8000yg'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = ['*']
 
