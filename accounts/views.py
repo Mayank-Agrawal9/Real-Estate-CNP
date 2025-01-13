@@ -61,6 +61,7 @@ class VerifyOTPView(APIView):
                 otp_entry = OTP.objects.get(email=email)
             except Exception as e:
                 return Response({"error": "Invalid email or OTP."}, status=status.HTTP_400_BAD_REQUEST)
+
             if not otp_entry.is_valid():
                 return Response(
                     {"error": "OTP has expired. Please request a new OTP."},
@@ -68,12 +69,23 @@ class VerifyOTPView(APIView):
                 )
             if otp_entry.otp != otp_code:
                 return Response({"error": "Invalid OTP."}, status=status.HTTP_400_BAD_REQUEST)
+
             otp_entry.delete()
             user, created = User.objects.get_or_create(username=email, defaults={"email": email})
             referral_code = generate_unique_referral_code()
-            qr_code_file = generate_qr_code_with_email(email)
-            profile, _ = Profile.objects.get_or_create(user=user, created_by=user,
-                                                       referral_code=referral_code, qr_code=qr_code_file)
+            qr_code_file = generate_qr_code_with_email(email, user.id)
+
+            profile, created = Profile.objects.get_or_create(user=user, defaults={
+                "created_by": user,
+                "referral_code": referral_code,
+                "qr_code": qr_code_file,
+            })
+
+            if not created:
+                profile.referral_code = referral_code
+                profile.qr_code = qr_code_file
+                profile.save()
+
             UserWallet.objects.get_or_create(user=user, created_by=user)
             token, _ = Token.objects.get_or_create(user=user)
 
@@ -88,8 +100,6 @@ class VerifyOTPView(APIView):
                 "email": user.email,
                 "qr_code_url": profile.qr_code.url if profile.qr_code else None,
             }, status=status.HTTP_200_OK)
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class ResendOTPView(APIView):

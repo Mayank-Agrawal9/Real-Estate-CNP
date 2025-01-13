@@ -21,7 +21,7 @@ def generate_unique_referral_code():
             return referral_code
 
 
-def generate_qr_code_with_email(email):
+def generate_qr_code_with_email(email, user_id):
     """
     Generates a QR code containing the user's email and returns it as an in-memory file.
     """
@@ -37,7 +37,7 @@ def generate_qr_code_with_email(email):
     buffer = BytesIO()
     img.save(buffer, format="PNG")
     buffer.seek(0)
-    return ContentFile(buffer.read(), name=f"{email}_qr_code.png")
+    return ContentFile(buffer.read(), name=f"{user_id}_qr_code.png")
 
 
 def update_super_agency_profile(user, data, role):
