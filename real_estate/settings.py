@@ -58,6 +58,7 @@ CUSTOM_APPS = [
     'master.apps.MasterConfig',
     'payment_app.apps.PaymentAppConfig',
     'property.apps.PropertyConfig',
+    'p2pmb.apps.P2PmbConfig',
 ]
 
 INSTALLED_APPS += CUSTOM_APPS

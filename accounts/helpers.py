@@ -78,7 +78,6 @@ def validate_referral_code(basic_details, role):
         ValidationError: If the referral code is invalid or hierarchy rules are broken.
     """
     referral_by = Profile.objects.filter(referral_code=basic_details["referral_code"]).last()
-
     if not referral_by:
         raise ValidationError("Invalid referral code.")
 

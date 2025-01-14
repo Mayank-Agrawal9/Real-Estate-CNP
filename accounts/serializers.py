@@ -1,3 +1,7 @@
+import base64
+import uuid
+
+from django.core.files.base import ContentFile
 from rest_framework import serializers
 
 from accounts.models import Profile
@@ -64,8 +68,20 @@ class BankDetailsSerializer(serializers.Serializer):
 
 
 class DocumentSerializer(serializers.Serializer):
-    attachment = serializers.URLField(required=True)
+    attachment = serializers.CharField(required=True)
     type = serializers.CharField(required=True)
+
+    def validate_attachment(self, value):
+        """
+        Decode Base64 string into an image file.
+        """
+        try:
+            format, img_str = value.split(';base64,')
+            ext = format.split('/')[-1]
+            file_name = f"{uuid.uuid4()}.{ext}"
+            return ContentFile(base64.b64decode(img_str), name=file_name)
+        except Exception as e:
+            raise serializers.ValidationError("Invalid Base64 encoded image.") from e
 
 
 class SuperAgencyKycSerializer(serializers.Serializer):
@@ -88,5 +104,4 @@ class SuperAgencyKycSerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 {"company_details": "This field is required for roles other than 'field_agent'."}
             )
-
         return attrs

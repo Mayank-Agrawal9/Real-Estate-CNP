@@ -81,7 +81,7 @@ class RefundPolicy(ModelMixin):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='refund_user')
     refund_type = models.CharField(max_length=20, choices=REFUND_CHOICES, default='no_refund')
     refund_status = models.CharField(max_length=20, choices=REFUND_STATUS_CHOICES, default='pending')
-    refund_initiate_date = models.DateField(default=datetime.datetime.today())
+    refund_initiate_date = models.DateField(default=datetime.datetime.today)
     refund_process_date = models.DateField(null=True, blank=True)
     refund_process_by = models.ForeignKey(User, on_delete=models.CASCADE,
                                           related_name='refund_process_user', null=True, blank=True)
