@@ -112,7 +112,7 @@ def update_profile(user, basic_details, role, referral_by=None):
     profile.mobile_number = basic_details["mobile_number"]
     profile.pan_number = basic_details["pan_number"]
     profile.aadhar_number = basic_details["aadhar_number"]
-    profile.referral_by = referral_by.user
+    profile.referral_by = referral_by.user if referral_by and referral_by.user else None
     profile.role = role
     profile.is_kyc = True
     profile.save()

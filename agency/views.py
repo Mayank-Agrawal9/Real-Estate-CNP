@@ -7,7 +7,9 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
+from .calculation import distribute_monthly_rent_for_super_agency
 from .models import Investment, Commission, Reward, RefundPolicy, FundWithdrawal, SuperAgency, Agency, FieldAgent, \
     RewardEarned, PPDAccount
 from .serializers import (InvestmentSerializer, CommissionSerializer, RewardSerializer,
@@ -202,3 +204,11 @@ class RewardEarnedViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     queryset = RewardEarned.objects.all()
     serializer_class = RewardEarnedSerializer
+
+
+class CheckAPI(APIView):
+
+    def get(self, request):
+        res = distribute_monthly_rent_for_super_agency()
+        return Response({"error": res}, status=status.HTTP_200_OK)
+

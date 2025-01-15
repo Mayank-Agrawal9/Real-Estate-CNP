@@ -2,7 +2,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (InvestmentViewSet, CommissionViewSet, RewardViewSet, RefundViewSet, FundWithdrawalViewSet,
                     SuperAgencyViewSet, AgencyViewSet, FieldAgentViewSet, RewardEarnedViewSet,
-                    PPDAccountViewSet)
+                    PPDAccountViewSet, CheckAPI)
 
 router = DefaultRouter()
 router.register(r'super-agency', SuperAgencyViewSet)
@@ -19,4 +19,6 @@ router.register(r'reward-earned', RewardEarnedViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),
+    path('check', CheckAPI.as_view()),
+
 ]

@@ -19,7 +19,7 @@ from accounts.models import OTP, Profile, BankDetails, UserPersonalDocument
 from accounts.serializers import RequestOTPSerializer, VerifyOTPSerializer, ResendOTPSerializer, ProfileSerializer, \
     SuperAgencyKycSerializer, BasicDetailsSerializer, CompanyDetailsSerializer, BankDetailsSerializer, \
     DocumentSerializer
-from agency.models import SuperAgency, FieldAgent, Agency
+from agency.models import SuperAgency, FieldAgent, Agency, Investment
 from payment_app.models import UserWallet, Transaction
 from real_estate import settings
 
@@ -221,32 +221,32 @@ class UserKycAPIView(APIView):
 
         data = serializer.validated_data
         user = request.user
-        try:
-            with transaction.atomic():
-                basic_details = data["basic_details"]
-                role = basic_details["role"]
-                if role == "super_agency":
-                    update_super_agency_profile(user, data, "super_agency")
-                elif role == "agency":
-                    update_agency_profile(user, data, "agency")
-                elif role == "field_agent":
-                    update_field_agent_profile(user, data, "field_agent")
-                elif role == "p2pm":
-                    update_super_agency_profile(user, data, "field_agent")
-            return Response({"message": "Data updated successfully!"}, status=status.HTTP_200_OK)
+        # try:
+        with transaction.atomic():
+            basic_details = data["basic_details"]
+            role = basic_details["role"]
+            if role == "super_agency":
+                update_super_agency_profile(user, data, "super_agency")
+            elif role == "agency":
+                update_agency_profile(user, data, "agency")
+            elif role == "field_agent":
+                update_field_agent_profile(user, data, "field_agent")
+            elif role == "p2pm":
+                update_super_agency_profile(user, data, "field_agent")
+        return Response({"message": "Data updated successfully!"}, status=status.HTTP_200_OK)
 
-        except ValidationError as e:
-            error_message = e.detail if isinstance(e.detail, str) else e.detail[0]
-            return Response({"error": error_message}, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            return Response({"error": "Something went wrong", "details": str(e)},
-                            status=status.HTTP_400_BAD_REQUEST)
+        # except ValidationError as e:
+        #     error_message = e.detail if isinstance(e.detail, str) else e.detail[0]
+        #     return Response({"error": error_message}, status=status.HTTP_400_BAD_REQUEST)
+        # except Exception as e:
+        #     return Response({"error": "Something went wrong", "details": str(e)},
+        #                     status=status.HTTP_400_BAD_REQUEST)
 
 
 class VerifyAndUpdateProfile(APIView):
     permission_classes = [IsAuthenticated]
 
-    def update_wallet_and_transaction_(self, user, amount, remarks):
+    def update_wallet_and_transaction_(self, user, verify_by, amount, remarks):
         wallet, _ = UserWallet.objects.get_or_create(user=user)
         wallet.app_wallet_balance += amount
         wallet.save()
@@ -256,58 +256,64 @@ class VerifyAndUpdateProfile(APIView):
             amount=amount,
             transaction_type='commission',
             transaction_status='approved',
+            verified_by=verify_by,
+            verified_on=datetime.datetime.now(),
             remarks=remarks
         )
 
-    def update_transaction_of_user_(self, request_user, id):
-        update_transaction = Transaction.objects.filter(id=id).last()
-        if update_transaction:
-            update_transaction.transaction_status = 'approved'
-            update_transaction.verified_by = request_user
-            update_transaction.verified_on = datetime.datetime.now()
-            update_transaction.save()
+    def update_transaction_of_user_(self, transaction_instance, request_user):
+        if transaction_instance:
+            transaction_instance.transaction_status = 'approved'
+            transaction_instance.verified_by = request_user
+            transaction_instance.verified_on = datetime.datetime.now()
+            transaction_instance.save()
 
     def post(self, request):
         user_id = request.data.get('user_id')
         transaction_id = int(request.data.get('transaction_id'))
-        amount = int(request.data.get('amount'))
         try:
             with transaction.atomic():
                 profile = Profile.objects.filter(user=user_id).last()
                 if profile.is_kyc and profile.is_kyc_verified:
                     return Response({"error": "KYC is already verified for this user."},
                                     status=status.HTTP_400_BAD_REQUEST)
+                transaction_instance = Transaction.objects.filter(id=transaction_id).last()
+                if not transaction_instance:
+                    return Response({"error": "Invalid transaction id."}, status=status.HTTP_400_BAD_REQUEST)
+
                 profile.is_kyc_verified = True
                 profile.verified_by = request.user
                 profile.verified_on = datetime.datetime.now()
                 profile.save()
-                self.update_transaction_of_user_(transaction_id, request.user)
+                self.update_transaction_of_user_(transaction_instance, request.user)
 
                 if profile.role == 'agency':
                     super_agency = Agency.objects.filter(created_by=profile.user).last()
                     if super_agency and super_agency.company:
-                        commission = Decimal(str(amount * 0.25))
+                        commission = Decimal(str(transaction_instance.amount * 0.25))
                         self.update_wallet_and_transaction_(
                             super_agency.company.profile.user,
+                            request.user,
                             commission,
                             'Commission added due to agency added.'
                         )
                 elif profile.role == 'field_agent':
-                    agency = FieldAgent.objects.filter(profile=profile).last()
-                    if agency:
-                        # Commission for agency
-                        if agency.agency:
-                            commission = Decimal(str(amount * 0.25))
-                            self.update_wallet_and_transaction_(
-                                agency.agency.created_by,
-                                commission,
-                                'Commission added due to field agent added.'
-                            )
+                    field_agent = FieldAgent.objects.filter(profile=profile).last()
+                    # Commission for agency
+                    if field_agent and field_agent.agency:
+                        commission = Decimal(str(transaction_instance.amount * 0.25))
+                        self.update_wallet_and_transaction_(
+                            field_agent.agency.created_by,
+                            request.user,
+                            commission,
+                            'Commission added due to field agent added.'
+                        )
                         # Commission for super agency
-                        if agency.agency and agency.agency.company:
-                            commission = Decimal(str(amount * 0.05))
+                        if field_agent.agency.company:
+                            commission = Decimal(str(transaction_instance.amount * 0.05))
                             self.update_wallet_and_transaction_(
-                                agency.agency.company.profile.user,
+                                field_agent.agency.company.profile.user,
+                                request.user,
                                 commission,
                                 'Commission added due to field agent added.'
                             )

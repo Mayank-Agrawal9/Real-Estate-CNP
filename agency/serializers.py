@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User, Investment, Commission, Reward, RefundPolicy, FundWithdrawal, PPDModel, SuperAgency, Agency, \
+from .models import User, Investment, Commission, Reward, RefundPolicy, FundWithdrawal, SuperAgency, Agency, \
     FieldAgent, RewardEarned, PPDAccount
 
 

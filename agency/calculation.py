@@ -1,4 +1,4 @@
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from decimal import Decimal
 
 from agency.models import SuperAgency, Agency, FieldAgent, PPDAccount
@@ -55,73 +55,109 @@ class WithdrawalHandler:
 
 
 def distribute_monthly_rent_for_super_agency():
-    today = datetime.today()
+    today = datetime.today().date()
     first_of_month = today.replace(day=1)
 
-    if today == first_of_month:
-        super_agencies = SuperAgency.objects.filter(profile__is_kyc_verified=True, profile__is_kyc=True)
+    if today != first_of_month:
+        return "Today is not the first of the month. No distribution performed."
 
-        for agency in super_agencies:
-            wallet, created = UserWallet.objects.get_or_create(user=agency.profile.user)
-            wallet.app_wallet_balance += 50000
-            wallet.save()
-            Transaction.objects.create(
-                receiver=agency.profile.user,
-                amount=50000,
-                transaction_type='rent',
-                transaction_status='approved',
-                remarks='Super Agency Rent Payment Send by CNP'
-            )
+    super_agencies = SuperAgency.objects.filter(profile__is_kyc_verified=True, profile__is_kyc=True)
 
-        return "Monthly rent distributed successfully."
+    for agency in super_agencies:
+        user = agency.profile.user
 
-    return "Today is not the first of the month. No distribution performed."
+        first_transaction = Transaction.objects.filter(
+            receiver=user,
+            transaction_type='rent',
+            transaction_status='approved'
+        ).order_by('verified_on').first()
+
+        start_date = first_transaction.verified_on.date() if first_transaction else today
+        end_date = start_date + timedelta(days=365 * 10)
+
+        if not (start_date <= today <= end_date):
+            print(f"Rent payment period has ended for {user.username}. No distribution performed.")
+            continue
+
+        rent_sent_this_month = Transaction.objects.filter(
+            receiver=user,
+            transaction_type='rent',
+            verified_on__year=today.year,
+            verified_on__month=today.month,
+            transaction_status='approved'
+        ).exists()
+
+        if rent_sent_this_month:
+            print(f"Rent already sent this month for {user.username}.")
+            continue
+
+        wallet, _ = UserWallet.objects.get_or_create(user=user)
+        wallet.app_wallet_balance += 50000
+        wallet.save()
+
+        Transaction.objects.create(
+            verified_on=today,
+            receiver=user,
+            amount=50000,
+            transaction_type='rent',
+            transaction_status='approved',
+            remarks='Super Agency Rent Payment sent by CLICKNPAY REAL ESTATE.'
+        )
+
+    return "Monthly rent distributed successfully."
 
 
 def distribute_monthly_rent_for_agency():
-    today = datetime.today()
+    today = datetime.today().date()
     first_of_month = today.replace(day=1)
 
-    if today == first_of_month:
-        agencies = Agency.objects.filter(created_by__profile__is_kyc_verified=True, created_by__profile__is_kyc=True)
+    if today != first_of_month:
+        return "Today is not the first of the month. No distribution performed."
 
-        for agency in agencies:
-            wallet, created = UserWallet.objects.get_or_create(user=agency.created_by)
-            wallet.app_wallet_balance += 25000
-            wallet.save()
-            Transaction.objects.create(
-                receiver=agency.created_by,
-                amount=25000,
-                transaction_type='rent',
-                transaction_status='approved',
-                remarks='Agency Rent Payment Send by CNP'
-            )
+    agencies = Agency.objects.filter(created_by__profile__is_kyc_verified=True, created_by__profile__is_kyc=True)
 
-        return "Monthly rent distributed successfully."
-    return "Today is not the first of the month. No distribution performed."
+    for agency in agencies:
+        user = agency.created_by
 
+        first_transaction = Transaction.objects.filter(
+            receiver=user,
+            transaction_type='rent',
+            transaction_status='approved'
+        ).order_by('verified_on').first()
 
-def distribute_monthly_rent_for_field_agent():
-    today = datetime.today()
-    first_of_month = today.replace(day=1)
+        start_date = first_transaction.verified_on.date() if first_transaction else today
+        end_date = start_date + timedelta(days=365 * 10)
 
-    if today == first_of_month:
-        field_agents = FieldAgent.objects.filter(profile__is_kyc=True, profile__is_kyc_verified=True)
+        if not (start_date <= today <= end_date):
+            print(f"Rent payment period has ended for {user.username}. No distribution performed.")
+            continue
 
-        for agent in field_agents:
-            wallet, created = UserWallet.objects.get_or_create(user=agent.profile.user)
-            wallet.app_wallet_balance += 1500
-            wallet.save()
-            Transaction.objects.create(
-                receiver=agent.profile.user,
-                amount=1500,
-                transaction_type='rent',
-                transaction_status='approved',
-                remarks='Field Agent Rent Payment Send by CNP'
-            )
+        rent_sent_this_month = Transaction.objects.filter(
+            receiver=user,
+            transaction_type='rent',
+            transaction_status='approved',
+            verified_on__year=today.year,
+            verified_on__month=today.month
+        ).exists()
 
-        return "Monthly rent distributed successfully."
-    return "Today is not the first of the month. No distribution performed."
+        if rent_sent_this_month:
+            print(f"Rent already sent this month for {user.username}.")
+            continue
+
+        wallet, _ = UserWallet.objects.get_or_create(user=user)
+        wallet.app_wallet_balance += 25000
+        wallet.save()
+
+        Transaction.objects.create(
+            verified_on=today,
+            receiver=user,
+            amount=25000,
+            transaction_type='rent',
+            transaction_status='approved',
+            remarks='Agency Rent Payment sent by CLICKNPAY REAL ESTATE'
+        )
+
+    return "Monthly rent distributed successfully."
 
 
 def process_monthly_rentals():
