@@ -59,13 +59,6 @@ class FundWithdrawalResource(resources.ModelResource):
         exclude = ('date_created', 'updated_by', 'date_updated', 'created_by')
 
 
-class RewardResource(resources.ModelResource):
-    class Meta:
-        model = Reward
-        import_id_fields = ('id',)
-        exclude = ('date_created', 'updated_by', 'date_updated', 'created_by')
-
-
 class RewardEarnedResource(resources.ModelResource):
     class Meta:
         model = RewardEarned

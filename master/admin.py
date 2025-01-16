@@ -3,8 +3,9 @@ from import_export.admin import ImportExportModelAdmin
 
 from accounts.admin import CustomModelAdminMixin
 from agency.resources import RewardEarnedResource
-from master.models import Country, State, GST, BannerImage, City
-from master.resources import CountryResource, StateResource, CityResource, BannerImageResource, GSTResource
+from master.models import Country, State, GST, BannerImage, City, RewardMaster
+from master.resources import CountryResource, StateResource, CityResource, BannerImageResource, GSTResource, \
+    RewardMasterResource
 
 
 # Register your models here.
@@ -41,5 +42,12 @@ class BannerImageAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
 @admin.register(GST)
 class GSTAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
     resource_class = GSTResource
+    raw_id_fields = ('created_by', 'updated_by')
+    list_filter = ('status', )
+
+
+@admin.register(RewardMaster)
+class RewardMasterAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
+    resource_class = RewardMasterResource
     raw_id_fields = ('created_by', 'updated_by')
     list_filter = ('status', )

@@ -10,9 +10,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .calculation import distribute_monthly_rent_for_super_agency
-from .models import Investment, Commission, Reward, RefundPolicy, FundWithdrawal, SuperAgency, Agency, FieldAgent, \
+from .models import Investment, Commission, RefundPolicy, FundWithdrawal, SuperAgency, Agency, FieldAgent, \
     RewardEarned, PPDAccount
-from .serializers import (InvestmentSerializer, CommissionSerializer, RewardSerializer,
+from .serializers import (InvestmentSerializer, CommissionSerializer,
                           RefundPolicySerializer, FundWithdrawalSerializer, SuperAgencySerializer, AgencySerializer,
                           FieldAgentSerializer, PPDModelSerializer, RewardEarnedSerializer)
 
@@ -46,7 +46,7 @@ class FieldAgentViewSet(viewsets.ModelViewSet):
 
 class InvestmentViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
-    queryset = Investment.objects.all()
+    queryset = Investment.objects.filter(status='active')
     serializer_class = InvestmentSerializer
 
     def get_queryset(self):
@@ -61,15 +61,6 @@ class CommissionViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return Commission.objects.filter(Q(commission_by=self.request.user) | Q(commission_to=self.request.user),
                                          status='active')
-
-
-class RewardViewSet(viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticated]
-    queryset = Reward.objects.all()
-    serializer_class = RewardSerializer
-
-    def get_queryset(self):
-        return Reward.objects.filter(user=self.request.user, status='active')
 
 
 class RefundViewSet(viewsets.ModelViewSet):

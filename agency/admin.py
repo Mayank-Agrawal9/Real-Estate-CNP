@@ -72,16 +72,8 @@ class FundWithdrawalAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
     list_filter = ('status', )
 
 
-@admin.register(Reward)
-class RewardAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
-    resource_class = RewardResource
-    search_fields = ['user__username', 'user__email']
-    raw_id_fields = ('created_by', 'updated_by', 'user')
-    list_filter = ('status', )
-
-
 @admin.register(RewardEarned)
 class RewardEarnedAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
     resource_class = RewardEarnedResource
-    raw_id_fields = ('created_by', 'updated_by', 'reward', 'company')
+    raw_id_fields = ('created_by', 'updated_by', 'reward', 'user')
     list_filter = ('status', )

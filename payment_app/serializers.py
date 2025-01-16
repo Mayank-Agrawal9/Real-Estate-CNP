@@ -1,3 +1,4 @@
+import datetime
 import uuid
 
 from django.contrib.auth.models import User
@@ -40,9 +41,24 @@ class WithdrawRequestSerializer(serializers.Serializer):
     def validate(self, data):
         wallet = UserWallet.objects.filter(user=self.context['request'].user).first()
         if not wallet:
-            raise serializers.ValidationError("You do not have wallet please connect to admin.")
+            raise serializers.ValidationError("You do not have a wallet. Please connect to admin.")
         if wallet.main_wallet_balance < data['amount']:
             raise serializers.ValidationError("Insufficient balance.")
+
+        allowed_dates = [10, 20, 30]
+        current_date = datetime.datetime.now()
+        if current_date.day not in allowed_dates:
+            raise serializers.ValidationError(
+                "Withdrawals are only allowed on the 10th, 20th, or 30th of each month."
+            )
+
+        withdrawal_start_time = datetime.time(10, 0, 0)
+        withdrawal_end_time = datetime.time(18, 0, 0)
+        current_time = current_date.time()
+        if not (withdrawal_start_time <= current_time <= withdrawal_end_time):
+            raise serializers.ValidationError(
+                "Withdrawals can only be made between 10:00 AM to 6:00 PM."
+            )
         return data
 
 

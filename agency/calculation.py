@@ -1,7 +1,10 @@
 from datetime import datetime, date, timedelta
 from decimal import Decimal
 
-from agency.models import SuperAgency, Agency, FieldAgent, PPDAccount
+from django.db.models import Sum
+
+from agency.models import SuperAgency, Agency, FieldAgent, PPDAccount, RewardEarned
+from master.models import RewardMaster
 from payment_app.models import UserWallet, Transaction
 
 
@@ -175,7 +178,12 @@ def process_monthly_rentals():
             months_since_deposit = (today.year - deposit_date.year) * 12 + (today.month - deposit_date.month)
 
             if months_since_deposit >= 0:
-                monthly_rental = Decimal(account.amount_deposited) * Decimal('0.02')
+                if account.has_purchased_property:
+                    interest_rate = Decimal('0.01')
+                else:
+                    interest_rate = Decimal('0.02')
+
+                monthly_rental = Decimal(account.amount_deposited) * interest_rate
 
                 wallet, created = UserWallet.objects.get_or_create(user=account.user)
                 wallet.app_wallet_balance += monthly_rental
@@ -195,4 +203,99 @@ def process_monthly_rentals():
         except Exception as e:
             results.append(f"Failed for {account.user.username}: {str(e)}")
 
+    return results
+
+
+def get_reward_based_on_turnover(turnover, role):
+    """
+    Fetches the reward for a given turnover based on the RewardMaster table.
+
+    The reward is the one that has the highest turnover threshold that is less than or equal to
+    the provided turnover.
+
+    :param turnover: The total turnover for a user, agency, or super agency.
+    :return: The RewardMaster object that matches the turnover threshold, or None if no match is found.
+    """
+    if turnover is None or turnover <= 0:
+        return None
+    reward = RewardMaster.objects.filter(turnover_threshold__lte=turnover, applicable_for=role).order_by(
+        '-turnover_threshold').first()
+    return reward
+
+
+def calculate_super_agency_rewards():
+    """Calculate and return the rewards for each SuperAgency."""
+    super_agencies = SuperAgency.objects.prefetch_related(
+        'profile',
+        'profile__user',
+        'agencies',
+        'agencies__field_agents'
+    ).annotate(
+        total_agency_turnover=Sum('agencies__turnover'),
+        total_field_agent_turnover=Sum('agencies__field_agents__turnover')
+    )
+    results = []
+
+    for super_agency in super_agencies:
+        total_turnover = super_agency.total_agency_turnover or 0
+        total_turnover += super_agency.total_field_agent_turnover or 0
+        role = super_agency.profile.role
+        reward = get_reward_based_on_turnover(total_turnover, role)
+        if reward:
+            if not RewardEarned.objects.filter(user=super_agency.profile.user, reward=reward).exists():
+                RewardEarned.objects.create(
+                    user=super_agency.profile.user,
+                    created_by=super_agency.profile.user,
+                    reward=reward,
+                    turnover_at_earning=total_turnover
+                )
+    return results
+
+
+def calculate_agency_rewards():
+    """Calculate and return the rewards for each SuperAgency."""
+    agencies = Agency.objects.prefetch_related(
+        'created_by',
+        'created_by__profile',
+        'field_agents'
+    ).annotate(
+        total_field_agent_turnover=Sum('field_agents__turnover')
+    )
+    results = []
+
+    for agency in agencies:
+        total_turnover = agency.total_field_agent_turnover or 0
+        role = agency.created_by.profile.role
+        reward = get_reward_based_on_turnover(total_turnover, role)
+        if reward:
+            if not RewardEarned.objects.filter(user=agency.created_by, reward=reward).exists():
+                RewardEarned.objects.create(
+                    user=agency.created_by,
+                    created_by=agency.created_by,
+                    reward=reward,
+                    turnover_at_earning=total_turnover
+                )
+    return results
+
+
+def calculate_field_agent_rewards():
+    """Calculate and return the rewards for each SuperAgency."""
+    field_agent = FieldAgent.objects.prefetch_related(
+        'profile',
+        'profile__user'
+    )
+    results = []
+
+    for agent in field_agent:
+        total_turnover = agent.turnover or 0
+        role = agent.profile.role
+        reward = get_reward_based_on_turnover(total_turnover, role)
+        if reward:
+            if not RewardEarned.objects.filter(user=agent.profile.user, reward=reward).exists():
+                RewardEarned.objects.create(
+                    user=agent.profile.user,
+                    created_by=agent.profile.user,
+                    reward=reward,
+                    turnover_at_earning=total_turnover
+                )
     return results

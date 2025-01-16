@@ -140,4 +140,5 @@ spaces/webpack-stats.json
 */__pycache__/*.pyc
 real_estate/settings_local.py
 static
-public
+public/
+profile/

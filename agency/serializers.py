@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User, Investment, Commission, Reward, RefundPolicy, FundWithdrawal, SuperAgency, Agency, \
+from .models import User, Investment, Commission, RefundPolicy, FundWithdrawal, SuperAgency, Agency, \
     FieldAgent, RewardEarned, PPDAccount
 
 
@@ -30,12 +30,6 @@ class InvestmentSerializer(serializers.ModelSerializer):
 class CommissionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Commission
-        fields = '__all__'
-
-
-class RewardSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Reward
         fields = '__all__'
 
 

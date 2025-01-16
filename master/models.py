@@ -1,5 +1,6 @@
 from django.db import models
 
+from accounts.choices import USER_ROLE
 from master.choices import GST_METHOD, BANNER_PAGE_CHOICE
 from real_estate.model_mixin import ModelMixin
 
@@ -35,7 +36,7 @@ class BannerImage(ModelMixin):
     page_name = models.CharField(max_length=50, choices=BANNER_PAGE_CHOICE, null=True, blank=True)
 
     def __str__(self):
-        return self.id
+        return str(self.id)
 
 
 class GST(ModelMixin):
@@ -44,3 +45,16 @@ class GST(ModelMixin):
 
     def __str__(self):
         return f"Gst Percentage {self.percentage}% for {self.method}"
+
+
+class RewardMaster(ModelMixin):
+    name = models.CharField(max_length=255)
+    turnover_threshold = models.DecimalField(max_digits=15, decimal_places=2)
+    reward_description = models.TextField()
+    applicable_for = models.CharField(max_length=100, choices=USER_ROLE, default='super_agency')
+
+    def __str__(self):
+        return f"{self.name} - ₹{self.turnover_threshold}"
+
+    class Meta:
+        ordering = ['applicable_for']

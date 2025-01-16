@@ -36,7 +36,7 @@ class CityViewSet(viewsets.ModelViewSet):
 
 class BannerImageViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
-    queryset = BannerImage.objects.all()
+    queryset = BannerImage.objects.filter(status='active')
     serializer_class = BannerImageSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_fields = ['page_name',]
@@ -45,7 +45,7 @@ class BannerImageViewSet(viewsets.ModelViewSet):
 
 class GstViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
-    queryset = GST.objects.all()
+    queryset = GST.objects.filter(status='active')
     serializer_class = GSTSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_fields = ['method',]

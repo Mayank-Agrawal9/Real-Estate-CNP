@@ -7,6 +7,7 @@ from django.db import models
 from accounts.choices import COMPANY_TYPE
 from accounts.models import Profile
 from agency.choices import REWARD_CHOICES, REFUND_CHOICES, INVESTMENT_TYPE_CHOICES, REFUND_STATUS_CHOICES
+from master.models import RewardMaster
 from real_estate.model_mixin import ModelMixin
 
 
@@ -146,20 +147,12 @@ class FundWithdrawal(ModelMixin):
         return f"Withdrawal by {self.user.username} - Amount: {self.withdrawal_amount}"
 
 
-class Reward(ModelMixin):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reward_user')
-    reward_type = models.CharField(max_length=50, choices=REWARD_CHOICES)
-    reward_value = models.DecimalField(max_digits=15, decimal_places=2)
-    turnover_threshold = models.DecimalField(max_digits=15, decimal_places=2)
-    achieved = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f"Reward for {self.user.username} - {self.reward_type}"
-
-
 class RewardEarned(ModelMixin):
-    company = models.ForeignKey(SuperAgency, on_delete=models.CASCADE, related_name="rewards_earned")
-    reward = models.ForeignKey(Reward, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='rewards_earned', null=True, default=None)
+    reward = models.ForeignKey(RewardMaster, on_delete=models.CASCADE, null=True, default=None)
     earned_at = models.DateTimeField(auto_now_add=True)
     turnover_at_earning = models.DecimalField(max_digits=15, decimal_places=2)
+    is_paid = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"Reward for {self.user.username} Earned at {self.earned_at}"

@@ -9,6 +9,8 @@ from rest_framework.filters import SearchFilter
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+from agency.models import Investment
 from payment_app.models import Transaction, UserWallet
 from payment_app.serializers import WithdrawRequestSerializer, ApproveTransactionSerializer, PayUserSerializer, \
     UserWalletSerializer, TransactionSerializer, AddMoneyToWalletSerializer
@@ -165,6 +167,12 @@ class TransactionViewSet(viewsets.ModelViewSet):
         Transaction.objects.create(
             sender=sender, transaction_status='pending', transaction_type='deposit', **serializer.validated_data
         )
+        Investment.objects.create(
+            user=sender,
+            amount=serializer.validated_data['amount'],
+            investment_type=sender.profile.role,
+            gst=0
+        )
 
         return Response({
                 "message": "Request for payment deposit sent successfully."}, status=status.HTTP_200_OK
@@ -190,7 +198,8 @@ class ApproveTransactionView(APIView):
             if transaction.transaction_type == 'withdraw':
                 wallet = UserWallet.objects.get(user=transaction.sender)
                 if wallet.main_wallet_balance < transaction.amount:
-                    return Response({"error": "Insufficient balance for withdrawal."}, status=status.HTTP_400_BAD_REQUEST)
+                    return Response({"error": "Insufficient balance for withdrawal."},
+                                    status=status.HTTP_400_BAD_REQUEST)
                 wallet.balance -= transaction.amount
                 wallet.save()
 
