@@ -51,6 +51,7 @@ class PropertyViewSet(viewsets.ModelViewSet):
             validated_data = serializer.validated_data
 
             property_instance = Property.objects.create(
+                created_by=request.user,
                 user=request.user,
                 title=validated_data['title'],
                 description=validated_data['description'],
@@ -59,21 +60,18 @@ class PropertyViewSet(viewsets.ModelViewSet):
                 area_size_postfix=validated_data['area_size_postfix'],
                 property_type=validated_data['property_type'],
                 property_status=validated_data['property_status'],
-                user_property_id=validated_data['user_property_id'],
                 owner_contact_number=validated_data['owner_contact_number'],
                 country=validated_data['country'],
                 state=validated_data['state'],
                 city=validated_data['city'],
                 postal_code=validated_data['postal_code'],
-                street_address=validated_data['street_address'],
-                video_url=validated_data.get('video_url'),
-                country_code=validated_data['country_code'],
+                street_address=validated_data['street_address']
             )
 
             media_files = validated_data.get('media_files', [])
             media_type = validated_data.get('media_type')
             for file in media_files:
-                Media.objects.create(property=property_instance, file=file, media_type=media_type)
+                Media.objects.create(created_by=request.user, property=property_instance, file=file, media_type=media_type)
             return Response({"message": "Property created successfully."}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 

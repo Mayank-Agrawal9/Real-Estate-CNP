@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+from master.models import Country, State, City
 from property.choices import MEDIA_TYPE_CHOICES, PROPERTY_TYPE, PROPERTY_STATUS
 from property.models import Property, Media
 
@@ -9,18 +10,15 @@ class CreatePropertySerializer(serializers.Serializer):
     description = serializers.CharField()
     price = serializers.DecimalField(max_digits=10, decimal_places=2)
     area_size = serializers.FloatField()
-    area_size_postfix = serializers.CharField(max_length=50, allow_blank=True)
-    property_type = serializers.CharField(max_length=100)
+    area_size_postfix = serializers.CharField(max_length=50, allow_blank=True, required=False)
+    property_type = serializers.ChoiceField(PROPERTY_TYPE)
     property_status = serializers.CharField(max_length=100)
-    user_property_id = serializers.CharField(max_length=100)
     owner_contact_number = serializers.CharField(max_length=15)
-    country = serializers.CharField(max_length=100)
-    state = serializers.CharField(max_length=100)
-    city = serializers.CharField(max_length=100)
+    country = serializers.PrimaryKeyRelatedField(queryset=Country.objects.all())
+    state = serializers.PrimaryKeyRelatedField(queryset=State.objects.all())
+    city = serializers.PrimaryKeyRelatedField(queryset=City.objects.all())
     postal_code = serializers.CharField(max_length=20)
     street_address = serializers.CharField()
-    video_url = serializers.URLField(required=False, allow_blank=True)
-    country_code = serializers.CharField(max_length=10)
     media_files = serializers.ListField(
         child=serializers.FileField(),
         required=False
