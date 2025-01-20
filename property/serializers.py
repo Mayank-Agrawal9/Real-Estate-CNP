@@ -50,12 +50,20 @@ class MediaSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class GetMediaDataSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Media
+        fields = ('id', 'date_created', 'file', 'media_type')
+
+
 class PropertyListSerializer(serializers.ModelSerializer):
-    media = MediaSerializer(many=True, read_only=True, source='media_set')
+    media = GetMediaDataSerializer(many=True, read_only=True)
 
     class Meta:
         model = Property
-        fields = '__all__'
+        fields = ('id', 'date_created', 'status', 'title', 'description', 'price', 'area_size',
+                  'area_size_postfix', 'property_type', 'property_status', 'owner_contact_number',
+                  'postal_code', 'street_address', 'is_sold', 'created_by', 'user', 'country', 'state', 'city', 'media')
 
 
 class EditPropertySerializer(serializers.Serializer):

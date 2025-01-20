@@ -15,13 +15,20 @@ from property.serializers import CreatePropertySerializer, PropertySerializer, P
 
 class PropertyViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
-    serializer_class = PropertySerializer
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_fields = ['user', 'country', 'state', 'city', 'postal_code', 'is_sold', 'property_type']
     search_fields = ['title', 'postal_code']
+    serializer_classes = {
+        'list': PropertyListSerializer,
+        'retrieve': PropertyListSerializer,
+    }
+    default_serializer_class = PropertySerializer
 
     def get_queryset(self):
         return Property.objects.filter(user=self.request.user, status='active')
+
+    def get_serializer_class(self):
+        return self.serializer_classes.get(self.action, self.default_serializer_class)
 
     @action(detail=False, methods=['get'], url_path='get-all-property')
     def get_all_property(self, request):
@@ -30,7 +37,7 @@ class PropertyViewSet(viewsets.ModelViewSet):
                 {"error": "KYC not completed or verified."},
                 status=status.HTTP_403_FORBIDDEN,
             )
-        properties = Property.objects.filter(user=request.user, status='active')
+        properties = Property.objects.filter(status='active')
         page = self.paginate_queryset(properties)
         if page is not None:
             serializer = PropertyListSerializer(page, many=True)
