@@ -34,17 +34,23 @@ class UserWalletViewSet(viewsets.ModelViewSet):
 
         sender = request.user
         recipient = serializer.validated_data['recipient']
-        amount = serializer.validated_data['amount']
+        amount = serializer.validated_data.get('amount')
 
         if not (sender.profile.is_kyc and sender.profile.is_kyc_verified):
             return Response(
-                {"error": "You has not completed KYC verification."},
+                {"error": "You have not completed KYC verification."},
                 status=status.HTTP_400_BAD_REQUEST
             )
         if not (recipient.profile.is_kyc and recipient.profile.is_kyc_verified):
             return Response(
                 {"error": "Recipient has not completed their KYC verification."},
                 status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if amount is None:
+            return Response(
+                {"message": "Recipient is valid for transfer."},
+                status=status.HTTP_200_OK
             )
 
         sender_wallet = UserWallet.objects.get(user=sender)
@@ -65,7 +71,7 @@ class UserWalletViewSet(viewsets.ModelViewSet):
             transaction_type='send',
             status='active'
         )
-        return Response({"message": "Payment successful transfer."}, status=status.HTTP_200_OK)
+        return Response({"message": "Payment successfully transferred."}, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=['post'], url_path='send-money-to-wallet')
     def send_money_to_main_wallet(self, request):

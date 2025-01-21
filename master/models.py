@@ -1,7 +1,7 @@
 from django.db import models
 
 from accounts.choices import USER_ROLE
-from master.choices import GST_METHOD, BANNER_PAGE_CHOICE
+from master.choices import GST_METHOD, BANNER_PAGE_CHOICE, CAROUSEL_NUMBER
 from real_estate.model_mixin import ModelMixin
 
 
@@ -34,6 +34,8 @@ class BannerImage(ModelMixin):
     image = models.ImageField(upload_to='banner', blank=True, null=True)
     document = models.FileField(upload_to='banner', blank=True, null=True)
     page_name = models.CharField(max_length=50, choices=BANNER_PAGE_CHOICE, null=True, blank=True)
+    carousel_type = models.CharField(max_length=3, choices=CAROUSEL_NUMBER, null=True, blank=True)
+    is_carousel = models.BooleanField(default=False)
 
     def __str__(self):
         return str(self.id)

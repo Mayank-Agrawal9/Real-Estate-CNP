@@ -10,12 +10,12 @@ from payment_app.models import UserWallet, Transaction
 
 class PayUserSerializer(serializers.Serializer):
     recipient_email = serializers.EmailField(required=True)
-    amount = serializers.FloatField(required=True, min_value=0.01)
+    amount = serializers.FloatField(required=False, min_value=0.01)
 
     def validate(self, data):
         sender = self.context['request'].user
         recipient_email = data['recipient_email']
-        amount = data['amount']
+        amount = data.get('amount')
 
         try:
             recipient = User.objects.get(email=recipient_email)
@@ -28,8 +28,10 @@ class PayUserSerializer(serializers.Serializer):
         sender_wallet = UserWallet.objects.filter(user=sender).first()
         if not sender_wallet:
             raise serializers.ValidationError("Sender's wallet not found.")
-        if sender_wallet.main_wallet_balance < amount:
-            raise serializers.ValidationError("Insufficient balance in your wallet.")
+
+        if amount:
+            if sender_wallet.main_wallet_balance < amount:
+                raise serializers.ValidationError("Insufficient balance in your wallet.")
 
         data['recipient'] = recipient
         return data

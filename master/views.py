@@ -1,7 +1,11 @@
+from collections import defaultdict
+
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import viewsets
+from rest_framework import viewsets, status
 from rest_framework.filters import SearchFilter
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+
 from master.serializers import *
 
 
@@ -39,8 +43,30 @@ class BannerImageViewSet(viewsets.ModelViewSet):
     queryset = BannerImage.objects.filter(status='active')
     serializer_class = BannerImageSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter]
-    filterset_fields = ['page_name',]
-    search_fields = ['page_name',]
+    filterset_fields = ['page_name', 'carousel_type']
+    search_fields = ['page_name', ]
+
+    def list(self, request, *args, **kwargs):
+        carousel_type = request.query_params.get('carousel_type', None)
+        page_name = request.query_params.get('page_name', None)
+
+        if not page_name:
+            return Response({'error': 'page_name is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if carousel_type:
+            carousel_images = BannerImage.objects.filter(status='active', is_carousel=True, carousel_type=carousel_type)
+            serializer = self.get_serializer(carousel_images, many=True)
+            return Response({carousel_type: serializer.data})
+
+        all_images = BannerImage.objects.filter(status='active')
+        grouped_images = defaultdict(list)
+        for image in all_images:
+            grouped_images[image.carousel_type].append(image)
+        response_data = {}
+        for carousel_type, images in grouped_images.items():
+            serializer = self.get_serializer(images, many=True)
+            response_data[carousel_type] = serializer.data
+        return Response(response_data)
 
 
 class GstViewSet(viewsets.ModelViewSet):
