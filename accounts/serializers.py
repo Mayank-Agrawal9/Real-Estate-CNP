@@ -4,7 +4,7 @@ import uuid
 from django.core.files.base import ContentFile
 from rest_framework import serializers
 
-from accounts.models import Profile
+from accounts.models import Profile, FAQ
 
 
 class RequestOTPSerializer(serializers.Serializer):
@@ -105,3 +105,9 @@ class SuperAgencyKycSerializer(serializers.Serializer):
                 {"company_details": "This field is required for roles other than 'field_agent'."}
             )
         return attrs
+
+
+class FAQSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FAQ
+        fields = ['id', 'question', 'answer', 'created_at', 'updated_at']

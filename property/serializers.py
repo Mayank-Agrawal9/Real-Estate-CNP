@@ -58,6 +58,21 @@ class GetMediaDataSerializer(serializers.ModelSerializer):
 
 class PropertyListSerializer(serializers.ModelSerializer):
     media = GetMediaDataSerializer(many=True, read_only=True)
+    country = serializers.SerializerMethodField()
+    state = serializers.SerializerMethodField()
+    city = serializers.SerializerMethodField()
+
+    def get_country(self, obj):
+        if obj.country:
+            return {'id': obj.country.id, 'name': obj.country.name}
+
+    def get_state(self, obj):
+        if obj.state:
+            return {'id': obj.state.id, 'name': obj.state.name}
+
+    def get_city(self, obj):
+        if obj.city:
+            return {'id': obj.city.id, 'name': obj.city.name}
 
     class Meta:
         model = Property

@@ -9,6 +9,7 @@ router.register(r'state', StateViewSet)
 router.register(r'city', CityViewSet)
 router.register(r'banner-image', BannerImageViewSet)
 router.register(r'gst', GstViewSet)
+router.register(r'rewards', RewardMasterViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),

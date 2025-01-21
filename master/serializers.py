@@ -31,3 +31,9 @@ class GSTSerializer(serializers.ModelSerializer):
     class Meta:
         model = GST
         fields = '__all__'
+
+
+class RewardMasterSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RewardMaster
+        fields = '__all__'

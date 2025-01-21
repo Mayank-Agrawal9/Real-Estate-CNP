@@ -3,7 +3,7 @@ from import_export.admin import ImportExportModelAdmin
 
 from accounts.models import *
 from accounts.resources import ProfileResource, OTPResource, EXCLUDE_FOR_API, BankDetailsResource, \
-    UserPersonalDocumentResource
+    UserPersonalDocumentResource, FAQResource, SoftwarePolicyResource
 
 
 # Register your models here.
@@ -41,3 +41,15 @@ class UserPersonalDocumentAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
     search_fields = ['created_by__username', ]
     raw_id_fields = ('created_by', 'updated_by')
     list_filter = ('status', )
+
+
+@admin.register(SoftwarePolicy)
+class SoftwarePolicyAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
+    resource_class = SoftwarePolicyResource
+    list_filter = ('is_enabled', )
+
+
+@admin.register(FAQ)
+class FAQAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
+    resource_class = FAQResource
+    list_filter = ('is_enabled', )

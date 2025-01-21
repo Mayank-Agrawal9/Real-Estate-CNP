@@ -24,6 +24,7 @@ from real_estate.settings_local import PRODUCTION
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('i18n/', include('django.conf.urls.i18n')),
+    path("ckeditor5/", include('django_ckeditor_5.urls')),
     path("api/account/", include('accounts.urls')),
     path("api/master/", include('master.urls')),
     path("api/payment/", include('payment_app.urls')),

@@ -49,7 +49,8 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
     'corsheaders',
-    'storages'
+    'storages',
+    'django_ckeditor_5'
 ]
 
 CUSTOM_APPS = [
@@ -196,6 +197,56 @@ else:
     MEDIA_ROOT = os.path.join(BASE_DIR, 'public/media')
     MEDIA_URL = '/media/'
     STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
+
+
+CKEDITOR_UPLOAD_PATH = "ckeditor_uploads/"
+
+CKEDITOR_5_CONFIGS = {
+    'default': {
+        'toolbar': {
+            'items': [
+                'heading', '|', 'bold', 'italic', 'underline', 'strikethrough', '|',
+                'fontSize', 'fontFamily', 'fontColor', 'fontBackgroundColor', 'highlight', '|',
+                'bulletedList', 'numberedList', 'todoList', 'blockQuote', '|',
+                'outdent', 'indent', '|',
+                'code', 'codeBlock', 'sourceEditing', '|',
+                'link', 'insertImage', 'imageUpload', 'mediaEmbed', '|',
+                'insertTable', 'undo', 'redo', 'removeFormat', '|',
+                {
+                    'name': 'customDropdown',
+                    'label': 'Custom Tools',
+                    'items': ['specialCharacters', 'horizontalLine', 'pageBreak']
+                }
+            ],
+            'shouldNotGroupWhenFull': True,
+        },
+        'image': {
+            'toolbar': [
+                'imageTextAlternative', '|',
+                'imageStyle:alignLeft', 'imageStyle:alignRight', 'imageStyle:alignCenter', '|',
+                'resizeImage:50', 'resizeImage:75', 'resizeImage:original'
+            ],
+            'styles': ['full', 'side', 'alignLeft', 'alignRight', 'alignCenter']
+        },
+        'table': {
+            'contentToolbar': [
+                'tableColumn', 'tableRow', 'mergeTableCells', 'tableProperties', 'tableCellProperties'
+            ],
+        },
+        'list': {
+            'properties': {
+                'styles': True,
+                'startIndex': True,
+                'reversed': True,
+            }
+        },
+        'resize': {
+            'minWidth': 300,
+            'maxWidth': 1200
+        },
+    }
+}
+
 
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:4200',

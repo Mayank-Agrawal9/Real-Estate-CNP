@@ -31,3 +31,17 @@ class UserPersonalDocumentResource(resources.ModelResource):
         model = UserPersonalDocument
         import_id_fields = ('id',)
         exclude = EXCLUDE_FOR_API
+
+
+class SoftwarePolicyResource(resources.ModelResource):
+    class Meta:
+        model = SoftwarePolicy
+        import_id_fields = ('id',)
+        exclude = EXCLUDE_FOR_API
+
+
+class FAQResource(resources.ModelResource):
+    class Meta:
+        model = FAQ
+        import_id_fields = ('id',)
+        exclude = EXCLUDE_FOR_API

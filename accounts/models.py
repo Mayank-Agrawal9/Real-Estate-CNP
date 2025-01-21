@@ -2,6 +2,7 @@ import datetime
 
 from django.contrib.auth.models import User
 from django.db import models
+from django_ckeditor_5.fields import CKEditor5Field
 
 from accounts.choices import GENDER_CHOICE, USER_ROLE, DOCUMENT_TYPE, COMPANY_TYPE
 from master.models import State, City
@@ -61,3 +62,32 @@ class UserPersonalDocument(ModelMixin):
     attachment = models.ImageField(upload_to='document', blank=True, null=True)
     type = models.CharField(max_length=25, choices=DOCUMENT_TYPE, null=True, blank=True)
 
+
+class SoftwarePolicy(models.Model):
+    privacy_policy = CKEditor5Field()
+    terms_and_conditions = CKEditor5Field()
+    software_version = models.CharField(max_length=20, null=True, blank=True)
+    is_enabled = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"Software Policy: {self.id}"
+
+    class Meta:
+        verbose_name = "Software Policy"
+        verbose_name_plural = "Software Policies"
+
+
+class FAQ(models.Model):
+    question = models.TextField()
+    answer = models.TextField()
+    is_enabled = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.question
+
+    class Meta:
+        verbose_name = "FAQ"
+        verbose_name_plural = "FAQs"
+        ordering = ['created_at']

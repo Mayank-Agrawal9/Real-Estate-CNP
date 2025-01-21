@@ -15,10 +15,10 @@ from rest_framework.views import APIView
 
 from accounts.helpers import generate_unique_referral_code, update_super_agency_profile, generate_qr_code_with_email, \
     update_agency_profile, update_field_agent_profile
-from accounts.models import OTP, Profile, BankDetails, UserPersonalDocument
+from accounts.models import OTP, Profile, BankDetails, UserPersonalDocument, SoftwarePolicy, FAQ
 from accounts.serializers import RequestOTPSerializer, VerifyOTPSerializer, ResendOTPSerializer, ProfileSerializer, \
     SuperAgencyKycSerializer, BasicDetailsSerializer, CompanyDetailsSerializer, BankDetailsSerializer, \
-    DocumentSerializer
+    DocumentSerializer, FAQSerializer
 from agency.models import SuperAgency, FieldAgent, Agency, Investment
 from payment_app.models import UserWallet, Transaction
 from real_estate import settings
@@ -547,3 +547,34 @@ class VerifyBankIFSCCodeView(APIView):
 #             return Response(result, status=status.HTTP_201_CREATED)
 #         except ValidationError as e:
 #             return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
+
+
+class SoftwarePolicyAPIView(APIView):
+    def get(self, request, *args, **kwargs):
+        try:
+            policy = SoftwarePolicy.objects.filter(is_enabled=True).last()
+            if not policy:
+                return Response({"detail": "No active software policy found."}, status=status.HTTP_404_NOT_FOUND)
+            filter_type = request.query_params.get('filter', '').lower()
+
+            if filter_type == 'terms_and_conditions':
+                return Response({"terms_and_conditions": policy.terms_and_conditions}, status=status.HTTP_200_OK)
+            elif filter_type == 'privacy_policy':
+                return Response({"privacy_policy": policy.privacy_policy}, status=status.HTTP_200_OK)
+            else:
+                return Response(
+                    {"detail": "Invalid filter. Use 'terms_and_conditions' or 'privacy_policy'."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        except Exception as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class FAQAPIView(APIView):
+    def get(self, request, *args, **kwargs):
+        try:
+            faqs = FAQ.objects.filter(is_enabled=True)
+            serializer = FAQSerializer(faqs, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)

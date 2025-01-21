@@ -50,3 +50,15 @@ class GstViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_fields = ['method',]
     search_fields = ['method',]
+
+
+class RewardMasterViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    queryset = RewardMaster.objects.filter(status='active')
+    serializer_class = RewardMasterSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_fields = ['applicable_for',]
+    search_fields = ['name', ]
+
+    def get_queryset(self):
+        return RewardMaster.objects.filter(applicable_for=self.request.user.profile.role, status='active')
