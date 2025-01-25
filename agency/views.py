@@ -15,7 +15,8 @@ from .models import Investment, Commission, RefundPolicy, FundWithdrawal, SuperA
     RewardEarned, PPDAccount
 from .serializers import (InvestmentSerializer, CommissionSerializer,
                           RefundPolicySerializer, FundWithdrawalSerializer, SuperAgencySerializer, AgencySerializer,
-                          FieldAgentSerializer, PPDModelSerializer, RewardEarnedSerializer)
+                          FieldAgentSerializer, PPDModelSerializer, RewardEarnedSerializer, CreateInvestmentSerializer,
+                          GetAllEarnedReward)
 
 
 class SuperAgencyViewSet(viewsets.ModelViewSet):
@@ -53,6 +54,16 @@ class InvestmentViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return Investment.objects.filter(user=self.request.user, status='active')
 
+    @action(detail=False, methods=['post'], url_path='create-investment')
+    def create_investment(self, request):
+        serializer = CreateInvestmentSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(
+            {"message": "Request for payment deposit sent successfully."},
+            status=status.HTTP_200_OK
+        )
+
 
 class CommissionViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
@@ -82,13 +93,11 @@ class RefundViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        refund_initiate_date = investment.date_created
-        current_date = datetime.datetime.today()
+        refund_initiate_date = investment.date_created.date()
+        current_date = datetime.datetime.today().date()
         delta = relativedelta(current_date, refund_initiate_date)
         months_passed = delta.years * 12 + delta.months
 
-        deduction_percentage = 0
-        refund_type = "no_refund"
         if months_passed <= 1:
             deduction_percentage = 50
             refund_type = "within_1_month"
@@ -123,23 +132,36 @@ class RefundViewSet(viewsets.ModelViewSet):
     def approve_refund_request(self, request):
         refund_id = request.data.get('refund_id')
         refund_status = request.data.get('refund_status')
-        refund = RefundPolicy.objects.filter(id=refund_id, user=request.user).last()
+        refund = RefundPolicy.objects.filter(id=refund_id).last()
         if not refund:
             return Response(
                 {"error": "Refund request not found or you are not authorized to access it."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if refund.refund_status == refund_status:
+        if refund.refund_status in ["approved", "rejected"]:
             return Response(
-                {"error": "This refund request is already approved."},
-                status=status.HTTP_400_BAD_REQUEST,
+                {"error": f"This refund request is already {refund}."}, status=status.HTTP_400_BAD_REQUEST,
             )
 
         refund.refund_status = refund_status
         refund.refund_process_date = datetime.datetime.today()
         refund.refund_process_by = self.request.user
         refund.save()
+
+        Transaction.objects.create(
+            sender=request.user,
+            receiver=refund.user,
+            amount=refund.amount_refunded,
+            transaction_type='refund',
+            transaction_status='approved',
+            verified_by=self.request.user,
+            verified_on=datetime.datetime.today(),
+        )
+
+        user_wallet = UserWallet.objects.filter(user=refund.user).last()
+        user_wallet.app_wallet_balance += refund.amount_refunded
+        user_wallet.save()
         response_serializer = RefundPolicySerializer(refund)
         return Response(response_serializer.data, status=status.HTTP_200_OK)
 
@@ -155,6 +177,7 @@ class PPDAccountViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'], url_path='create-account')
     def create_ppd_account(self, request):
         deposit_amount = Decimal(request.data.get('deposit_amount'))
+        remarks = request.data.get('remarks')
         if not (request.user.profile.is_kyc and request.user.profile.is_kyc_verified):
             return Response(
                 {"error": "You has not completed you KYC verification."},
@@ -184,11 +207,11 @@ class PPDAccountViewSet(viewsets.ModelViewSet):
 
         ppd_account = PPDAccount.objects.create(created_by=request.user, user=request.user,
                                                 deposit_amount=deposit_amount,
-                                                deposit_date=datetime.datetime.now().date())
+                                                deposit_date=datetime.datetime.now().date(), remarks=remarks)
         return Response({"message": "PPD account created successfully.", "account_id": ppd_account.id},
                         status=status.HTTP_201_CREATED)
 
-    @action(detail=False, methods=['post'], url_path='withdraw-amount')
+    @action(detail=False, methods=['post'], url_path='withdraw-ppd-amount/(?P<account_id>\d+)')
     def withdraw_ppd_amount(self, request, account_id):
         try:
             ppd_account = PPDAccount.objects.get(id=account_id, user=request.user, is_active=True)
@@ -203,18 +226,22 @@ class PPDAccountViewSet(viewsets.ModelViewSet):
                 sender=request.user,
                 amount=withdrawal_amount,
                 transaction_status='approved',
-                transaction_type='refund',
-                status='active'
+                transaction_type='withdraw',
+                status='active',
+                payment_method='wallet',
+                verified_on=datetime.datetime.today()
             )
 
             return Response({
                 "message": "Withdrawal successful.",
                 "withdrawal_amount": withdrawal_amount,
                 "deduction_percentage": ppd_account.calculate_deduction() * 100,
+                "deduction_amount": ppd_account.deposit_amount * ((ppd_account.calculate_deduction() * 100) / 100),
             }, status=status.HTTP_200_OK)
 
-        except PPDAccount.DoesNotExist:
-            return Response({"error": "PPD account not found or already withdrawn."}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({"error": "PPD account not found or already withdrawn."},
+                            status=status.HTTP_400_BAD_REQUEST)
 
 
 class FundWithdrawalViewSet(viewsets.ModelViewSet):
@@ -230,6 +257,19 @@ class RewardEarnedViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     queryset = RewardEarned.objects.all()
     serializer_class = RewardEarnedSerializer
+
+    serializer_classes = {
+        'list': GetAllEarnedReward,
+        'create': RewardEarnedSerializer,
+        'retrieve': GetAllEarnedReward,
+    }
+    default_serializer_class = RewardEarnedSerializer
+
+    def get_serializer_class(self):
+        return self.serializer_classes.get(self.action, self.default_serializer_class)
+
+    def get_queryset(self):
+        return RewardEarned.objects.filter(user=self.request.user, status='active')
 
 
 class CheckAPI(APIView):

@@ -1,6 +1,7 @@
 from django.urls import path
 from .views import ResendOTPView, VerifyOTPView, RequestOTPView, LogoutView, ProfileView, UserKycAPIView, \
-    GetUserFriendReferralCodeDetails, VerifyBankIFSCCodeView, VerifyAndUpdateProfile, FAQAPIView, SoftwarePolicyAPIView
+    GetUserFriendReferralCodeDetails, VerifyBankIFSCCodeView, VerifyAndUpdateProfile, FAQAPIView, SoftwarePolicyAPIView, \
+    DeleteUser
 
 urlpatterns = [
     path('request-otp/', RequestOTPView.as_view(), name='request-otp'),
@@ -14,4 +15,5 @@ urlpatterns = [
     path('verify-bank-ifsc-code/', VerifyBankIFSCCodeView.as_view(), name='verify_bank_ifsc_code'),
     path('software-policy/', SoftwarePolicyAPIView.as_view(), name='software-policy'),
     path('faqs/', FAQAPIView.as_view(), name='faqs'),
+    path('deactivate-user/', DeleteUser.as_view(), name='delete-user'),
 ]

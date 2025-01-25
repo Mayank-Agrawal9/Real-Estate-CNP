@@ -1,5 +1,8 @@
 from rest_framework import serializers
 
+
+from p2pmb.models import Package
+from payment_app.choices import PAYMENT_METHOD
 from payment_app.models import Transaction
 from .models import User, Investment, Commission, RefundPolicy, FundWithdrawal, SuperAgency, Agency, \
     FieldAgent, RewardEarned, PPDAccount
@@ -30,29 +33,54 @@ class InvestmentSerializer(serializers.ModelSerializer):
 
 
 class CreateInvestmentSerializer(serializers.ModelSerializer):
+    amount = serializers.DecimalField(max_digits=12, required=True, decimal_places=2)
+    gst = serializers.DecimalField(max_digits=12, required=True, decimal_places=2)
+    payment_slip = serializers.ImageField(required=True)
+    payment_method = serializers.ChoiceField(choices=PAYMENT_METHOD, required=True)
+    remarks = serializers.CharField(required=True)
+    deposit_transaction_id = serializers.CharField(max_length=200, required=True)
+    package = serializers.PrimaryKeyRelatedField(
+        queryset=Package.objects.filter(status='active'), many=True, required=False
+    )
 
     class Meta:
         model = Investment
         fields = '__all__'
 
-    # def create(self, validated_data):
-    #     user = validated_data['user']
-    #     amount = validated_data['amount']
-    #     gst = validated_data['gst']
-    #     gst = validated_data['payment_slip']
-    #     transaction = Transaction.objects.create(
-    #         sender=user,
-    #         amount=amount,
-    #         taxable_amount=gst,
-    #         transaction_type="investment",
-    #         transaction_status="pending",
-    #         payment_slip="pending",
-    #         payment_method="pending",
-    #         deposit_transaction_id="pending",
-    #     )
-    #     validated_data['transaction_id'] = transaction
-    #     investment = super().create(validated_data)
-    #     return investment
+    def validate(self, attrs):
+        user = self.context['request'].user
+        if not user.profile.is_kyc:
+            raise serializers.ValidationError("User has not completed their KYC. Please complete KYC first.")
+        attrs['user'] = user
+        return attrs
+
+    def create(self, validated_data):
+        from django.db import transaction
+        with transaction.atomic():
+            user = validated_data.pop('user')
+            packages = validated_data.pop('package', [])
+            transaction_data = {
+                'created_by': user,
+                'sender': user,
+                'amount': validated_data.pop('amount'),
+                'taxable_amount': validated_data.pop('gst'),
+                'deposit_transaction_id': validated_data.pop('deposit_transaction_id'),
+                'transaction_type': "investment",
+                'transaction_status': "pending",
+                'payment_slip': validated_data.pop('payment_slip'),
+                'payment_method': validated_data.pop('payment_method'),
+                'remarks': validated_data.pop('remarks'),
+            }
+
+            transaction = Transaction.objects.create(**transaction_data)
+            validated_data['created_by'] = user
+            validated_data['amount'] = transaction_data.get('amount')
+            validated_data['gst'] = transaction_data.get('taxable_amount')
+            validated_data['transaction_id'] = transaction
+            investment = Investment.objects.create(user=user, **validated_data)
+            investment.package.set(packages)
+
+            return investment
 
 
 class CommissionSerializer(serializers.ModelSerializer):
@@ -80,6 +108,18 @@ class PPDModelSerializer(serializers.ModelSerializer):
 
 
 class RewardEarnedSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RewardEarned
+        fields = '__all__'
+
+
+class GetAllEarnedReward(serializers.ModelSerializer):
+    reward = serializers.SerializerMethodField()
+
+    def get_reward(self, obj):
+        if obj.reward:
+            return {'id': obj.reward.id, 'name': obj.reward.name, 'turnover_threshold': obj.reward.turnover_threshold}
+
     class Meta:
         model = RewardEarned
         fields = '__all__'

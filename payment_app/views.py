@@ -168,7 +168,8 @@ class TransactionViewSet(viewsets.ModelViewSet):
         sender = request.user
         if not (sender.profile.is_kyc and sender.profile.is_kyc_verified):
             return Response(
-                {"error": "KYC verification is incomplete, you can not add the money."}, status=status.HTTP_400_BAD_REQUEST)
+                {"error": "KYC verification is incomplete, you can not add the money."},
+                status=status.HTTP_400_BAD_REQUEST)
 
         Transaction.objects.create(
             sender=sender, transaction_status='pending', transaction_type='deposit', **serializer.validated_data

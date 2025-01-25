@@ -260,35 +260,42 @@ class VerifyAndUpdateProfile(APIView):
         )
 
     def update_transaction_of_user_(self, transaction_instance, request_user):
+        if transaction_instance and transaction_instance.transaction_id:
+            transaction_instance.transaction_id.transaction_status = 'approved'
+            transaction_instance.transaction_id.verified_by = request_user
+            transaction_instance.transaction_id.verified_on = datetime.datetime.now()
+            transaction_instance.transaction_id.save()
+
+    def update_investment_of_user_(self, transaction_instance, request_user):
         if transaction_instance:
-            transaction_instance.transaction_status = 'approved'
-            transaction_instance.verified_by = request_user
-            transaction_instance.verified_on = datetime.datetime.now()
+            transaction_instance.is_approved = True
+            transaction_instance.updated_by = request_user
             transaction_instance.save()
 
     def post(self, request):
         user_id = request.data.get('user_id')
-        transaction_id = int(request.data.get('transaction_id'))
+        investment_id = int(request.data.get('investment_id'))
         try:
             with transaction.atomic():
                 profile = Profile.objects.filter(user=user_id).last()
                 if profile.is_kyc and profile.is_kyc_verified:
                     return Response({"error": "KYC is already verified for this user."},
                                     status=status.HTTP_400_BAD_REQUEST)
-                transaction_instance = Transaction.objects.filter(id=transaction_id).last()
-                if not transaction_instance:
+                investment_instance = Investment.objects.filter(id=investment_id).last()
+                if not investment_instance:
                     return Response({"error": "Invalid transaction id."}, status=status.HTTP_400_BAD_REQUEST)
 
                 profile.is_kyc_verified = True
                 profile.verified_by = request.user
                 profile.verified_on = datetime.datetime.now()
                 profile.save()
-                self.update_transaction_of_user_(transaction_instance, request.user)
+                self.update_transaction_of_user_(investment_instance, request.user)
+                self.update_transaction_of_user_(investment_instance, request.user)
 
                 if profile.role == 'agency':
                     super_agency = Agency.objects.filter(created_by=profile.user).last()
                     if super_agency and super_agency.company:
-                        commission = Decimal(str(transaction_instance.amount * 0.25))
+                        commission = Decimal(str(investment_instance.transaction_id.amount * 0.25))
                         self.update_wallet_and_transaction_(
                             super_agency.company.profile.user,
                             request.user,
@@ -297,18 +304,16 @@ class VerifyAndUpdateProfile(APIView):
                         )
                 elif profile.role == 'field_agent':
                     field_agent = FieldAgent.objects.filter(profile=profile).last()
-                    # Commission for agency
                     if field_agent and field_agent.agency:
-                        commission = Decimal(str(transaction_instance.amount * 0.25))
+                        commission = Decimal(str(investment_instance.transaction_id.amount * 0.25))
                         self.update_wallet_and_transaction_(
                             field_agent.agency.created_by,
                             request.user,
                             commission,
                             'Commission added due to field agent added.'
                         )
-                        # Commission for super agency
                         if field_agent.agency.company:
-                            commission = Decimal(str(transaction_instance.amount * 0.05))
+                            commission = Decimal(str(investment_instance.transaction_id.amount * 0.05))
                             self.update_wallet_and_transaction_(
                                 field_agent.agency.company.profile.user,
                                 request.user,
@@ -576,3 +581,27 @@ class FAQAPIView(APIView):
             return Response(serializer.data, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class DeleteUser(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        try:
+            user_data = User.objects.filter(username=request.user.username, is_active=True).last()
+
+            if not user_data:
+                return Response({"error": "This user does not exist"}, status=status.HTTP_400_BAD_REQUEST)
+
+            user_data.is_active = False
+            user_data.save()
+            profile = request.user.profile
+            profile.status = 'inactive'
+            profile.save()
+
+            return Response(
+                {"message": "User account deactivated successfully."},
+                status=status.HTTP_200_OK
+            )
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
