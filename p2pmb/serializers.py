@@ -1,6 +1,6 @@
 from collections import deque
 from rest_framework import serializers
-from .models import MLMTree, User
+from .models import MLMTree, User, Package
 
 
 class MLMTreeSerializer(serializers.ModelSerializer):
@@ -28,14 +28,8 @@ class MLMTreeSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         child = validated_data['child']
-
-        # Ensure Master Node exists
         master_node = self.get_or_create_master_node()
-
-        # Find the next available parent node using BFS (Breadth-First Search)
         parent_node = self.find_next_available_parent_node(master_node)
-
-        # Create the new child node
         return self.create_mlm_tree_node(parent_node, child)
 
     def create_mlm_tree_node(self, parent_node, child_node):
@@ -44,8 +38,6 @@ class MLMTreeSerializer(serializers.ModelSerializer):
         """
         position = MLMTree.objects.filter(parent=parent_node.child).count() + 1
         level = parent_node.level + 1
-
-        # Create the new MLM tree entry
         MLMTree.objects.create(
             parent=parent_node.child,
             child=child_node,
@@ -58,19 +50,15 @@ class MLMTreeSerializer(serializers.ModelSerializer):
         """
         Find the next available parent node using BFS for a balanced binary tree.
         """
-        queue = deque([master_node])  # Start with the master node
+        queue = deque([master_node])
 
         while queue:
             current_node = queue.popleft()
             if current_node:
-                # Count the number of children for the current node
                 children_count = MLMTree.objects.filter(parent=current_node.child).count()
 
-                # We only allow nodes to have a maximum of 2 children
                 if children_count < 5:
-                    return current_node  # Return the first available node
-
-                # Add the current node's children to the queue in order of position
+                    return current_node
                 sub_nodes = MLMTree.objects.filter(parent=current_node.child).order_by('position')
                 queue.extend(sub_nodes)
 
@@ -105,3 +93,10 @@ class MLMTreeNodeSerializer(serializers.ModelSerializer):
     def get_children(self, obj):
         children = MLMTree.objects.filter(parent=obj.child).order_by('position')
         return MLMTreeNodeSerializer(children, many=True).data
+
+
+class PackageSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Package
+        fields = ['id', 'name', 'description', 'amount']

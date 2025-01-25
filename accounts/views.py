@@ -221,26 +221,24 @@ class UserKycAPIView(APIView):
 
         data = serializer.validated_data
         user = request.user
-        # try:
-        with transaction.atomic():
-            basic_details = data["basic_details"]
-            role = basic_details["role"]
-            if role == "super_agency":
-                update_super_agency_profile(user, data, "super_agency")
-            elif role == "agency":
-                update_agency_profile(user, data, "agency")
-            elif role == "field_agent":
-                update_field_agent_profile(user, data, "field_agent")
-            elif role == "p2pm":
-                update_super_agency_profile(user, data, "field_agent")
-        return Response({"message": "Data updated successfully!"}, status=status.HTTP_200_OK)
+        try:
+            with transaction.atomic():
+                basic_details = data["basic_details"]
+                role = basic_details["role"]
+                if role == "super_agency":
+                    update_super_agency_profile(user, data, "super_agency")
+                elif role == "agency":
+                    update_agency_profile(user, data, "agency")
+                elif role == "field_agent":
+                    update_field_agent_profile(user, data, "field_agent")
+            return Response({"message": "Data updated successfully!"}, status=status.HTTP_200_OK)
 
-        # except ValidationError as e:
-        #     error_message = e.detail if isinstance(e.detail, str) else e.detail[0]
-        #     return Response({"error": error_message}, status=status.HTTP_400_BAD_REQUEST)
-        # except Exception as e:
-        #     return Response({"error": "Something went wrong", "details": str(e)},
-        #                     status=status.HTTP_400_BAD_REQUEST)
+        except ValidationError as e:
+            error_message = e.detail if isinstance(e.detail, str) else e.detail[0]
+            return Response({"error": error_message}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({"error": "Something went wrong", "details": str(e)},
+                            status=status.HTTP_400_BAD_REQUEST)
 
 
 class VerifyAndUpdateProfile(APIView):

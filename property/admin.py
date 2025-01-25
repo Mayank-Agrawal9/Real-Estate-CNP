@@ -2,8 +2,8 @@ from django.contrib import admin
 from import_export.admin import ImportExportModelAdmin
 
 from accounts.admin import CustomModelAdminMixin
-from property.models import Property, Media
-from property.resources import PropertyResource, MediaResource
+from property.models import Property, Media, PropertyEnquiry, PropertyBooking
+from property.resources import PropertyResource, MediaResource, PropertyEnquiryResource, BookingResource
 
 
 # Register your models here.
@@ -20,4 +20,18 @@ class PropertyAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
 class MediaAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
     resource_class = MediaResource
     raw_id_fields = ('created_by', 'updated_by', 'property')
+    list_filter = ('status', )
+
+
+@admin.register(PropertyEnquiry)
+class PropertyEnquiryAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
+    resource_class = PropertyEnquiryResource
+    raw_id_fields = ('created_by', 'updated_by', 'property_id', 'request_by')
+    list_filter = ('status', )
+
+
+@admin.register(PropertyBooking)
+class BookingAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
+    resource_class = BookingResource
+    raw_id_fields = ('created_by', 'updated_by', 'booked_by', 'property_id')
     list_filter = ('status', )

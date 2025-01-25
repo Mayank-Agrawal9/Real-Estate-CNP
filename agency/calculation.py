@@ -8,7 +8,7 @@ from master.models import RewardMaster
 from payment_app.models import UserWallet, Transaction
 
 
-class CommissionCalculator:
+class CommissionP2pmbCalculator:
 
     @staticmethod
     def calculate_direct_income(turnover):

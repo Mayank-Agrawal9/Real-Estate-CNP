@@ -9,6 +9,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from payment_app.models import UserWallet, Transaction
 from .calculation import distribute_monthly_rent_for_super_agency
 from .models import Investment, Commission, RefundPolicy, FundWithdrawal, SuperAgency, Agency, FieldAgent, \
     RewardEarned, PPDAccount
@@ -154,11 +155,36 @@ class PPDAccountViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'], url_path='create-account')
     def create_ppd_account(self, request):
         deposit_amount = Decimal(request.data.get('deposit_amount'))
+        if not (request.user.profile.is_kyc and request.user.profile.is_kyc_verified):
+            return Response(
+                {"error": "You has not completed you KYC verification."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         if deposit_amount < 100 or deposit_amount > 4999:
             return Response({"error": "Deposit amount must be between ₹100 and ₹4999."},
                             status=status.HTTP_400_BAD_REQUEST)
+        sender_wallet = UserWallet.objects.filter(user=request.user).last()
+        if not sender_wallet:
+            return Response({"error": "Please create your wallet first."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        if sender_wallet.app_wallet_balance < deposit_amount:
+            return Response({"error": "Insufficient balance in your wallet."}, status=status.HTTP_400_BAD_REQUEST)
 
-        ppd_account = PPDAccount.objects.create(user=request.user, deposit_amount=deposit_amount)
+        sender_wallet.app_wallet_balance -= deposit_amount
+        sender_wallet.save()
+
+        Transaction.objects.create(
+            created_by=request.user,
+            sender=request.user,
+            amount=deposit_amount,
+            transaction_status='approved',
+            transaction_type='investment',
+            status='active'
+        )
+
+        ppd_account = PPDAccount.objects.create(created_by=request.user, user=request.user,
+                                                deposit_amount=deposit_amount,
+                                                deposit_date=datetime.datetime.now().date())
         return Response({"message": "PPD account created successfully.", "account_id": ppd_account.id},
                         status=status.HTTP_201_CREATED)
 
@@ -171,6 +197,15 @@ class PPDAccountViewSet(viewsets.ModelViewSet):
             ppd_account.withdrawal_amount = withdrawal_amount
             ppd_account.is_active = False
             ppd_account.save()
+
+            Transaction.objects.create(
+                created_by=request.user,
+                sender=request.user,
+                amount=withdrawal_amount,
+                transaction_status='approved',
+                transaction_type='refund',
+                status='active'
+            )
 
             return Response({
                 "message": "Withdrawal successful.",

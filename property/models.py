@@ -2,7 +2,7 @@ from django.contrib.auth.models import User
 from django.db import models
 
 from master.models import State, Country, City
-from property.choices import PROPERTY_TYPE, MEDIA_TYPE_CHOICES
+from property.choices import PROPERTY_TYPE, MEDIA_TYPE_CHOICES, PROPERTY_PAYMENT
 from real_estate.model_mixin import ModelMixin
 
 
@@ -23,6 +23,28 @@ class Property(ModelMixin):
     postal_code = models.CharField(max_length=20)
     street_address = models.TextField()
     is_sold = models.BooleanField(default=False)
+
+    def __str__(self):
+        return str(self.id)
+
+
+class PropertyEnquiry(ModelMixin):
+    request_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='enquiry_user')
+    property_id = models.ForeignKey(Property, on_delete=models.CASCADE, related_name='enquiry_property')
+    remarks = models.TextField(null=True, blank=True)
+    is_response = models.BooleanField(default=False)
+
+    def __str__(self):
+        return str(self.id)
+
+
+class PropertyBooking(ModelMixin):
+    booked_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='book_by_user')
+    customer_name = models.CharField(max_length=200, null=True, blank=True)
+    customer_email = models.EmailField(null=True, blank=True)
+    customer_phone = models.CharField(max_length=12, null=True, blank=True)
+    property_id = models.ForeignKey(Property, on_delete=models.CASCADE, related_name='booking_property')
+    payment_status = models.CharField(max_length=30, choices=PROPERTY_PAYMENT)
 
     def __str__(self):
         return str(self.id)

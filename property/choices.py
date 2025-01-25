@@ -18,3 +18,10 @@ MEDIA_TYPE_CHOICES = (
     ('photo', 'Photo'),
     ('video', 'Video'),
 )
+
+
+PROPERTY_PAYMENT = (
+    ('in_app', 'in_app'),
+    ('main_wallet', 'main_wallet'),
+    ('other', 'other'),
+)

@@ -1,9 +1,10 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
-from p2pmb.views import MLMTreeCreateView, MLMTreeView
+from p2pmb.views import MLMTreeCreateView, MLMTreeView, PackageViewSet
 
 router = DefaultRouter()
+router.register(r'package', PackageViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),

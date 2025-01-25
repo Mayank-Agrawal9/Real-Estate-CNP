@@ -30,7 +30,7 @@ class PayUserSerializer(serializers.Serializer):
             raise serializers.ValidationError("Sender's wallet not found.")
 
         if amount:
-            if sender_wallet.main_wallet_balance < amount:
+            if sender_wallet.app_wallet_balance < amount:
                 raise serializers.ValidationError("Insufficient balance in your wallet.")
 
         data['recipient'] = recipient
@@ -41,7 +41,7 @@ class WithdrawRequestSerializer(serializers.Serializer):
     amount = serializers.FloatField(required=True, min_value=0.01)
 
     def validate(self, data):
-        wallet = UserWallet.objects.filter(user=self.context['request'].user).first()
+        wallet = UserWallet.objects.filter(user=self.context['request'].user).last()
         if not wallet:
             raise serializers.ValidationError("You do not have a wallet. Please connect to admin.")
         if wallet.main_wallet_balance < data['amount']:

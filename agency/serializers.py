@@ -1,4 +1,6 @@
 from rest_framework import serializers
+
+from payment_app.models import Transaction
 from .models import User, Investment, Commission, RefundPolicy, FundWithdrawal, SuperAgency, Agency, \
     FieldAgent, RewardEarned, PPDAccount
 
@@ -25,6 +27,32 @@ class InvestmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Investment
         fields = '__all__'
+
+
+class CreateInvestmentSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Investment
+        fields = '__all__'
+
+    # def create(self, validated_data):
+    #     user = validated_data['user']
+    #     amount = validated_data['amount']
+    #     gst = validated_data['gst']
+    #     gst = validated_data['payment_slip']
+    #     transaction = Transaction.objects.create(
+    #         sender=user,
+    #         amount=amount,
+    #         taxable_amount=gst,
+    #         transaction_type="investment",
+    #         transaction_status="pending",
+    #         payment_slip="pending",
+    #         payment_method="pending",
+    #         deposit_transaction_id="pending",
+    #     )
+    #     validated_data['transaction_id'] = transaction
+    #     investment = super().create(validated_data)
+    #     return investment
 
 
 class CommissionSerializer(serializers.ModelSerializer):
@@ -85,7 +113,7 @@ class RefundPolicyInitiateSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         refund_type = validated_data.get('refund_type')
-        amount_paid = validated_data.get('amount_refunded')  # Assuming this is the total paid amount.
+        amount_paid = validated_data.get('amount_refunded')
         amount_refunded, deduction_percentage = self.calculate_refund(refund_type, amount_paid)
 
         validated_data['amount_refunded'] = amount_refunded

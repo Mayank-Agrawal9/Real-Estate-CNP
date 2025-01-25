@@ -8,6 +8,8 @@ from accounts.choices import COMPANY_TYPE
 from accounts.models import Profile
 from agency.choices import REWARD_CHOICES, REFUND_CHOICES, INVESTMENT_TYPE_CHOICES, REFUND_STATUS_CHOICES
 from master.models import RewardMaster
+from p2pmb.models import Package
+from payment_app.models import Transaction
 from real_estate.model_mixin import ModelMixin
 
 
@@ -58,6 +60,8 @@ class Investment(ModelMixin):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     amount = models.DecimalField(max_digits=15, decimal_places=2)
     investment_type = models.CharField(max_length=20, choices=INVESTMENT_TYPE_CHOICES)
+    transaction_id = models.ForeignKey(Transaction, on_delete=models.CASCADE, null=True, blank=True)
+    package = models.ManyToManyField(Package, blank=True)
     gst = models.DecimalField(max_digits=10, decimal_places=2)
 
     def total_investment(self):
@@ -113,16 +117,14 @@ class PPDAccount(ModelMixin):
         return f"PPD Model for {self.user.username} - Deposit: {self.deposit_amount}"
 
     def deposit_duration(self):
-        # Calculate the duration of the deposit in years
         if self.withdrawal_date:
             return (self.withdrawal_date - self.deposit_date).days / 365
         return (datetime.datetime.now().date() - self.deposit_date).days / 365
 
     def calculate_deduction(self):
-        # Calculate the deduction based on withdrawal conditions
         years = self.deposit_duration()
         if self.has_purchased_property or years >= 6:
-            return Decimal(0)  # No deduction
+            return Decimal(0)
         elif years < 1:
             return Decimal('0.40')  # 40% deduction
         elif years < 3:
@@ -132,7 +134,6 @@ class PPDAccount(ModelMixin):
         return Decimal(0)  # Fallback
 
     def calculate_withdrawal_amount(self):
-        # Calculate the final amount user will receive on withdrawal
         deduction = self.calculate_deduction()
         return self.deposit_amount * (Decimal(1) - deduction)
 

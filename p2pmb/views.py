@@ -1,10 +1,12 @@
-from rest_framework import serializers, status
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import serializers, status, viewsets
+from rest_framework.filters import SearchFilter
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from p2pmb.models import MLMTree
-from p2pmb.serializers import MLMTreeSerializer, MLMTreeNodeSerializer
+from p2pmb.models import MLMTree, Package
+from p2pmb.serializers import MLMTreeSerializer, MLMTreeNodeSerializer, PackageSerializer
 
 
 # Create your views here.
@@ -43,16 +45,23 @@ class MLMTreeView(APIView):
     """
     API to retrieve the MLM tree structure.
     """
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        # Find the master node (root of the tree)
         master_node = MLMTree.objects.filter(parent=None).first()
         if not master_node:
-            return Response(
-                {"detail": "Error"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"detail": "Error"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Serialize the tree starting from the master node
         serializer = MLMTreeNodeSerializer(master_node)
         return Response(serializer.data)
+
+
+class PackageViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    serializer_class = PackageSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    search_fields = ['name',]
+    queryset = Package.objects.all()
+
+    def get_queryset(self):
+        return Package.objects.filter(status='active')

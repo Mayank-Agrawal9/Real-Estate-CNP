@@ -1,8 +1,9 @@
 from rest_framework import serializers
 
 from master.models import Country, State, City
+from payment_app.models import UserWallet
 from property.choices import MEDIA_TYPE_CHOICES, PROPERTY_TYPE, PROPERTY_STATUS
-from property.models import Property, Media
+from property.models import Property, Media, PropertyEnquiry, PropertyBooking
 
 
 class CreatePropertySerializer(serializers.Serializer):
@@ -102,3 +103,92 @@ class EditPropertySerializer(serializers.Serializer):
         child=serializers.FileField(), required=False
     )
     media_type = serializers.ChoiceField(choices=MEDIA_TYPE_CHOICES, required=False)
+
+
+class CreatePropertyEnquirySerializer(serializers.ModelSerializer):
+    request_by = serializers.CharField(required=False)
+    property_id = serializers.PrimaryKeyRelatedField(queryset=Property.objects.filter(status='active'), required=True)
+
+    class Meta:
+        model = PropertyEnquiry
+        fields = '__all__'
+
+    def validate(self, data):
+        request_user = self.context['request'].user
+        data['created_by'] = request_user
+        data['request_by'] = request_user
+        return data
+
+
+class GetPropertyEnquirySerializer(serializers.ModelSerializer):
+    request_by = serializers.SerializerMethodField()
+    property_id = PropertySerializer(read_only=True)
+
+    def get_request_by(self, obj):
+        if obj.request_by:
+            return {'id': obj.request_by.id, 'name': obj.request_by.get_full_name()}
+
+    class Meta:
+        model = PropertyEnquiry
+        fields = '__all__'
+
+
+class GetPropertyBookingSerializer(serializers.ModelSerializer):
+    booked_by = serializers.SerializerMethodField()
+    property_id = PropertySerializer(read_only=True)
+
+    def get_booked_by(self, obj):
+        if obj.booked_by:
+            return {'id': obj.booked_by.id, 'name': obj.booked_by.get_full_name()}
+
+    class Meta:
+        model = PropertyBooking
+        fields = '__all__'
+
+
+class CreatePropertyBookingSerializer(serializers.ModelSerializer):
+    booked_by = serializers.CharField(required=False)
+    customer_name = serializers.CharField(required=True)
+    customer_email = serializers.EmailField(required=True)
+    customer_phone = serializers.RegexField(regex=r'^\d{10}$', required=True,
+        error_messages={
+            'invalid': 'Enter a valid 10 digit phone number.',
+        }
+    )
+
+    class Meta:
+        model = PropertyBooking
+        fields = '__all__'
+
+    def validate(self, data):
+        request_user = self.context['request'].user
+        data['booked_by'] = request_user
+        payment_mode = self.context['request'].data.get('payment_status')
+        property_price = data.get('property_id').price
+
+        if not (request_user.profile.is_kyc_verified and request_user.profile.is_kyc):
+            raise serializers.ValidationError("You are not verified your KYC, Please verify first.")
+
+        if payment_mode == 'in_app':
+            try:
+                wallet = UserWallet.objects.get(user=request_user)
+            except Exception as e:
+                raise serializers.ValidationError("User Wallet does not exist for the booked_by user.")
+
+            if wallet.app_wallet_balance < property_price:
+                raise serializers.ValidationError("Insufficient balance in you app Wallet.")
+            wallet.app_wallet_balance -= property_price
+            wallet.save()
+        elif payment_mode == 'main_wallet':
+            try:
+                wallet = UserWallet.objects.get(user=request_user)
+            except Exception as e:
+                raise serializers.ValidationError("User Wallet does not exist for the booked_by user.")
+
+            if wallet.main_wallet_balance < property_price:
+                raise serializers.ValidationError("Insufficient balance in you main wallet.")
+            wallet.main_wallet_balance -= property_price
+            wallet.save()
+        else:
+            raise serializers.ValidationError("Currently we are accepting two types of payment only.")
+        return data

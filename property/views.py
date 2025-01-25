@@ -5,9 +5,10 @@ from rest_framework.filters import SearchFilter
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from property.models import Media, Property
+from property.models import Media, Property, PropertyEnquiry, PropertyBooking
 from property.serializers import CreatePropertySerializer, PropertySerializer, PropertyListSerializer, MediaSerializer, \
-    EditPropertySerializer
+    EditPropertySerializer, GetPropertyEnquirySerializer, CreatePropertyEnquirySerializer, GetPropertyBookingSerializer, \
+    CreatePropertyBookingSerializer
 
 
 # Create your views here.
@@ -120,3 +121,39 @@ class MediaViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return Media.objects.filter(created_by=self.request.user, status='active')
+
+
+class PropertyEnquiryViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_fields = ['is_response', ]
+    serializer_classes = {
+        'list': GetPropertyEnquirySerializer,
+        'create': CreatePropertyEnquirySerializer,
+        'retrieve': GetPropertyEnquirySerializer,
+    }
+    default_serializer_class = CreatePropertyEnquirySerializer
+
+    def get_serializer_class(self):
+        return self.serializer_classes.get(self.action, self.default_serializer_class)
+
+    def get_queryset(self):
+        return PropertyEnquiry.objects.filter(request_by=self.request.user, status='active')
+
+
+class PropertyBookingViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_fields = ['booked_by', 'booked_for']
+    serializer_classes = {
+        'list': GetPropertyBookingSerializer,
+        'create': CreatePropertyBookingSerializer,
+        'retrieve': GetPropertyBookingSerializer,
+    }
+    default_serializer_class = CreatePropertyBookingSerializer
+
+    def get_serializer_class(self):
+        return self.serializer_classes.get(self.action, self.default_serializer_class)
+
+    def get_queryset(self):
+        return PropertyBooking.objects.filter(booked_by=self.request.user, status='active')
