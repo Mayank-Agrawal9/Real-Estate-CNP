@@ -144,7 +144,7 @@ class PropertyEnquiryViewSet(viewsets.ModelViewSet):
 class PropertyBookingViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, SearchFilter]
-    filterset_fields = ['booked_by', 'booked_for']
+    filterset_fields = ['booked_by', 'customer_name']
     serializer_classes = {
         'list': GetPropertyBookingSerializer,
         'create': CreatePropertyBookingSerializer,
