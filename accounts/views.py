@@ -30,7 +30,7 @@ class RequestOTPView(APIView):
     def post(self, request):
         serializer = RequestOTPSerializer(data=request.data)
         if serializer.is_valid():
-            email = serializer.validated_data['email']
+            email = serializer.validated_data['email'].lower()
             otp_code = str(random.randint(100000, 999999))
             OTP.objects.update_or_create(
                 email=email,
@@ -54,7 +54,7 @@ class VerifyOTPView(APIView):
     def post(self, request):
         serializer = VerifyOTPSerializer(data=request.data)
         if serializer.is_valid():
-            email = serializer.validated_data['email']
+            email = serializer.validated_data['email'].lower()
             otp_code = serializer.validated_data['otp']
 
             try:
@@ -93,7 +93,7 @@ class VerifyOTPView(APIView):
                 "message": "Login successful.",
                 "token": token.key,
                 "user_id": user.id,
-                "picture": profile.picture if profile and profile.picture else None,
+                "picture": profile.picture.url if profile and profile.picture else None,
                 "role": profile.role,
                 "referral_code": referral_code,
                 "name": user.get_full_name(),
@@ -106,7 +106,7 @@ class ResendOTPView(APIView):
     def post(self, request):
         serializer = ResendOTPSerializer(data=request.data)
         if serializer.is_valid():
-            email = serializer.validated_data['email']
+            email = serializer.validated_data['email'].lower()
             try:
                 otp_entry = OTP.objects.get(email=email)
             except Exception as e:
@@ -290,7 +290,7 @@ class VerifyAndUpdateProfile(APIView):
                 profile.verified_on = datetime.datetime.now()
                 profile.save()
                 self.update_transaction_of_user_(investment_instance, request.user)
-                self.update_transaction_of_user_(investment_instance, request.user)
+                self.update_wallet_and_transaction_(investment_instance, request.user)
 
                 if profile.role == 'agency':
                     super_agency = Agency.objects.filter(created_by=profile.user).last()
@@ -320,6 +320,7 @@ class VerifyAndUpdateProfile(APIView):
                                 commission,
                                 'Commission added due to field agent added.'
                             )
+                # elif profile.role == 'p2pmb':
 
                 return Response({"message": "Profile verified and amounts distributed successfully."},
                                 status=status.HTTP_200_OK)
