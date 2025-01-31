@@ -23,6 +23,16 @@ class MLMTree(ModelMixin):
         ]
 
 
+class ScheduledCommission(ModelMixin):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="scheduled_commissions")
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    scheduled_date = models.DateTimeField()
+    is_paid = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"Commission for {self.user} on {self.scheduled_date}"
+
+
 class Package(ModelMixin):
     name = models.CharField(max_length=100)
     description = models.TextField(null=True, blank=True)

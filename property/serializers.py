@@ -192,3 +192,39 @@ class CreatePropertyBookingSerializer(serializers.ModelSerializer):
         else:
             raise serializers.ValidationError("Currently we are accepting two types of payment only.")
         return data
+
+    # def create(self, validated_data):
+    #     booking = super().create(validated_data)
+    #     self.distribute_commission(
+    #         user=validated_data['booked_by'],
+    #         property_price=validated_data['property_id'].price
+    #     )
+    #     return booking
+    #
+    # def distribute_commission(self, user, property_price):
+    #     commission_field_agent = 0.0025
+    #     commission_agency = 0.005
+    #     commission_super_agency = 0.0025
+    #
+    #     if user.profile.role == 'field_agent':
+    #         super_agent = user.profile.parent
+    #         if super_agent:
+    #             self.add_commission(super_agent, property_price * commission_field_agent)
+    #
+    #         agency = super_agent.profile.parent if super_agent else None
+    #         if agency:
+    #             self.add_commission(agency, property_price * commission_agency)
+    #
+    #     elif user.profile.role == 'agency':
+    #         super_agency = user.profile.parent
+    #         if super_agency and super_agency.profile.years_active > 10:
+    #             self.add_commission(super_agency, property_price * commission_super_agency)
+    #
+    # def add_commission(self, user, commission_amount):
+    #     """Adds commission to a user's wallet."""
+    #     try:
+    #         wallet = UserWallet.objects.get(user=user)
+    #         wallet.commission_balance += commission_amount
+    #         wallet.save()
+    #     except UserWallet.DoesNotExist:
+    #         pass

@@ -29,6 +29,11 @@ INVESTMENT_TYPE_CHOICES = [
     ('p2pmb', 'Person 2 Person'),
 ]
 
+INVESTMENT_GUARANTEED_TYPE = [
+    ('guaranteed_investment', 'Guaranteed Investment'),
+    ('non_guaranteed_investment', 'Non Guaranteed Investment'),
+]
+
 
 REWARD_CHOICES = [
     ('android_mobile', 'Android Mobile'),

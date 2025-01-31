@@ -26,7 +26,7 @@ class PropertyViewSet(viewsets.ModelViewSet):
     default_serializer_class = PropertySerializer
 
     def get_queryset(self):
-        return Property.objects.filter(user=self.request.user, status='active')
+        return Property.objects.filter(user=self.request.user, status='active').order_by('-id')
 
     def get_serializer_class(self):
         return self.serializer_classes.get(self.action, self.default_serializer_class)
@@ -38,7 +38,7 @@ class PropertyViewSet(viewsets.ModelViewSet):
                 {"error": "KYC not completed or verified."},
                 status=status.HTTP_403_FORBIDDEN,
             )
-        properties = Property.objects.filter(status='active')
+        properties = Property.objects.filter(status='active').order_by('-id')
         page = self.paginate_queryset(properties)
         if page is not None:
             serializer = PropertyListSerializer(page, many=True)

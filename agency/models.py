@@ -6,7 +6,7 @@ from django.db import models
 
 from accounts.choices import COMPANY_TYPE
 from accounts.models import Profile
-from agency.choices import REWARD_CHOICES, REFUND_CHOICES, INVESTMENT_TYPE_CHOICES, REFUND_STATUS_CHOICES
+from agency.choices import REFUND_CHOICES, INVESTMENT_TYPE_CHOICES, REFUND_STATUS_CHOICES, INVESTMENT_GUARANTEED_TYPE
 from master.models import RewardMaster
 from p2pmb.models import Package
 from payment_app.models import Transaction
@@ -60,6 +60,8 @@ class Investment(ModelMixin):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     amount = models.DecimalField(max_digits=15, decimal_places=2)
     investment_type = models.CharField(max_length=20, choices=INVESTMENT_TYPE_CHOICES)
+    investment_guaranteed_type = models.CharField(max_length=30, choices=INVESTMENT_GUARANTEED_TYPE,
+                                                  null=True, blank=True)
     transaction_id = models.ForeignKey(Transaction, on_delete=models.CASCADE, null=True, blank=True)
     package = models.ManyToManyField(Package, blank=True)
     gst = models.DecimalField(max_digits=10, decimal_places=2)
@@ -155,6 +157,7 @@ class RewardEarned(ModelMixin):
     earned_at = models.DateTimeField(auto_now_add=True)
     turnover_at_earning = models.DecimalField(max_digits=15, decimal_places=2)
     is_paid = models.BooleanField(default=False)
+    total_month = models.IntegerField(default=0)
 
     def __str__(self):
         return f"Reward for {self.user.username} Earned at {self.earned_at}"

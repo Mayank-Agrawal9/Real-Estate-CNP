@@ -5,6 +5,7 @@ from django.db.models import Sum
 
 from agency.models import SuperAgency, Agency, FieldAgent, PPDAccount, RewardEarned
 from master.models import RewardMaster
+from p2pmb.models import MLMTree
 from payment_app.models import UserWallet, Transaction
 
 
@@ -295,6 +296,55 @@ def calculate_field_agent_rewards():
                 RewardEarned.objects.create(
                     user=agent.profile.user,
                     created_by=agent.profile.user,
+                    reward=reward,
+                    turnover_at_earning=total_turnover
+                )
+    return results
+
+
+
+# def calculate_rewards(income):
+#     """
+#     Calculate specific rewards based on turnover.
+#     """
+#     reward_tiers = [
+#         (500000, 1000, 10),
+#         (1000000, 1000, 22),
+#         (2500000, 2000, 25),
+#         (5000000, 4000, 25),
+#         (10000000, 6000, 25),
+#         (25000000, 8000, 35),
+#         (50000000, 10000, 60),
+#         (100000000, 20000, 60),
+#         (250000000, 50000, 60),
+#         (500000000, 100000, 75),
+#         (1000000000, 200000, 0)
+#     ]
+#     rewards = []
+#     for turnover_threshold, monthly_income, months in reward_tiers:
+#         if income >= turnover_threshold:
+#             rewards.append({
+#                 "turnover": turnover_threshold,
+#                 "monthly_income": monthly_income,
+#                 "months": months,
+#                 "total_income": monthly_income * months if months > 0 else None,
+#             })
+#     return rewards
+
+def calculate_p2pmb_rewards():
+    """Calculate and return the rewards for each SuperAgency."""
+    mlm_tree = MLMTree.objects.select_related('parent', 'child', 'parent__profile', 'child__profile')
+    results = []
+
+    for data in mlm_tree:
+        total_turnover = data.turnover or 0
+        role = data.child.role
+        reward = get_reward_based_on_turnover(total_turnover, role)
+        if reward:
+            if not RewardEarned.objects.filter(user=data.child, reward=reward).exists():
+                RewardEarned.objects.create(
+                    user=data.child,
+                    created_by=data.child,
                     reward=reward,
                     turnover_at_earning=total_turnover
                 )

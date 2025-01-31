@@ -4,6 +4,7 @@ from rest_framework import serializers
 from p2pmb.models import Package
 from payment_app.choices import PAYMENT_METHOD
 from payment_app.models import Transaction
+from .choices import INVESTMENT_GUARANTEED_TYPE
 from .models import User, Investment, Commission, RefundPolicy, FundWithdrawal, SuperAgency, Agency, \
     FieldAgent, RewardEarned, PPDAccount
 
@@ -39,8 +40,9 @@ class CreateInvestmentSerializer(serializers.ModelSerializer):
     payment_method = serializers.ChoiceField(choices=PAYMENT_METHOD, required=True)
     remarks = serializers.CharField(required=True)
     deposit_transaction_id = serializers.CharField(max_length=200, required=True)
+    investment_guaranteed_type = serializers.ChoiceField(choices=INVESTMENT_GUARANTEED_TYPE, required=False)
     package = serializers.PrimaryKeyRelatedField(
-        queryset=Package.objects.filter(status='active'), many=True, required=False
+        queryset=Package.objects.filter(status='active'), many=True, required=False, allow_empty=True
     )
 
     class Meta:
@@ -57,8 +59,8 @@ class CreateInvestmentSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         from django.db import transaction
         with transaction.atomic():
-            user = validated_data.pop('user')
-            packages = validated_data.pop('package', [])
+            user = self.context['request'].user
+            packages = validated_data.pop('package', None) or []
             transaction_data = {
                 'created_by': user,
                 'sender': user,
@@ -77,9 +79,9 @@ class CreateInvestmentSerializer(serializers.ModelSerializer):
             validated_data['amount'] = transaction_data.get('amount')
             validated_data['gst'] = transaction_data.get('taxable_amount')
             validated_data['transaction_id'] = transaction
-            investment = Investment.objects.create(user=user, **validated_data)
-            investment.package.set(packages)
-
+            investment = Investment.objects.create(**validated_data)
+            if packages:
+                investment.package.set(packages)
             return investment
 
 
