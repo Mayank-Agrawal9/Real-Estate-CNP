@@ -33,11 +33,11 @@ class PropertyViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], url_path='get-all-property')
     def get_all_property(self, request):
-        if not (request.user.profile.is_kyc and request.user.profile.is_kyc_verified):
-            return Response(
-                {"error": "KYC not completed or verified."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
+        # if not (request.user.profile.is_kyc and request.user.profile.is_kyc_verified):
+        #     return Response(
+        #         {"error": "KYC not completed or verified."},
+        #         status=status.HTTP_403_FORBIDDEN,
+        #     )
         properties = Property.objects.filter(status='active').order_by('-id')
         page = self.paginate_queryset(properties)
         if page is not None:
