@@ -10,6 +10,7 @@ router.register(r'city', CityViewSet)
 router.register(r'banner-image', BannerImageViewSet)
 router.register(r'gst', GstViewSet)
 router.register(r'rewards', RewardMasterViewSet)
+router.register(r'company-bank-detail', CompanyBankDetailsMasterViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),

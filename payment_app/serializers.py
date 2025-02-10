@@ -11,11 +11,13 @@ from payment_app.models import UserWallet, Transaction
 class PayUserSerializer(serializers.Serializer):
     recipient_email = serializers.EmailField(required=True)
     amount = serializers.FloatField(required=False, min_value=0.01)
+    wallet_type = serializers.ChoiceField(choices=['main_wallet', 'app_wallet'], default='app_wallet')
 
     def validate(self, data):
         sender = self.context['request'].user
         recipient_email = data['recipient_email']
         amount = data.get('amount')
+        wallet_type = data.get('wallet_type')
 
         try:
             recipient = User.objects.get(email=recipient_email)
@@ -30,7 +32,9 @@ class PayUserSerializer(serializers.Serializer):
             raise serializers.ValidationError("Sender's wallet not found.")
 
         if amount:
-            if sender_wallet.app_wallet_balance < amount:
+            if wallet_type == 'app_wallet' and sender_wallet.app_wallet_balance < amount:
+                raise serializers.ValidationError("Insufficient balance in your wallet.")
+            if wallet_type == 'main_wallet' and sender_wallet.main_wallet_balance < amount:
                 raise serializers.ValidationError("Insufficient balance in your wallet.")
 
         data['recipient'] = recipient

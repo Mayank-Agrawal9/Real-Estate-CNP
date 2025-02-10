@@ -22,6 +22,7 @@ class ResendOTPSerializer(serializers.Serializer):
 
 class ProfileSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source="user.username", required=False)
+    full_name = serializers.CharField(required=False)
 
     class Meta:
         model = Profile
@@ -29,6 +30,13 @@ class ProfileSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         user_data = validated_data.pop("user", {})
+        full_name = validated_data.pop("full_name", "").strip()
+        print(full_name)
+        if full_name:
+            name_parts = full_name.split(" ", 1)
+            instance.user.first_name = name_parts[0] if name_parts else ""
+            instance.user.last_name = name_parts[1] if len(name_parts) > 1 else ""
+            instance.user.save()
         if "username" in user_data:
             instance.user.username = user_data["username"]
             instance.user.save()
@@ -36,13 +44,42 @@ class ProfileSerializer(serializers.ModelSerializer):
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
-
         return instance
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data["full_name"] = f"{instance.user.first_name} {instance.user.last_name}".strip()
+        return data
 
 
 class BasicDetailsSerializer(serializers.Serializer):
+    full_name = serializers.SerializerMethodField()
     father_name = serializers.CharField(required=True)
+    mobile_number1 = serializers.CharField(required=False)
+    mobile_number2 = serializers.CharField(required=False)
+    other_email = serializers.CharField(required=False)
+    pan_remarks = serializers.CharField(required=False)
     mobile_number = serializers.CharField(required=True)
+    kyc_video = serializers.FileField(required=False)
+    pan_number = serializers.CharField(required=True)
+    aadhar_number = serializers.CharField(required=True)
+    referral_code = serializers.CharField(required=False)
+    role = serializers.ChoiceField(choices=["super_agency", "agency", "field_agent"], required=True)
+
+    def get_full_name(self, obj):
+        """Dynamically generate full_name from first_name and last_name."""
+        return f"{obj.user.first_name} {obj.user.last_name}".strip()
+
+
+class CreateBasicDetailsSerializer(serializers.Serializer):
+    full_name = serializers.CharField(required=True)
+    father_name = serializers.CharField(required=True)
+    mobile_number1 = serializers.CharField(required=False)
+    mobile_number2 = serializers.CharField(required=False)
+    other_email = serializers.CharField(required=False)
+    pan_remarks = serializers.CharField(required=False)
+    mobile_number = serializers.CharField(required=True)
+    kyc_video = serializers.FileField(required=False)
     pan_number = serializers.CharField(required=True)
     aadhar_number = serializers.CharField(required=True)
     referral_code = serializers.CharField(required=False)
@@ -56,7 +93,7 @@ class CompanyDetailsSerializer(serializers.Serializer):
     pan_number = serializers.CharField(required=False, allow_blank=True)
     email = serializers.EmailField(required=True)
     office_address = serializers.CharField(required=False, allow_blank=True)
-    office_area = serializers.DecimalField(required=False, max_digits=10, decimal_places=2)
+    office_area = serializers.DecimalField(required=False, max_digits=10, decimal_places=2, default=0.0)
 
 
 class BankDetailsSerializer(serializers.Serializer):
@@ -85,7 +122,7 @@ class DocumentSerializer(serializers.Serializer):
 
 
 class SuperAgencyKycSerializer(serializers.Serializer):
-    basic_details = BasicDetailsSerializer(required=True)
+    basic_details = CreateBasicDetailsSerializer(required=True)
     company_details = CompanyDetailsSerializer(required=False)
     bank_details = BankDetailsSerializer(required=True)
     documents_for_kyc = DocumentSerializer(many=True, required=False)

@@ -21,6 +21,7 @@ class SuperAgency(ModelMixin):
     type = models.CharField(max_length=250, choices=COMPANY_TYPE, default='enterprise')
     phone_number = models.CharField(max_length=15, null=True, blank=True)
     pan_number = models.CharField(max_length=10, null=True, blank=True)
+    gst_number = models.CharField(max_length=15, null=True, blank=True)
     email = models.EmailField(null=True, blank=True)
     office_address = models.TextField(null=True, blank=True)
     office_area = models.DecimalField(max_digits=15, decimal_places=2, default=0)
@@ -39,9 +40,11 @@ class Agency(ModelMixin):
     type = models.CharField(max_length=250, choices=COMPANY_TYPE, default='enterprise')
     phone_number = models.CharField(max_length=15, null=True, blank=True)
     pan_number = models.CharField(max_length=10, null=True, blank=True)
+    gst_number = models.CharField(max_length=15, null=True, blank=True)
     email = models.EmailField(null=True, blank=True)
     office_address = models.TextField(null=True, blank=True)
     turnover = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    office_area = models.DecimalField(max_digits=15, decimal_places=2, default=0)
 
     def __str__(self):
         return f"Agency Name {self.name}"

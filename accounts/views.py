@@ -231,7 +231,7 @@ class UserKycAPIView(APIView):
                     update_agency_profile(user, data, "agency")
                 elif role == "field_agent":
                     update_field_agent_profile(user, data, "field_agent")
-            return Response({"message": "Data updated successfully!"}, status=status.HTTP_200_OK)
+                return Response({"message": "Data updated successfully!"}, status=status.HTTP_200_OK)
 
         except ValidationError as e:
             error_message = e.detail if isinstance(e.detail, str) else e.detail[0]
@@ -244,20 +244,22 @@ class UserKycAPIView(APIView):
 class VerifyAndUpdateProfile(APIView):
     permission_classes = [IsAuthenticated]
 
-    def update_wallet_and_transaction_(self, user, verify_by, amount, remarks):
+    def update_wallet_and_transaction_(self, user, verify_by, amount, remarks, commission_amount, is_not_super_agency=False):
         wallet, _ = UserWallet.objects.get_or_create(user=user)
-        wallet.app_wallet_balance += amount
+        wallet.main_wallet_balance += amount
+        if is_not_super_agency:
+            wallet.in_app_wallet += commission_amount
+            Transaction.objects.create(
+                created_by=user,
+                sender=user,
+                amount=commission_amount,
+                transaction_type='commission',
+                transaction_status='approved',
+                verified_by=verify_by,
+                verified_on=datetime.datetime.now(),
+                remarks=remarks
+            )
         wallet.save()
-        Transaction.objects.create(
-            created_by=user,
-            sender=user,
-            amount=amount,
-            transaction_type='commission',
-            transaction_status='approved',
-            verified_by=verify_by,
-            verified_on=datetime.datetime.now(),
-            remarks=remarks
-        )
 
     def update_transaction_of_user_(self, transaction_instance, request_user):
         if transaction_instance and transaction_instance.transaction_id:
@@ -290,14 +292,24 @@ class VerifyAndUpdateProfile(APIView):
                 profile.verified_on = datetime.datetime.now()
                 profile.save()
                 self.update_transaction_of_user_(investment_instance, request.user)
-                self.update_wallet_and_transaction_(investment_instance, request.user)
 
-                if profile.role == 'agency':
-                    super_agency = Agency.objects.filter(created_by=profile.user).last()
-                    if super_agency and super_agency.company:
-                        commission = Decimal(str(investment_instance.transaction_id.amount * 0.25))
+                if profile.role == 'super_agency':
+                    super_agency = SuperAgency.objects.filter(profile=profile).last()
+                    if super_agency:
                         self.update_wallet_and_transaction_(
                             super_agency.company.profile.user,
+                            request.user,
+                            investment_instance.transaction_id.amount,
+                            'Commission added due to agency added.',
+                            0,
+                            is_not_super_agency=True
+                        )
+                elif profile.role == 'agency':
+                    agency = Agency.objects.filter(created_by=profile.user).last()
+                    if agency and agency.company:
+                        commission = Decimal(str(investment_instance.transaction_id.amount * 0.25))
+                        self.update_wallet_and_transaction_(
+                            agency.company.profile.user,
                             request.user,
                             commission,
                             'Commission added due to agency added.'

@@ -108,13 +108,28 @@ def update_profile(user, basic_details, role, referral_by=None):
     if not profile:
         raise ValidationError("Profile not found for the user.")
 
-    profile.father_name = basic_details["father_name"]
-    profile.mobile_number = basic_details["mobile_number"]
-    profile.pan_number = basic_details["pan_number"]
-    profile.aadhar_number = basic_details["aadhar_number"]
-    profile.referral_by = referral_by.user if referral_by and referral_by.user else None
+    full_name = basic_details.get("full_name", "").strip()
+    name_parts = full_name.split(" ", 1)
+    profile.user.first_name = name_parts[0] if name_parts else ""
+    profile.user.last_name = name_parts[1] if len(name_parts) > 1 else ""
+
+    profile.pan_remarks = basic_details.get("pan_remarks", profile.pan_remarks)
+    profile.kyc_video = basic_details.get("kyc_video", profile.kyc_video)
+    profile.father_name = basic_details.get("father_name", profile.father_name)
+    profile.mobile_number = basic_details.get("mobile_number", profile.mobile_number)
+    profile.mobile_number1 = basic_details.get("mobile_number1", profile.mobile_number1)
+    profile.mobile_number2 = basic_details.get("mobile_number2", profile.mobile_number2)
+    profile.pan_number = basic_details.get("pan_number", profile.pan_number)
+    profile.aadhar_number = basic_details.get("aadhar_number", profile.aadhar_number)
+    profile.other_email = basic_details.get("other_email", profile.other_email)
+    profile.voter_number = basic_details.get("voter_number", profile.voter_number)
+    profile.pan_remarks = basic_details.get("pan_remarks", profile.pan_remarks)
+
+    profile.referral_by = referral_by.user if hasattr(referral_by, "user") else None
     profile.role = role
     profile.is_kyc = True
+
+    profile.user.save()
     profile.save()
     return profile
 
@@ -128,8 +143,10 @@ def update_super_agency(user, profile, company_details):
             "type": company_details["type"],
             "phone_number": company_details.get("phone_number"),
             "pan_number": company_details.get("pan_number"),
+            "gst_number": company_details.get("gst_number"),
             "email": company_details["email"],
             "office_address": company_details.get("office_address"),
+            "office_area": company_details.get("office_area"),
         }
     )
 
@@ -142,8 +159,10 @@ def update_agency(user, company_details, id):
             "type": company_details["type"],
             "phone_number": company_details.get("phone_number"),
             "pan_number": company_details.get("pan_number"),
+            "gst_number": company_details.get("gst_number"),
             "email": company_details["email"],
             "office_address": company_details.get("office_address"),
+            "office_area": company_details.get("office_area"),
             "company": id,
         }
     )

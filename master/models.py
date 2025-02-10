@@ -60,3 +60,17 @@ class RewardMaster(ModelMixin):
 
     class Meta:
         ordering = ['applicable_for']
+
+
+class CompanyBankDetailsMaster(ModelMixin):
+    bank_name = models.CharField(max_length=100)
+    account_number = models.CharField(max_length=100)
+    bank_address = models.CharField(max_length=250, null=True, blank=True)
+    ifsc_code = models.CharField(max_length=100)
+    is_applicable_for_super_agency = models.BooleanField(default=False)
+    is_applicable_for_agency = models.BooleanField(default=False)
+    is_applicable_for_field_agent = models.BooleanField(default=False)
+    is_applicable_for_p2pmb = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"{self.id}"

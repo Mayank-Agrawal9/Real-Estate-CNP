@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from rest_framework import serializers
 
 from master.models import Country, State, City
@@ -151,10 +153,7 @@ class CreatePropertyBookingSerializer(serializers.ModelSerializer):
     customer_name = serializers.CharField(required=True)
     customer_email = serializers.EmailField(required=True)
     customer_phone = serializers.RegexField(regex=r'^\d{10}$', required=True,
-        error_messages={
-            'invalid': 'Enter a valid 10 digit phone number.',
-        }
-    )
+                                            error_messages={'invalid': 'Enter a valid 10 digit phone number.'})
 
     class Meta:
         model = PropertyBooking
@@ -165,6 +164,7 @@ class CreatePropertyBookingSerializer(serializers.ModelSerializer):
         data['booked_by'] = request_user
         payment_mode = self.context['request'].data.get('payment_status')
         property_price = data.get('property_id').price
+        property_created_user = data.get('property_id').user
 
         if not (request_user.profile.is_kyc_verified and request_user.profile.is_kyc):
             raise serializers.ValidationError("You are not verified your KYC, Please verify first.")
@@ -172,6 +172,7 @@ class CreatePropertyBookingSerializer(serializers.ModelSerializer):
         if payment_mode == 'in_app':
             try:
                 wallet = UserWallet.objects.get(user=request_user)
+                receiver_wallet = UserWallet.objects.get(user=property_created_user)
             except Exception as e:
                 raise serializers.ValidationError("User Wallet does not exist for the booked_by user.")
 
@@ -179,15 +180,23 @@ class CreatePropertyBookingSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("Insufficient balance in you app Wallet.")
             wallet.app_wallet_balance -= property_price
             wallet.save()
+            taxable_amount = property_price * Decimal(0.05)
+            receiver_wallet.app_wallet_balance += property_price - taxable_amount
+            wallet.save()
+
         elif payment_mode == 'main_wallet':
             try:
                 wallet = UserWallet.objects.get(user=request_user)
+                receiver_wallet = UserWallet.objects.get(user=property_created_user)
             except Exception as e:
                 raise serializers.ValidationError("User Wallet does not exist for the booked_by user.")
 
             if wallet.main_wallet_balance < property_price:
                 raise serializers.ValidationError("Insufficient balance in you main wallet.")
             wallet.main_wallet_balance -= property_price
+            wallet.save()
+            taxable_amount = property_price * Decimal(0.10)
+            receiver_wallet.app_wallet_balance += property_price - taxable_amount
             wallet.save()
         else:
             raise serializers.ValidationError("Currently we are accepting two types of payment only.")

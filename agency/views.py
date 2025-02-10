@@ -59,10 +59,7 @@ class InvestmentViewSet(viewsets.ModelViewSet):
         serializer = CreateInvestmentSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        return Response(
-            {"message": "Request for payment deposit sent successfully."},
-            status=status.HTTP_200_OK
-        )
+        return Response({"message": "Request for payment deposit sent successfully."}, status=status.HTTP_200_OK)
 
 
 class CommissionViewSet(viewsets.ModelViewSet):

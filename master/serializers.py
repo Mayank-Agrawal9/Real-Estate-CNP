@@ -37,3 +37,9 @@ class RewardMasterSerializer(serializers.ModelSerializer):
     class Meta:
         model = RewardMaster
         fields = '__all__'
+
+
+class CompanyBankDetailsMasterSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CompanyBankDetailsMaster
+        fields = '__all__'

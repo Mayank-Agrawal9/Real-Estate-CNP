@@ -88,3 +88,12 @@ class RewardMasterViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return RewardMaster.objects.filter(applicable_for=self.request.user.profile.role, status='active')
+
+
+class CompanyBankDetailsMasterViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    queryset = CompanyBankDetailsMaster.objects.filter(status='active')
+    serializer_class = CompanyBankDetailsMasterSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_fields = ['is_applicable_for_super_agency', 'is_applicable_for_agency',
+                        'is_applicable_for_field_agent', 'is_applicable_for_p2pmb']

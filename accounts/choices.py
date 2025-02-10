@@ -16,6 +16,7 @@ COMPANY_TYPE = (
     ('one_person_company', 'One Person Company'),
     ('public_company', 'Public Company'),
     ('llp', 'LLP'),
+    ('ngo', 'NGO'),
     ('enterprise', 'Enterprise')
 )
 

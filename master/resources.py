@@ -1,6 +1,6 @@
 from import_export import resources
 
-from master.models import Country, State, City, BannerImage, GST, RewardMaster
+from master.models import Country, State, City, BannerImage, GST, RewardMaster, CompanyBankDetailsMaster
 
 
 class CountryResource(resources.ModelResource):
@@ -41,5 +41,12 @@ class GSTResource(resources.ModelResource):
 class RewardMasterResource(resources.ModelResource):
     class Meta:
         model = RewardMaster
+        import_id_fields = ('id',)
+        exclude = ('date_created', 'updated_by', 'date_updated', 'created_by')
+
+
+class CompanyBankDetailsMasterResource(resources.ModelResource):
+    class Meta:
+        model = CompanyBankDetailsMaster
         import_id_fields = ('id',)
         exclude = ('date_created', 'updated_by', 'date_updated', 'created_by')

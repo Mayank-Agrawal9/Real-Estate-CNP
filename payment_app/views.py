@@ -35,6 +35,7 @@ class UserWalletViewSet(viewsets.ModelViewSet):
         sender = request.user
         recipient = serializer.validated_data['recipient']
         amount = serializer.validated_data.get('amount')
+        wallet_type = serializer.validated_data.get('wallet_type', 'app_wallet')
 
         if not (sender.profile.is_kyc and sender.profile.is_kyc_verified):
             return Response(
@@ -55,22 +56,42 @@ class UserWalletViewSet(viewsets.ModelViewSet):
 
         sender_wallet = UserWallet.objects.get(user=sender)
         recipient_wallet, _ = UserWallet.objects.get_or_create(user=recipient)
+        if wallet_type == "app_wallet":
+            taxable_amount = Decimal(amount) * Decimal('0.05')
+            payable_amount = Decimal(amount) - taxable_amount
+            sender_wallet.app_wallet_balance -= payable_amount
+            sender_wallet.save()
+            recipient_wallet.app_wallet_balance += payable_amount
+            recipient_wallet.save()
+            Transaction.objects.create(
+                created_by=request.user,
+                sender=sender,
+                receiver=recipient,
+                amount=amount,
+                taxable_amount=taxable_amount,
+                transaction_status='approved',
+                transaction_type='send',
+                status='active'
+            )
+        elif wallet_type == "main_wallet":
+            sender_wallet.main_wallet_balance -= Decimal(amount)
+            sender_wallet.save()
+            recipient_wallet.main_wallet_balance += Decimal(amount)
+            recipient_wallet.save()
+            Transaction.objects.create(
+                created_by=request.user,
+                sender=sender,
+                receiver=recipient,
+                amount=amount,
+                transaction_status='approved',
+                transaction_type='send',
+                status='active'
+            )
+        else:
+            return Response(
+                {"message": "Currently we are accepting in-app transfer and main wallet transfer."},
+                status=status.HTTP_400_BAD_REQUEST)
 
-        sender_wallet.app_wallet_balance -= Decimal(amount)
-        sender_wallet.save()
-
-        recipient_wallet.app_wallet_balance += Decimal(amount)
-        recipient_wallet.save()
-
-        Transaction.objects.create(
-            created_by=request.user,
-            sender=sender,
-            receiver=recipient,
-            amount=amount,
-            transaction_status='approved',
-            transaction_type='send',
-            status='active'
-        )
         return Response({"message": "Payment successfully transferred."}, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=['post'], url_path='send-money-to-wallet')
@@ -80,9 +101,7 @@ class UserWalletViewSet(viewsets.ModelViewSet):
 
         if not (request.user.profile.is_kyc and request.user.profile.is_kyc_verified):
             return Response(
-                {"error": "You has not completed KYC verification."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+                {"error": "You has not completed KYC verification."}, status=status.HTTP_400_BAD_REQUEST)
 
         if transfer_amount <= 0:
             return Response(
@@ -92,13 +111,11 @@ class UserWalletViewSet(viewsets.ModelViewSet):
 
         if transfer_amount > user_wallet.app_wallet_balance:
             return Response(
-                {"error": "Insufficient balance in app wallet."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+                {"error": "Insufficient balance in app wallet."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Deduct 5% fee
+        admin_charge = transfer_amount * Decimal('0.10')
         fee = transfer_amount * Decimal('0.05')
-        amount_after_fee = transfer_amount - fee
+        amount_after_fee = transfer_amount - admin_charge - fee
 
         # Update wallet balances
         user_wallet.app_wallet_balance -= transfer_amount
@@ -116,16 +133,12 @@ class UserWalletViewSet(viewsets.ModelViewSet):
         )
 
         return Response(
-            {
-                "message": "Transfer successful.",
-                "transfer_amount": f"{transfer_amount:.2f}",
-                "fee_deducted": f"{fee:.2f}",
-                "amount_transferred_to_main_wallet": f"{amount_after_fee:.2f}",
+            {"message": "Transfer successful.", "transfer_amount": f"{transfer_amount:.2f}",
+                "fee_deducted": f"{fee:.2f}", "admin_charges": f"{admin_charge:.2f}",
+             "amount_transferred_to_main_wallet": f"{amount_after_fee:.2f}",
                 "app_wallet_balance": f"{user_wallet.app_wallet_balance:.2f}",
-                "main_wallet_balance": f"{user_wallet.main_wallet_balance:.2f}",
-            },
-            status=status.HTTP_200_OK
-        )
+             "main_wallet_balance": f"{user_wallet.main_wallet_balance:.2f}",
+            }, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=['post'], url_path='withdraw-payment')
     def withdraw_payment(self, request):
@@ -137,7 +150,7 @@ class UserWalletViewSet(viewsets.ModelViewSet):
         serializer = WithdrawRequestSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         amount = serializer.validated_data['amount']
-        taxable_amount = (Decimal(amount) * Decimal('0.05'))
+        taxable_amount = (Decimal(amount) * Decimal('0.15'))
         Transaction.objects.create(
             created_by=request.user,
             sender=request.user,
@@ -180,10 +193,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
             investment_type=sender.profile.role,
             gst=0
         )
-
-        return Response({
-                "message": "Request for payment deposit sent successfully."}, status=status.HTTP_200_OK
-        )
+        return Response({"message": "Request for payment deposit sent successfully."}, status=status.HTTP_200_OK)
 
 
 class ApproveTransactionView(APIView):

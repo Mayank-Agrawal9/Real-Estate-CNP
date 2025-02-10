@@ -35,7 +35,12 @@ class Profile(ModelMixin):
     picture = models.ImageField(upload_to='profile', blank=True, null=True)
     qr_code = models.ImageField(upload_to='profile', blank=True, null=True)
     mobile_number = models.CharField(max_length=15, null=True, blank=True)
+    mobile_number1 = models.CharField(max_length=15, null=True, blank=True)
+    mobile_number2 = models.CharField(max_length=15, null=True, blank=True)
+    other_email = models.CharField(max_length=15, null=True, blank=True)
     pan_number = models.CharField(max_length=10, null=True, blank=True)
+    voter_number = models.CharField(max_length=10, null=True, blank=True)
+    pan_remarks = models.TextField(max_length=250, null=True, blank=True)
     aadhar_number = models.CharField(max_length=12, null=True, blank=True)
     role = models.CharField(max_length=25, choices=USER_ROLE, null=True, blank=True, default='customer')
     is_kyc = models.BooleanField(default=False)
@@ -43,10 +48,15 @@ class Profile(ModelMixin):
     state = models.ForeignKey(State, on_delete=models.CASCADE, null=True, blank=True)
     bio = models.TextField(null=True, blank=True)
     is_kyc_verified = models.BooleanField(default=False)
+    is_super_agency = models.BooleanField(default=False)
+    is_agency = models.BooleanField(default=False)
+    is_field_agent = models.BooleanField(default=False)
+    is_p2pmb = models.BooleanField(default=False)
     verified_by = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True, related_name="kyc_verified_by")
     verified_on = models.DateTimeField(null=True, blank=True)
     referral_code = models.CharField(max_length=50, null=True, blank=True)
     referral_by = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True, related_name="referral_by")
+    kyc_video = models.FileField(null=True, blank=True)
 
 
 class BankDetails(ModelMixin):
