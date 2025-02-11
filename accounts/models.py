@@ -37,7 +37,7 @@ class Profile(ModelMixin):
     mobile_number = models.CharField(max_length=15, null=True, blank=True)
     mobile_number1 = models.CharField(max_length=15, null=True, blank=True)
     mobile_number2 = models.CharField(max_length=15, null=True, blank=True)
-    other_email = models.CharField(max_length=15, null=True, blank=True)
+    other_email = models.EmailField(null=True, blank=True)
     pan_number = models.CharField(max_length=10, null=True, blank=True)
     voter_number = models.CharField(max_length=10, null=True, blank=True)
     pan_remarks = models.TextField(max_length=250, null=True, blank=True)

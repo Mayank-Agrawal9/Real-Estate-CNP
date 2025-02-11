@@ -81,8 +81,8 @@ class CreateBasicDetailsSerializer(serializers.Serializer):
     voter_number = serializers.CharField(required=False)
     mobile_number = serializers.CharField(required=True)
     kyc_video = serializers.FileField(required=False)
-    pan_number = serializers.CharField(required=True)
-    aadhar_number = serializers.CharField(required=True)
+    pan_number = serializers.CharField(required=False)
+    aadhar_number = serializers.CharField(required=False)
     referral_code = serializers.CharField(required=False)
     role = serializers.ChoiceField(choices=["super_agency", "agency", "field_agent"], required=True)
 
