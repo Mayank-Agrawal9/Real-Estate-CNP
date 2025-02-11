@@ -31,7 +31,6 @@ class ProfileSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         user_data = validated_data.pop("user", {})
         full_name = validated_data.pop("full_name", "").strip()
-        print(full_name)
         if full_name:
             name_parts = full_name.split(" ", 1)
             instance.user.first_name = name_parts[0] if name_parts else ""
@@ -60,10 +59,10 @@ class BasicDetailsSerializer(serializers.Serializer):
     other_email = serializers.CharField(required=False)
     pan_remarks = serializers.CharField(required=False)
     voter_number = serializers.CharField(required=False)
-    mobile_number = serializers.CharField(required=True)
+    mobile_number = serializers.CharField(required=False)
     kyc_video = serializers.FileField(required=False)
-    pan_number = serializers.CharField(required=True)
-    aadhar_number = serializers.CharField(required=True)
+    pan_number = serializers.CharField(required=False)
+    aadhar_number = serializers.CharField(required=False)
     referral_code = serializers.CharField(required=False)
     role = serializers.ChoiceField(choices=["super_agency", "agency", "field_agent"], required=True)
 
