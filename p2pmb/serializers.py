@@ -1,5 +1,7 @@
 from collections import deque
 from rest_framework import serializers
+
+from agency.models import Investment
 from .models import MLMTree, User, Package
 
 
@@ -22,6 +24,11 @@ class MLMTreeSerializer(serializers.ModelSerializer):
         Validate that the child doesn't already exist in the tree.
         """
         child = data.get('child')
+        investment = Investment.objects.filter(user=child, package__isnull=False, investment_type='p2pmb').last()
+        if not investment:
+            raise serializers.ValidationError("First Please buy package then you are able to get into P2PMB model.")
+        elif investment and not investment.is_approved:
+            raise serializers.ValidationError("Your request is in process, Once it is approved we will notify you.")
         if MLMTree.objects.filter(child=child).exists():
             raise serializers.ValidationError("This child is already assigned to a parent.")
         return data
@@ -74,12 +81,7 @@ class MLMTreeSerializer(serializers.ModelSerializer):
             if not master_user:
                 raise serializers.ValidationError("Master user must be created before adding MLM tree nodes.")
             master_node = MLMTree.objects.create(
-                parent=None,
-                child=master_user,
-                position=1,
-                level=0,
-                referral_by=None
-            )
+                parent=None, child=master_user, position=1, level=0, referral_by=None)
         return master_node
 
 

@@ -8,6 +8,7 @@ from rest_framework.exceptions import ValidationError
 
 from accounts.models import Profile, BankDetails, UserPersonalDocument
 from agency.models import SuperAgency, Agency, FieldAgent
+from p2pmb.models import MLMTree
 
 
 def generate_unique_referral_code():
@@ -63,6 +64,14 @@ def update_field_agent_profile(user, data, role):
     update_user_documents(user, data.get("documents_for_kyc", []))
 
 
+def update_p2pmb_profile(user, data, role):
+    id, referral_by = validate_referral_code(data["basic_details"], role)
+    update_profile(user, data["basic_details"], role, referral_by)
+    update_p2pmb(user, id, referral_by)
+    update_bank_details(user, data["bank_details"])
+    update_user_documents(user, data.get("documents_for_kyc", []))
+
+
 def validate_referral_code(basic_details, role):
     """
     Validates the referral code and checks the hierarchy and KYC status.
@@ -98,6 +107,12 @@ def validate_referral_code(basic_details, role):
         if not agency_:
             raise ValidationError("Referral code should be your upper-level user.")
         return agency_, referral_by
+
+    elif referral_by.role == 'field_agent':
+        agent_ = FieldAgent.objects.filter(profile=referral_by).last()
+        if not agent_:
+            raise ValidationError("Referral code should be your upper-level user.")
+        return agent_, referral_by
 
     else:
         raise ValidationError(f"You cannot use the referral code of {referral_by.role}.")
@@ -147,6 +162,7 @@ def update_super_agency(user, profile, company_details):
             "email": company_details["email"],
             "office_address": company_details.get("office_address"),
             "office_area": company_details.get("office_area"),
+            "city": company_details.get("city"),
         }
     )
 
@@ -164,6 +180,7 @@ def update_agency(user, company_details, id):
             "office_address": company_details.get("office_address"),
             "office_area": company_details.get("office_area"),
             "company": id,
+            "city": company_details.get("city"),
         }
     )
 
@@ -174,6 +191,18 @@ def update_field_agent(user, profile, id):
         defaults={
             "created_by": user,
             "agency": id
+        }
+    )
+
+
+def update_p2pmb(user, id, referral_by):
+    MLMTree.objects.update_or_create(
+        child=user,
+        defaults={
+            "created_by": user,
+            "status": 'inactive',
+            "agency": id,
+            "referral_by": referral_by
         }
     )
 

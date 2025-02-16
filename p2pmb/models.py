@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.contrib.auth.models import User
 from django.db import models
 
@@ -24,6 +26,7 @@ class MLMTree(ModelMixin):
 
 
 class ScheduledCommission(ModelMixin):
+    send_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name="commissions_sender", null=True, blank=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="scheduled_commissions")
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     scheduled_date = models.DateTimeField()
@@ -42,7 +45,7 @@ class Package(ModelMixin):
         return str(self.id)
 
 
-class RoyaltyClub(models.Model):
+class RoyaltyClub(ModelMixin):
     CLUB_CHOICES = [
         ('star', 'Star Club'),
         ('2_star', '2-Star Club'),
@@ -52,14 +55,17 @@ class RoyaltyClub(models.Model):
     person = models.ForeignKey(MLMTree, on_delete=models.CASCADE, related_name='royalty_clubs')
     club_type = models.CharField(max_length=10, choices=CLUB_CHOICES)
     turnover_limit = models.DecimalField(max_digits=15, decimal_places=2)
-    # You might want to track when they joined the club, benefits received, etc.
     joined_date = models.DateField(auto_now_add=True)
+    direct_ids_required = models.IntegerField(default=0)
+    level_one_required = models.IntegerField(default=0)
+    level_two_required = models.IntegerField(default=0)
+    gifts_value = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0.00'))
 
     def __str__(self):
         return f"{self.person.user.username} - {self.get_club_type_display()}"
 
 
-class Reward(models.Model):
+class Reward(ModelMixin):
     REWARD_CHOICES = [
         ('star', 'Star Reward'),
         ('silver', 'Silver Reward'),
@@ -79,22 +85,23 @@ class Reward(models.Model):
     monthly_payment = models.DecimalField(max_digits=15, decimal_places=2)
     months_duration = models.IntegerField()
     achieved_date = models.DateField(auto_now_add=True)
+    last_payment_send = models.DateField(null=True, blank=True)
 
     def __str__(self):
          return f"{self.person.user.username} - {self.get_reward_type_display()}"
 
 
-class Commission(models.Model):
+class Commission(ModelMixin):
     COMMISSION_TYPE_CHOICES = [
         ('direct', 'Direct Income'),
         ('level', 'Level Income'),
         ('reward', 'Life Time Reward Income'),
         ('royalty', 'Royalty Company Turnover'),
     ]
-    person = models.ForeignKey(MLMTree, on_delete=models.CASCADE, related_name='commissions')
+    commission_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name="commissions_by", null=True, blank=True)
+    commission_to = models.ForeignKey(MLMTree, on_delete=models.CASCADE, related_name='commission_to', null=True, blank=True)
     commission_type = models.CharField(max_length=20, choices=COMMISSION_TYPE_CHOICES)
     amount = models.DecimalField(max_digits=15, decimal_places=2)
-    date_earned = models.DateField(auto_now_add=True)
     description = models.CharField(max_length=255, blank=True, null=True)
 
     def __str__(self):

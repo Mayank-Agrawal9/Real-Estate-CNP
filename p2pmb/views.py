@@ -24,21 +24,13 @@ class MLMTreeCreateView(APIView):
         serializer = MLMTreeSerializer(data=request.data)
         if serializer.is_valid():
             try:
-                mlm_tree = serializer.create(serializer.validated_data)
-                return Response(
-                    MLMTreeSerializer(mlm_tree).data,
-                    status=status.HTTP_201_CREATED
-                )
+                serializer.create(serializer.validated_data)
+                return Response({'message': 'Congratulations, You are now member in Person 2 Person modal. '},
+                                status=status.HTTP_200_OK)
             except serializers.ValidationError as e:
-                return Response(
-                    {"detail": str(e)},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+                return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         else:
-            return Response(
-                serializer.errors,
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class MLMTreeView(APIView):

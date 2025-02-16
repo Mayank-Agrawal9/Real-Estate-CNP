@@ -64,6 +64,7 @@ class BasicDetailsSerializer(serializers.Serializer):
     pan_number = serializers.CharField(required=False)
     aadhar_number = serializers.CharField(required=False)
     referral_code = serializers.CharField(required=False)
+    city = serializers.IntegerField(required=True)
     role = serializers.ChoiceField(choices=["super_agency", "agency", "field_agent"], required=True)
 
     def get_full_name(self, obj):
@@ -94,6 +95,7 @@ class CompanyDetailsSerializer(serializers.Serializer):
     pan_number = serializers.CharField(required=False, allow_blank=True)
     email = serializers.EmailField(required=True)
     office_address = serializers.CharField(required=False, allow_blank=True)
+    city = serializers.IntegerField(required=True)
     office_area = serializers.DecimalField(required=False, max_digits=10, decimal_places=2, default=0.0)
 
 

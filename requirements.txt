@@ -26,3 +26,4 @@ typing_extensions==4.12.2
 urllib3==2.3.0
 django-storages==1.14.4
 django-celery-beat==2.7.0
+django-auditlog==3.0.0

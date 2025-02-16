@@ -14,7 +14,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.helpers import generate_unique_referral_code, update_super_agency_profile, generate_qr_code_with_email, \
-    update_agency_profile, update_field_agent_profile
+    update_agency_profile, update_field_agent_profile, update_p2pmb_profile
 from accounts.models import OTP, Profile, BankDetails, UserPersonalDocument, SoftwarePolicy, FAQ
 from accounts.serializers import RequestOTPSerializer, VerifyOTPSerializer, ResendOTPSerializer, ProfileSerializer, \
     SuperAgencyKycSerializer, BasicDetailsSerializer, CompanyDetailsSerializer, BankDetailsSerializer, \
@@ -231,6 +231,8 @@ class UserKycAPIView(APIView):
                     update_agency_profile(user, data, "agency")
                 elif role == "field_agent":
                     update_field_agent_profile(user, data, "field_agent")
+                elif role == "p2pmb":
+                    update_p2pmb_profile(user, data, "p2pmb")
                 return Response({"message": "Data updated successfully!"}, status=status.HTTP_200_OK)
 
         except ValidationError as e:

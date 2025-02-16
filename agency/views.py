@@ -68,8 +68,7 @@ class CommissionViewSet(viewsets.ModelViewSet):
     serializer_class = CommissionSerializer
 
     def get_queryset(self):
-        return Commission.objects.filter(Q(commission_by=self.request.user) | Q(commission_to=self.request.user),
-                                         status='active')
+        return Commission.objects.filter(commission_to=self.request.user, status='active')
 
 
 class RefundViewSet(viewsets.ModelViewSet):
