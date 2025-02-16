@@ -50,7 +50,8 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'corsheaders',
     'storages',
-    'django_ckeditor_5'
+    'django_ckeditor_5',
+    'auditlog'
 ]
 
 CUSTOM_APPS = [
@@ -73,6 +74,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'real_estate.middleware.CustomAuditlogMiddleware'
 ]
 
 ROOT_URLCONF = 'real_estate.urls'
@@ -247,6 +249,7 @@ CKEDITOR_5_CONFIGS = {
     }
 }
 
+AUDITLOG_INCLUDE_ALL_MODELS = True
 
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:4200',
@@ -255,3 +258,4 @@ CORS_ALLOWED_ORIGINS = [
     # 'http://64.225.84.50',
     'http://139.59.71.1'
 ]
+

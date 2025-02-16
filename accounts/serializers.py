@@ -76,7 +76,7 @@ class CreateBasicDetailsSerializer(serializers.Serializer):
     father_name = serializers.CharField(required=True)
     mobile_number1 = serializers.CharField(required=False)
     mobile_number2 = serializers.CharField(required=False)
-    other_email = serializers.CharField(required=False)
+    other_email = serializers.EmailField(allow_null=True, allow_blank=True)
     pan_remarks = serializers.CharField(required=False)
     voter_number = serializers.CharField(required=False)
     mobile_number = serializers.CharField(required=True)

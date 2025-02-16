@@ -11,7 +11,7 @@ from agency.resources import *
 class SuperAgencyAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
     resource_class = SuperAgencyResource
     search_fields = ['name', 'email']
-    raw_id_fields = ('created_by', 'updated_by', 'profile')
+    raw_id_fields = ('created_by', 'updated_by', 'profile', 'city')
     list_filter = ('status', )
 
 
@@ -19,7 +19,7 @@ class SuperAgencyAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
 class AgencyAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
     resource_class = AgencyResource
     search_fields = ['name', ]
-    raw_id_fields = ('created_by', 'updated_by', 'company')
+    raw_id_fields = ('created_by', 'updated_by', 'company', 'city')
     list_filter = ('status', )
 
 
@@ -27,7 +27,7 @@ class AgencyAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
 class FieldAgentAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
     resource_class = FieldAgentResource
     search_fields = ['profile__user__username', ]
-    raw_id_fields = ('created_by', 'updated_by', 'profile', 'agency')
+    raw_id_fields = ('created_by', 'updated_by', 'profile', 'agency', 'city')
     list_filter = ('status', )
 
 

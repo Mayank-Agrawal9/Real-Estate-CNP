@@ -7,7 +7,7 @@ from django.db import models
 from accounts.choices import COMPANY_TYPE
 from accounts.models import Profile
 from agency.choices import REFUND_CHOICES, INVESTMENT_TYPE_CHOICES, REFUND_STATUS_CHOICES, INVESTMENT_GUARANTEED_TYPE
-from master.models import RewardMaster
+from master.models import RewardMaster, City
 from p2pmb.models import Package
 from payment_app.models import Transaction
 from real_estate.model_mixin import ModelMixin
@@ -29,6 +29,7 @@ class SuperAgency(ModelMixin):
     turnover = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     max_agencies = models.PositiveIntegerField(default=100)
     max_field_agents = models.PositiveIntegerField(default=10000)
+    city = models.ForeignKey(City, on_delete=models.CASCADE, related_name="super_agency_city", null=True, blank=True)
 
     def __str__(self):
         return f"Created by {self.profile.user.username}"
@@ -45,6 +46,7 @@ class Agency(ModelMixin):
     office_address = models.TextField(null=True, blank=True)
     turnover = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     office_area = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    city = models.ForeignKey(City, on_delete=models.CASCADE, related_name="agency_city", null=True, blank=True)
 
     def __str__(self):
         return f"Agency Name {self.name}"
@@ -54,6 +56,7 @@ class FieldAgent(ModelMixin):
     profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name="field_agent")
     agency = models.ForeignKey(Agency, on_delete=models.CASCADE, related_name="field_agents")
     turnover = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    city = models.ForeignKey(City, on_delete=models.CASCADE, related_name="field_agent_city", null=True, blank=True)
 
     def __str__(self):
         return f"{self.id}"
@@ -68,6 +71,7 @@ class Investment(ModelMixin):
     transaction_id = models.ForeignKey(Transaction, on_delete=models.CASCADE, null=True, blank=True)
     package = models.ManyToManyField(Package, blank=True)
     gst = models.DecimalField(max_digits=10, decimal_places=2)
+    guaranteed_agreement = models.BooleanField(default=False)
     is_approved = models.BooleanField(default=False)
 
     def total_investment(self):

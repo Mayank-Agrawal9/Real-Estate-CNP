@@ -42,33 +42,60 @@ class Package(ModelMixin):
         return str(self.id)
 
 
-# class RewardLevel(models.Model):
-#     name = models.CharField(max_length=100)
-#     turnover_required = models.DecimalField(max_digits=12, decimal_places=2)
-#     monthly_payout = models.DecimalField(max_digits=10, decimal_places=2)
-#     months_duration = models.IntegerField()
-#     total_value = models.DecimalField(max_digits=12, decimal_places=2)
-#
-#     def __str__(self):
-#         return self.name
-#
-#
-# class RoyaltyClub(models.Model):
-#     name = models.CharField(max_length=100)
-#     turnover_limit = models.DecimalField(max_digits=12, decimal_places=2)
-#     royalty_percentage = models.DecimalField(max_digits=5, decimal_places=2)
-#
-#     def __str__(self):
-#         return self.name
-#
-#
-# class Commission(models.Model):
-#     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='commissions')
-#     direct_income = models.DecimalField(max_digits=10, decimal_places=2, default=0.0)
-#     level_income = models.DecimalField(max_digits=10, decimal_places=2, default=0.0)
-#     lifetime_reward_income = models.DecimalField(max_digits=10, decimal_places=2, default=0.0)
-#     royalty_income = models.DecimalField(max_digits=10, decimal_places=2, default=0.0)
-#     date_earned = models.DateTimeField(auto_now_add=True)
-#
-#     def total_income(self):
-#         return self.direct_income + self.level_income + self.lifetime_reward_income + self.royalty_income
+class RoyaltyClub(models.Model):
+    CLUB_CHOICES = [
+        ('star', 'Star Club'),
+        ('2_star', '2-Star Club'),
+        ('3_star', '3-Star Club'),
+        ('5_star', '5-Star Club'),
+    ]
+    person = models.ForeignKey(MLMTree, on_delete=models.CASCADE, related_name='royalty_clubs')
+    club_type = models.CharField(max_length=10, choices=CLUB_CHOICES)
+    turnover_limit = models.DecimalField(max_digits=15, decimal_places=2)
+    # You might want to track when they joined the club, benefits received, etc.
+    joined_date = models.DateField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.person.user.username} - {self.get_club_type_display()}"
+
+
+class Reward(models.Model):
+    REWARD_CHOICES = [
+        ('star', 'Star Reward'),
+        ('silver', 'Silver Reward'),
+        ('gold', 'Gold Reward'),
+        ('diamond', 'Diamond Reward'),
+        ('titan', 'Titan Reward'),
+        ('conqueron', 'Conqueron Reward'),
+        ('almighty', 'Almighty Reward'),
+        ('relic', 'Relic Reward'),
+        ('commander', 'Commander Reward'),
+        ('immortal', 'Immortal Reward'),
+        ('blue_sapphire', 'The Blue Sapphire Reward'),
+    ]
+    person = models.ForeignKey(MLMTree, on_delete=models.CASCADE, related_name='rewards')
+    reward_type = models.CharField(max_length=20, choices=REWARD_CHOICES)
+    turnover_required = models.DecimalField(max_digits=15, decimal_places=2)
+    monthly_payment = models.DecimalField(max_digits=15, decimal_places=2)
+    months_duration = models.IntegerField()
+    achieved_date = models.DateField(auto_now_add=True)
+
+    def __str__(self):
+         return f"{self.person.user.username} - {self.get_reward_type_display()}"
+
+
+class Commission(models.Model):
+    COMMISSION_TYPE_CHOICES = [
+        ('direct', 'Direct Income'),
+        ('level', 'Level Income'),
+        ('reward', 'Life Time Reward Income'),
+        ('royalty', 'Royalty Company Turnover'),
+    ]
+    person = models.ForeignKey(MLMTree, on_delete=models.CASCADE, related_name='commissions')
+    commission_type = models.CharField(max_length=20, choices=COMMISSION_TYPE_CHOICES)
+    amount = models.DecimalField(max_digits=15, decimal_places=2)
+    date_earned = models.DateField(auto_now_add=True)
+    description = models.CharField(max_length=255, blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.person.user.username} - {self.get_commission_type_display()} - {self.amount}"
