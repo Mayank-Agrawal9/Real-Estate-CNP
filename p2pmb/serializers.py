@@ -1,6 +1,7 @@
 from collections import deque
 from rest_framework import serializers
 
+from accounts.models import Profile
 from agency.models import Investment
 from .models import MLMTree, User, Package
 
@@ -24,13 +25,21 @@ class MLMTreeSerializer(serializers.ModelSerializer):
         Validate that the child doesn't already exist in the tree.
         """
         child = data.get('child')
+        get_verified = Profile.objects.filter(user=child).last()
+        if not get_verified:
+            raise serializers.ValidationError("You don't have profile, Please connect to admin first.")
+        if get_verified and get_verified.is_kyc and not get_verified.is_kyc_verified:
+            raise serializers.ValidationError("Your KYC request is in process, Once it is approved we will notify you.")
+        elif get_verified and not get_verified.is_kyc:
+            raise serializers.ValidationError("Please verify KYC then you will able to get into P2PMB model.")
         investment = Investment.objects.filter(user=child, package__isnull=False, investment_type='p2pmb').last()
         if not investment:
             raise serializers.ValidationError("First Please buy package then you are able to get into P2PMB model.")
         elif investment and not investment.is_approved:
-            raise serializers.ValidationError("Your request is in process, Once it is approved we will notify you.")
+            raise serializers.ValidationError("Your investment request is in process, "
+                                              "Once it is approved we will notify you.")
         if MLMTree.objects.filter(child=child).exists():
-            raise serializers.ValidationError("This child is already assigned to a parent.")
+            raise serializers.ValidationError("You have already register in P2PMB model.")
         return data
 
     def create(self, validated_data):
@@ -45,6 +54,7 @@ class MLMTreeSerializer(serializers.ModelSerializer):
         """
         position = MLMTree.objects.filter(parent=parent_node.child).count() + 1
         level = parent_node.level + 1
+        Profile.objects.filter(user=child_node).update(is_p2pmb=True)
         MLMTree.objects.create(
             parent=parent_node.child,
             child=child_node,
@@ -87,14 +97,26 @@ class MLMTreeSerializer(serializers.ModelSerializer):
 
 class MLMTreeNodeSerializer(serializers.ModelSerializer):
     children = serializers.SerializerMethodField()
+    user = serializers.SerializerMethodField()
 
     class Meta:
         model = MLMTree
-        fields = ['child', 'position', 'level', 'children']
+        fields = ['child', 'position', 'level', 'children', 'user']
 
     def get_children(self, obj):
         children = MLMTree.objects.filter(parent=obj.child).order_by('position')
         return MLMTreeNodeSerializer(children, many=True).data
+
+    def get_user(self, obj):
+        if obj.child:  # Assuming child is a ForeignKey to User
+            return {
+                "id": obj.child.id,
+                "username": obj.child.username,
+                "email": obj.child.email,
+                "first_name": obj.child.first_name,
+                "last_name": obj.child.last_name
+            }
+        return None
 
 
 class PackageSerializer(serializers.ModelSerializer):
