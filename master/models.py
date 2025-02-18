@@ -54,6 +54,7 @@ class RewardMaster(ModelMixin):
     turnover_threshold = models.DecimalField(max_digits=15, decimal_places=2)
     reward_description = models.TextField()
     applicable_for = models.CharField(max_length=100, choices=USER_ROLE, default='super_agency')
+    gift_amount = models.DecimalField(max_digits=15, decimal_places=2, default=0.0)
 
     def __str__(self):
         return f"{self.name} - ₹{self.turnover_threshold}"

@@ -5,6 +5,7 @@ from django.core.files.base import ContentFile
 from rest_framework import serializers
 
 from accounts.models import Profile, FAQ
+from master.models import City
 
 
 class RequestOTPSerializer(serializers.Serializer):
@@ -77,7 +78,7 @@ class CreateBasicDetailsSerializer(serializers.Serializer):
     father_name = serializers.CharField(required=True)
     mobile_number1 = serializers.CharField(required=False)
     mobile_number2 = serializers.CharField(required=False)
-    other_email = serializers.EmailField(allow_null=True, allow_blank=True)
+    other_email = serializers.EmailField(allow_null=True, allow_blank=True, required=False)
     pan_remarks = serializers.CharField(required=False)
     voter_number = serializers.CharField(required=False)
     mobile_number = serializers.CharField(required=True)
@@ -85,7 +86,7 @@ class CreateBasicDetailsSerializer(serializers.Serializer):
     pan_number = serializers.CharField(required=False)
     aadhar_number = serializers.CharField(required=False)
     referral_code = serializers.CharField(required=False)
-    role = serializers.ChoiceField(choices=["super_agency", "agency", "field_agent"], required=True)
+    role = serializers.ChoiceField(choices=["super_agency", "agency", "field_agent", "p2pmb"], required=True)
 
 
 class CompanyDetailsSerializer(serializers.Serializer):
@@ -95,7 +96,9 @@ class CompanyDetailsSerializer(serializers.Serializer):
     pan_number = serializers.CharField(required=False, allow_blank=True)
     email = serializers.EmailField(required=True)
     office_address = serializers.CharField(required=False, allow_blank=True)
-    city = serializers.IntegerField(required=True)
+    city = serializers.PrimaryKeyRelatedField(
+        queryset=City.objects.filter(status='active'), many=False, required=True
+    )
     office_area = serializers.DecimalField(required=False, max_digits=10, decimal_places=2, default=0.0)
 
 

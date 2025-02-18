@@ -65,7 +65,7 @@ def distribute_monthly_rent_for_super_agency():
     if today != first_of_month:
         return "Today is not the first of the month. No distribution performed."
 
-    super_agencies = SuperAgency.objects.filter(profile__is_kyc_verified=True, profile__is_kyc=True)
+    super_agencies = SuperAgency.objects.filter(profile__is_kyc_verified=True, profile__is_kyc=True, status='active')
 
     for agency in super_agencies:
         user = agency.profile.user
@@ -105,7 +105,8 @@ def distribute_monthly_rent_for_super_agency():
             amount=50000,
             transaction_type='rent',
             transaction_status='approved',
-            remarks='Super Agency Rent Payment sent by CLICKNPAY REAL ESTATE.'
+            remarks='Super Agency Rent Payment sent by CLICKNPAY REAL ESTATE.',
+            payment_method='wallet'
         )
 
     return "Monthly rent distributed successfully."
@@ -118,7 +119,8 @@ def distribute_monthly_rent_for_agency():
     if today != first_of_month:
         return "Today is not the first of the month. No distribution performed."
 
-    agencies = Agency.objects.filter(created_by__profile__is_kyc_verified=True, created_by__profile__is_kyc=True)
+    agencies = Agency.objects.filter(created_by__profile__is_kyc_verified=True, created_by__profile__is_kyc=True,
+                                     status='active')
 
     for agency in agencies:
         user = agency.created_by
@@ -158,33 +160,44 @@ def distribute_monthly_rent_for_agency():
             amount=25000,
             transaction_type='rent',
             transaction_status='approved',
-            remarks='Agency Rent Payment sent by CLICKNPAY REAL ESTATE'
+            remarks='Agency Rent Payment sent by CLICKNPAY REAL ESTATE',
+            payment_method='wallet'
         )
 
     return "Monthly rent distributed successfully."
 
 
-def process_monthly_rentals():
+def process_monthly_rentals_for_ppd_interest():
     """
     Process monthly rentals for all active PPD accounts.
-    The rental will be sent every month until the account is withdrawn or inactive.
+    The rental will be sent only once per month until the account is withdrawn or inactive.
     """
-    today = date.today()
-    active_accounts = PPDAccount.objects.filter(is_active=True)
+    today = datetime.today().date()
+    # first_of_month = today.replace(day=19)
+    #
+    # if today != first_of_month:
+    #     return "Today is not the 19th of the month. No distribution performed."
+
+    active_accounts = PPDAccount.objects.filter(
+        is_active=True, user__is_active=True,
+        user__profile__is_kyc=True, user__profile__is_kyc_verified=True
+    )
+
     results = []
 
     for account in active_accounts:
         try:
+            if (account.last_interest_pay and account.last_interest_pay.year == today.year and
+                    account.last_interest_pay.month == today.month):
+                results.append(f"Skipping {account.user.username}: Interest already paid this month.")
+                continue
+
             deposit_date = account.deposit_date
             months_since_deposit = (today.year - deposit_date.year) * 12 + (today.month - deposit_date.month)
 
             if months_since_deposit >= 0:
-                if account.has_purchased_property:
-                    interest_rate = Decimal('0.01')
-                else:
-                    interest_rate = Decimal('0.02')
-
-                monthly_rental = Decimal(account.amount_deposited) * interest_rate
+                interest_rate = Decimal('0.01') if account.has_purchased_property else Decimal('0.02')
+                monthly_rental = Decimal(account.deposit_amount) * interest_rate
 
                 wallet, created = UserWallet.objects.get_or_create(user=account.user)
                 wallet.app_wallet_balance += monthly_rental
@@ -195,12 +208,15 @@ def process_monthly_rentals():
                     amount=monthly_rental,
                     transaction_type='interest',
                     transaction_status='approved',
-                    remarks='Property Payment Deposit Interest Send by CNP'
+                    remarks='Property Payment Deposit Interest Sent by CNP',
+                    payment_method='wallet',
+                    verified_on=datetime.today()
                 )
 
-                results.append(
-                    f"Monthly rental of ₹{monthly_rental} processed for {account.user.username}."
-                )
+                account.last_interest_pay = today
+                account.save(update_fields=['last_interest_pay'])
+
+                results.append(f"Monthly rental of ₹{monthly_rental} processed for {account.user.username}.")
         except Exception as e:
             results.append(f"Failed for {account.user.username}: {str(e)}")
 
@@ -219,7 +235,7 @@ def get_reward_based_on_turnover(turnover, role):
     """
     if turnover is None or turnover <= 0:
         return None
-    reward = RewardMaster.objects.filter(turnover_threshold__lte=turnover, applicable_for=role).order_by(
+    reward = RewardMaster.objects.filter(turnover_threshold__lte=turnover, applicable_for=role, status='active').order_by(
         '-turnover_threshold').first()
     return reward
 
@@ -231,25 +247,52 @@ def calculate_super_agency_rewards():
         'profile__user',
         'agencies',
         'agencies__field_agents'
-    ).annotate(
-        total_agency_turnover=Sum('agencies__turnover'),
-        total_field_agent_turnover=Sum('agencies__field_agents__turnover')
-    )
+    ).filter(
+        profile__is_kyc=True, profile__is_kyc_verified=True, profile__user__is_active=True,
+        status='active', agencies__status='active',
+        agencies__field_agents__status='active', created_by__is_active=True
+    ).distinct()
+
     results = []
 
     for super_agency in super_agencies:
-        total_turnover = super_agency.total_agency_turnover or 0
-        total_turnover += super_agency.total_field_agent_turnover or 0
+        active_agencies = Agency.objects.filter(
+            status='active', company=super_agency, created_by__profile__is_kyc=True,
+            created_by__profile__is_kyc_verified=True, created_by__is_active=True
+        )
+        total_agency_turnover = active_agencies.aggregate(Sum('turnover'))['turnover__sum'] or 0
+
+        total_field_agent_turnover = FieldAgent.objects.filter(
+            agency__in=active_agencies, status='active', profile__is_kyc=True, profile__is_kyc_verified=True,
+            profile__user__is_active=True
+        ).aggregate(Sum('turnover'))['turnover__sum'] or 0
+
+        total_turnover = total_agency_turnover + total_field_agent_turnover
         role = super_agency.profile.role
         reward = get_reward_based_on_turnover(total_turnover, role)
+
         if reward:
             if not RewardEarned.objects.filter(user=super_agency.profile.user, reward=reward).exists():
+                Transaction.objects.create(
+                    verified_on=datetime.today(),
+                    receiver=super_agency.profile.user,
+                    amount=reward.gift_amount,
+                    transaction_type='reward',
+                    transaction_status='approved',
+                    remarks='Reward Gift Pay by CLICKNPAY REAL ESTATE.',
+                    payment_method='wallet'
+                )
                 RewardEarned.objects.create(
                     user=super_agency.profile.user,
                     created_by=super_agency.profile.user,
                     reward=reward,
-                    turnover_at_earning=total_turnover
+                    turnover_at_earning=total_turnover,
+                    is_paid=True
                 )
+                wallet, created = UserWallet.objects.get_or_create(user=super_agency.profile.user)
+                wallet.app_wallet_balance += reward.gift_amount
+                wallet.save()
+
     return results
 
 
@@ -259,29 +302,48 @@ def calculate_agency_rewards():
         'created_by',
         'created_by__profile',
         'field_agents'
-    ).annotate(
-        total_field_agent_turnover=Sum('field_agents__turnover')
-    )
+    ).filter(
+        status='active', created_by__profile__is_kyc=True, created_by__profile__is_kyc_verified=True,
+        created_by__is_active=True).distinct()
     results = []
 
     for agency in agencies:
-        total_turnover = agency.total_field_agent_turnover or 0
+        total_field_agent_turnover = FieldAgent.objects.filter(
+            agency=agency, status='active', profile__is_kyc=True, profile__is_kyc_verified=True,
+            profile__user__is_active=True
+        ).aggregate(Sum('turnover'))['turnover__sum'] or 0
+
         role = agency.created_by.profile.role
-        reward = get_reward_based_on_turnover(total_turnover, role)
+        reward = get_reward_based_on_turnover(total_field_agent_turnover, role)
         if reward:
             if not RewardEarned.objects.filter(user=agency.created_by, reward=reward).exists():
+                Transaction.objects.create(
+                    verified_on=datetime.today(),
+                    receiver=agency.created_by,
+                    amount=reward.gift_amount,
+                    transaction_type='reward',
+                    transaction_status='approved',
+                    remarks='Reward Gift Pay by CLICKNPAY REAL ESTATE.',
+                    payment_method='wallet'
+                )
                 RewardEarned.objects.create(
                     user=agency.created_by,
                     created_by=agency.created_by,
                     reward=reward,
-                    turnover_at_earning=total_turnover
+                    turnover_at_earning=total_field_agent_turnover,
+                    is_paid=True
                 )
+                wallet, created = UserWallet.objects.get_or_create(user=agency.created_by)
+                wallet.app_wallet_balance += reward.gift_amount
+                wallet.save()
     return results
 
 
 def calculate_field_agent_rewards():
     """Calculate and return the rewards for each SuperAgency."""
-    field_agent = FieldAgent.objects.prefetch_related(
+    field_agent = FieldAgent.objects.filter(
+        status='active', profile__is_kyc=True, profile__is_kyc_verified=True, profile__user__is_active=True
+    ).prefetch_related(
         'profile',
         'profile__user'
     )
@@ -293,43 +355,28 @@ def calculate_field_agent_rewards():
         reward = get_reward_based_on_turnover(total_turnover, role)
         if reward:
             if not RewardEarned.objects.filter(user=agent.profile.user, reward=reward).exists():
+
+                Transaction.objects.create(
+                    verified_on=datetime.today(),
+                    receiver=agent.profile.user,
+                    amount=reward.gift_amount,
+                    transaction_type='reward',
+                    transaction_status='approved',
+                    remarks='Reward Gift Pay by CLICKNPAY REAL ESTATE.',
+                    payment_method='wallet'
+                )
                 RewardEarned.objects.create(
                     user=agent.profile.user,
                     created_by=agent.profile.user,
                     reward=reward,
-                    turnover_at_earning=total_turnover
+                    turnover_at_earning=total_turnover,
+                    is_paid=True
                 )
+                wallet, created = UserWallet.objects.get_or_create(user=agent.profile.user)
+                wallet.app_wallet_balance += reward.gift_amount
+                wallet.save()
     return results
 
-
-
-# def calculate_rewards(income):
-#     """
-#     Calculate specific rewards based on turnover.
-#     """
-#     reward_tiers = [
-#         (500000, 1000, 10),
-#         (1000000, 1000, 22),
-#         (2500000, 2000, 25),
-#         (5000000, 4000, 25),
-#         (10000000, 6000, 25),
-#         (25000000, 8000, 35),
-#         (50000000, 10000, 60),
-#         (100000000, 20000, 60),
-#         (250000000, 50000, 60),
-#         (500000000, 100000, 75),
-#         (1000000000, 200000, 0)
-#     ]
-#     rewards = []
-#     for turnover_threshold, monthly_income, months in reward_tiers:
-#         if income >= turnover_threshold:
-#             rewards.append({
-#                 "turnover": turnover_threshold,
-#                 "monthly_income": monthly_income,
-#                 "months": months,
-#                 "total_income": monthly_income * months if months > 0 else None,
-#             })
-#     return rewards
 
 def calculate_p2pmb_rewards():
     """Calculate and return the rewards for each SuperAgency."""

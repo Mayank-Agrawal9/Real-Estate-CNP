@@ -46,13 +46,13 @@ def calculate_level_income(instance, amount):
     return level_income
 
 
-def distribute_p2pmb_commission(instance, amount):
-    if not instance or not amount:
+def distribute_p2pmb_commission(profile_instance, amount):
+    if not profile_instance or not amount:
         return
 
     instant_commission = Decimal(amount) * Decimal('0.03')
     monthly_commission = Decimal(amount) * Decimal('0.015')
-    referral_by = instance.referral_by
+    referral_by = profile_instance.referral_by
 
     with transaction.atomic():
         if referral_by:
@@ -62,48 +62,51 @@ def distribute_p2pmb_commission(instance, amount):
                 referral_user_wallet.save()
 
                 Commission.objects.create(
-                    person=instance,
+                    created_by=profile_instance.user,
+                    commission_by=profile_instance.user,
+                    commission_to=profile_instance.user,
                     commission_type='direct',
                     amount=instant_commission,
-                    description=f'Commission Added while adding {instance.child.username}'
+                    description=f'Commission Added while adding {profile_instance.child.username}'
                 )
 
                 Transaction.objects.create(
                     created_by=referral_user_wallet.user,
                     sender=referral_user_wallet.user,
-                    receiver=referral_by,
+                    receiver=referral_user_wallet.user,
                     amount=instant_commission,
                     transaction_type='commission',
                     transaction_status='approved',
-                    remarks=f'Commission Added while adding {instance.child.username}'
+                    remarks=f'Commission Added while adding {profile_instance.child.username}'
                 )
 
-                if instance.parent:
-                    regular_leader_wallet = UserWallet.objects.filter(user=instance.parent, status='active').last()
+                if profile_instance.parent:
+                    regular_leader_wallet = UserWallet.objects.filter(user=profile_instance.parent, status='active').last()
                     if regular_leader_wallet:
                         regular_leader_wallet.app_wallet_balance += monthly_commission
                         regular_leader_wallet.save()
 
                         Commission.objects.create(
-                            created_by=instance.child,
-                            person=instance,
+                            created_by=profile_instance.user,
+                            commission_by=profile_instance.user,
+                            commission_to=profile_instance.user,
                             commission_type='direct',
                             amount=monthly_commission,
-                            description=f'Commission Added while adding {instance.child.username}'
+                            description=f'Commission Added while adding {profile_instance.child.username}'
                         )
 
                         Transaction.objects.create(
                             created_by=regular_leader_wallet.user,
                             sender=regular_leader_wallet.user,
-                            receiver=instance.parent,
+                            receiver=profile_instance.parent,
                             amount=monthly_commission,
                             transaction_type='commission',
                             transaction_status='approved',
-                            remarks=f'Commission Added while adding {instance.child.username}'
+                            remarks=f'Commission Added while adding {profile_instance.child.username}'
                         )
 
             for month in range(1, 10):
-                schedule_payment(instance.parent, monthly_commission, month)
+                schedule_payment(profile_instance.parent, monthly_commission, month)
         else:
             top_user = MLMTree.objects.filter(parent=None).first()
             if top_user:
@@ -112,45 +115,47 @@ def distribute_p2pmb_commission(instance, amount):
                 top_user.save()
 
                 Commission.objects.create(
-                    created_by=instance.child,
-                    person=instance,
+                    created_by=profile_instance.user,
+                    commission_by=profile_instance.user,
+                    commission_to=profile_instance.user,
                     commission_type='direct',
                     amount=instant_commission,
-                    description=f'Commission Added while adding {instance.child.username}'
+                    description=f'Commission Added while adding {profile_instance.child.username}'
                 )
 
                 Transaction.objects.create(
-                    created_by=instance.child,
-                    sender=instance.child,
+                    created_by=profile_instance.child,
+                    sender=profile_instance.child,
                     receiver=top_user.child,
                     amount=instant_commission,
                     transaction_type='commission',
                     transaction_status='approved',
-                    remarks=f'Commission Added while adding {instance.child.username}'
+                    remarks=f'Commission Added while adding {profile_instance.child.username}'
                 )
 
-                if instance.parent:
-                    parent_wallet = UserWallet.objects.filter(user=instance.parent, status='active').last()
+                if profile_instance.parent:
+                    parent_wallet = UserWallet.objects.filter(user=profile_instance.parent, status='active').last()
                     if parent_wallet:
                         parent_wallet.app_wallet_balance += monthly_commission
                         parent_wallet.save()
 
                         Commission.objects.create(
-                            created_by=instance.child,
-                            person=instance,
+                            created_by=profile_instance.user,
+                            commission_by=profile_instance.user,
+                            commission_to=profile_instance.user,
                             commission_type='direct',
                             amount=monthly_commission,
-                            description=f'Commission Added while adding {instance.child.username}'
+                            description=f'Commission Added while adding {profile_instance.child.username}'
                         )
 
                         Transaction.objects.create(
-                            created_by=instance.child,
-                            sender=instance.child,
-                            receiver=instance.parent,
+                            created_by=profile_instance.child,
+                            sender=profile_instance.child,
+                            receiver=profile_instance.parent,
                             amount=monthly_commission,
                             transaction_type='commission',
                             transaction_status='approved',
-                            remarks=f'Commission Added while adding {instance.child.username}'
+                            remarks=f'Commission Added while adding {profile_instance.child.username}'
                         )
                 for month in range(1, 10):
                     schedule_payment(top_user, monthly_commission, month)
@@ -207,7 +212,7 @@ def distribute_to_levels_above(user, amount, percent, max_levels):
     Distribute commission to levels above the user.
     Returns the remaining amount if fewer levels are available.
     """
-    current_user = user
+    current_user = user.child
     distributed_levels = 0
 
     while distributed_levels < max_levels:
@@ -224,11 +229,11 @@ def distribute_to_levels_above(user, amount, percent, max_levels):
         current_user = parent.parent
         distributed_levels += 1
         Transaction.objects.create(
-            created_by=parent, sender=parent, receiver=parent.parent, amount=commission, transaction_type='commission',
+            created_by=parent.parent, sender=parent.parent, receiver=parent.parent, amount=commission, transaction_type='commission',
             transaction_status='approved', remarks=f'Commission Added while added {current_user.get_full_name()}'
         )
         Commission.objects.create(
-            created_by=parent, commission_by=parent, commission_to=parent.parent, commission_type='level',
+            created_by=parent.parent, commission_by=parent.parent, commission_to=parent.parent, commission_type='level',
             amount=amount, description=f'Commission Added while added {current_user.get_full_name()}'
         )
 
@@ -241,7 +246,7 @@ def distribute_to_levels_below(user, amount, percent, max_levels):
     Distribute commission to levels below the user.
     Returns the remaining amount if fewer levels are available.
     """
-    children = MLMTree.objects.filter(parent=user)
+    children = MLMTree.objects.filter(parent=user.child)
     remaining_levels = max_levels
     next_level_children = list(children)
     distributed_levels = 0
@@ -276,7 +281,7 @@ def calculate_lifetime_reward_income_task():
     """
     Celery task to calculate and award lifetime reward income based on turnover.
     """
-    persons = MLMTree.objects.all()
+    persons = MLMTree.objects.filter(status='active')
     for person in persons:
         turnover = person.turnover
         if turnover >= 500000000:
@@ -359,7 +364,7 @@ def process_monthly_reward_payments():
     Celery task to process monthly reward payments and update relevant fields.
     """
     today = datetime.datetime.today()
-    rewards = Reward.objects.all()
+    rewards = Reward.objects.filter(status='active')
 
     for reward in rewards:
         person = reward.person
@@ -376,6 +381,7 @@ def process_monthly_reward_payments():
 
 
 def transfer_to_wallet(person, amount):
+
     """
     This function to simulate transferring the amount to the user's wallet.
     Replace this with your actual wallet transfer logic.
@@ -391,7 +397,8 @@ def transfer_to_wallet(person, amount):
         receiver=person,
         amount=amount,
         transaction_type='commission',
-        transaction_status='approved'
+        transaction_status='approved',
+        payment_method='wallet'
     )
     Commission.objects.create(
         commission_by__id=1,
@@ -408,9 +415,10 @@ def check_royalty_club_membership():
     """
     persons = MLMTree.objects.filter(status='active')
     for person in persons:
-        direct_ids_count = person.referral_by.count()
+        direct_ids_count = MLMTree.objects.filter(referral_by=person.child).count()
         team_count_level_one = MLMTree.objects.filter(parent=person.child).count()
-        team_count_level_two = MLMTree.objects.filter(parent__in=MLMTree.objects.filter(parent=person.child)).count()
+        team_count_level_two = MLMTree.objects.filter(
+            parent__in=MLMTree.objects.filter(parent=person.child).values_list('child', flat=True)).count()
 
         if direct_ids_count >= 10:
             RoyaltyClub.objects.get_or_create(person=person, club_type='star', turnover_limit=1000000,

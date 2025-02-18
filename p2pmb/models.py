@@ -62,7 +62,7 @@ class RoyaltyClub(ModelMixin):
     gifts_value = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0.00'))
 
     def __str__(self):
-        return f"{self.person.user.username} - {self.get_club_type_display()}"
+        return f"{self.id} - {self.get_club_type_display()}"
 
 
 class Reward(ModelMixin):
@@ -98,11 +98,13 @@ class Commission(ModelMixin):
         ('reward', 'Life Time Reward Income'),
         ('royalty', 'Royalty Company Turnover'),
     ]
-    commission_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name="commissions_by", null=True, blank=True)
-    commission_to = models.ForeignKey(MLMTree, on_delete=models.CASCADE, related_name='commission_to', null=True, blank=True)
+    commission_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name="commissions_by", null=True,
+                                      blank=True)
+    commission_to = models.ForeignKey(User, on_delete=models.CASCADE, related_name='p2pmb_commission_to', null=True,
+                                      blank=True)
     commission_type = models.CharField(max_length=20, choices=COMMISSION_TYPE_CHOICES)
     amount = models.DecimalField(max_digits=15, decimal_places=2)
     description = models.CharField(max_length=255, blank=True, null=True)
 
     def __str__(self):
-        return f"{self.person.user.username} - {self.get_commission_type_display()} - {self.amount}"
+        return f"{self.commission_by.username} - {self.get_commission_type_display()} - {self.amount}"

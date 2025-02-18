@@ -51,7 +51,8 @@ INSTALLED_APPS = [
     'corsheaders',
     'storages',
     'django_ckeditor_5',
-    'auditlog'
+    'auditlog',
+    'django_crontab',
 ]
 
 CUSTOM_APPS = [
@@ -250,6 +251,13 @@ CKEDITOR_5_CONFIGS = {
 }
 
 AUDITLOG_INCLUDE_ALL_MODELS = True
+
+
+# Cron Jobs
+
+# CRONJOBS = [
+#     ('0 0 1 * *', 'real_estate.cron.monthly_task')
+# ]
 
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:4200',

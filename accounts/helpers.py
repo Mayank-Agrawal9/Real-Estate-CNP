@@ -67,7 +67,6 @@ def update_field_agent_profile(user, data, role):
 def update_p2pmb_profile(user, data, role):
     id, referral_by = validate_referral_code(data["basic_details"], role)
     update_profile(user, data["basic_details"], role, referral_by)
-    update_p2pmb(user, id, referral_by)
     update_bank_details(user, data["bank_details"])
     update_user_documents(user, data.get("documents_for_kyc", []))
 
@@ -97,19 +96,19 @@ def validate_referral_code(basic_details, role):
         raise ValidationError("Referral user has not completed their KYC.")
 
     if referral_by.role == 'super_agency':
-        super_agency = SuperAgency.objects.filter(profile=referral_by).last()
+        super_agency = SuperAgency.objects.filter(profile=referral_by, status='active').last()
         if not super_agency:
             raise ValidationError("Referral code should be your upper-level user.")
         return super_agency, referral_by
 
     elif referral_by.role == 'agency':
-        agency_ = Agency.objects.filter(created_by=referral_by.user).last()
+        agency_ = Agency.objects.filter(created_by=referral_by.user, status='active').last()
         if not agency_:
             raise ValidationError("Referral code should be your upper-level user.")
         return agency_, referral_by
 
     elif referral_by.role == 'field_agent':
-        agent_ = FieldAgent.objects.filter(profile=referral_by).last()
+        agent_ = FieldAgent.objects.filter(profile=referral_by, status='active').last()
         if not agent_:
             raise ValidationError("Referral code should be your upper-level user.")
         return agent_, referral_by

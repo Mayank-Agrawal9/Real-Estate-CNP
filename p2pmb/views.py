@@ -5,6 +5,9 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from agency.models import Investment
+from p2pmb.calculation import distribute_level_income, calculate_lifetime_reward_income_task, \
+    process_monthly_reward_payments, check_royalty_club_membership
 from p2pmb.models import MLMTree, Package
 from p2pmb.serializers import MLMTreeSerializer, MLMTreeNodeSerializer, PackageSerializer
 
@@ -57,3 +60,45 @@ class PackageViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return Package.objects.filter(status='active')
+
+
+class DistributeLevelIncome(APIView):
+    """
+    API to distribute level income.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user_id = request.data.get('user_id')
+        investment_id = request.data.get('investment_id')
+        investment_instance = Investment.objects.filter(id=investment_id).last()
+        instance = MLMTree.objects.filter(child=user_id).last()
+        if not instance or not investment_instance:
+            return Response({'message': "Invalid id"}, status=status.HTTP_400_BAD_REQUEST)
+        amount = investment_instance.amount if investment_instance.amount else 0
+        distribute_level_income(instance, amount)
+        return Response("serializer.data")
+
+
+class LiveTimeRewardIncome(APIView):
+    """
+    API to distribute level income.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        calculate_lifetime_reward_income_task()
+        process_monthly_reward_payments()
+        return Response("serializer.data")
+
+
+class RoyaltyIncome(APIView):
+    """
+    API to distribute level income.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        check_royalty_club_membership()
+        process_monthly_reward_payments()
+        return Response("serializer.data")

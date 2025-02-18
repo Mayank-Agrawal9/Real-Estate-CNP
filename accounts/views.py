@@ -259,7 +259,8 @@ class VerifyAndUpdateProfile(APIView):
                 transaction_status='approved',
                 verified_by=verify_by,
                 verified_on=datetime.datetime.now(),
-                remarks=remarks
+                remarks=remarks,
+                payment_method='wallet'
             )
         wallet.save()
 

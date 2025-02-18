@@ -117,6 +117,7 @@ class PPDAccount(ModelMixin):
     withdrawal_date = models.DateField(null=True, blank=True)
     withdrawal_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     remarks = models.TextField(null=True, blank=True)
+    last_interest_pay = models.DateField(null=True, blank=True)
 
     def save(self, *args, **kwargs):
         if not self.monthly_rental:
