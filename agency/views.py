@@ -9,7 +9,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from p2pmb.calculation import distribute_level_income
+from p2pmb.calculation import calculate_lifetime_reward_income_task
 from payment_app.models import UserWallet, Transaction
 from .calculation import distribute_monthly_rent_for_super_agency, calculate_super_agency_rewards, \
     calculate_agency_rewards, calculate_field_agent_rewards, process_monthly_rentals_for_ppd_interest
@@ -276,7 +276,7 @@ class CheckAPI(APIView):
 
     def get(self, request):
         # calculate_super_agency_rewards()
-        res = distribute_level_income()
+        res = calculate_lifetime_reward_income_task()
         # calculate_agency_rewards()
         # res = calculate_field_agent_rewards()
         return Response({"error": res}, status=status.HTTP_200_OK)

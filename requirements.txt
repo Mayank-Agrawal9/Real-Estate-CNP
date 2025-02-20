@@ -26,4 +26,4 @@ typing_extensions==4.12.2
 urllib3==2.3.0
 django-storages==1.14.4
 django-auditlog==3.0.0
-python-crontab==3.2.0
+django-crontab==0.7.1

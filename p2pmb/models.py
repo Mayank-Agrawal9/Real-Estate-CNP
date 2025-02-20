@@ -17,6 +17,8 @@ class MLMTree(ModelMixin):
     referral_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='parent_referral', null=True, blank=True)
     turnover = models.DecimalField(max_digits=12, decimal_places=2, default=0.0)
     commission_earned = models.DecimalField(max_digits=12, decimal_places=2, default=0.0)
+    send_direct_income = models.BooleanField(default=False)
+    send_level_income = models.BooleanField(default=False)
 
     class Meta:
         constraints = [
@@ -88,7 +90,7 @@ class Reward(ModelMixin):
     last_payment_send = models.DateField(null=True, blank=True)
 
     def __str__(self):
-         return f"{self.person.user.username} - {self.get_reward_type_display()}"
+         return f"{self.id} - {self.get_reward_type_display()}"
 
 
 class Commission(ModelMixin):
