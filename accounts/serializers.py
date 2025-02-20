@@ -141,7 +141,7 @@ class SuperAgencyKycSerializer(serializers.Serializer):
         basic_details = attrs.get("basic_details", {})
         role = basic_details.get("role")
 
-        if role == "field_agent":
+        if role == "field_agent" or role == "p2pmb":
             attrs.pop("company_details", None)
         elif not attrs.get("company_details"):
             raise serializers.ValidationError(
