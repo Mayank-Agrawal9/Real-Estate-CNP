@@ -145,7 +145,7 @@ class SuperAgencyKycSerializer(serializers.Serializer):
             attrs.pop("company_details", None)
         elif not attrs.get("company_details"):
             raise serializers.ValidationError(
-                {"company_details": "This field is required for roles other than 'field_agent'."}
+                {"company_details": "This field is required for roles other than 'field_agent' or 'p2pmb."}
             )
         return attrs
 

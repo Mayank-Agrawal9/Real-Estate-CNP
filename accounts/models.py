@@ -55,7 +55,7 @@ class Profile(ModelMixin):
     verified_by = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True, related_name="kyc_verified_by")
     verified_on = models.DateTimeField(null=True, blank=True)
     referral_code = models.CharField(max_length=50, null=True, blank=True)
-    referral_by = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True, related_name="referral_by")
+    referral_by = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name="referral_by")
     kyc_video = models.FileField(null=True, blank=True)
 
 
