@@ -165,6 +165,7 @@ class RewardEarned(ModelMixin):
     earned_at = models.DateTimeField(auto_now_add=True)
     turnover_at_earning = models.DecimalField(max_digits=15, decimal_places=2)
     is_paid = models.BooleanField(default=False)
+    is_p2p = models.BooleanField(default=False)
     total_month = models.IntegerField(default=0)
 
     def __str__(self):

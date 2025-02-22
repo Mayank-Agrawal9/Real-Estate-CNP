@@ -1,7 +1,7 @@
 from django.db import models
 
 from accounts.choices import USER_ROLE
-from master.choices import GST_METHOD, BANNER_PAGE_CHOICE, CAROUSEL_NUMBER
+from master.choices import GST_METHOD, BANNER_PAGE_CHOICE, CAROUSEL_NUMBER, ROYALTY_CLUB_TYPE
 from real_estate.model_mixin import ModelMixin
 
 
@@ -55,6 +55,7 @@ class RewardMaster(ModelMixin):
     reward_description = models.TextField()
     applicable_for = models.CharField(max_length=100, choices=USER_ROLE, default='super_agency')
     gift_amount = models.DecimalField(max_digits=15, decimal_places=2, default=0.0)
+    total_paid_month = models.IntegerField(null=True, blank=True)
 
     def __str__(self):
         return f"{self.name} - ₹{self.turnover_threshold}"
@@ -75,3 +76,15 @@ class CompanyBankDetailsMaster(ModelMixin):
 
     def __str__(self):
         return f"{self.id}"
+
+
+class RoyaltyMaster(ModelMixin):
+    club_type = models.CharField(max_length=20, choices=ROYALTY_CLUB_TYPE)
+    direct_ids_required = models.PositiveIntegerField()
+    level_one_required = models.PositiveIntegerField()
+    level_two_required = models.PositiveIntegerField()
+    turnover_limit = models.PositiveBigIntegerField()
+    gift_amount = models.PositiveBigIntegerField()
+
+    def __str__(self):
+        return f"{self.club_type} (Gift: {self.gift_amount})"

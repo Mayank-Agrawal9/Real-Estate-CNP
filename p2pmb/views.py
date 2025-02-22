@@ -6,8 +6,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from agency.models import Investment
-from p2pmb.calculation import calculate_lifetime_reward_income_task, \
-    process_monthly_reward_payments, check_royalty_club_membership, DistributeDirectCommission, DistributeLevelIncome
+from p2pmb.calculation import (RoyaltyClubDistribute, DistributeDirectCommission, DistributeLevelIncome,
+                               LifeTimeRewardIncome)
 from p2pmb.models import MLMTree, Package
 from p2pmb.serializers import MLMTreeSerializer, MLMTreeNodeSerializer, PackageSerializer
 
@@ -104,16 +104,17 @@ class DistributeDirectIncome(APIView):
         return Response({'message': 'Payment of Direct Income Distribute successfully.'}, status=status.HTTP_200_OK)
 
 
-class LifeTimeRewardIncome(APIView):
+class LifeTimeRewardIncomeAPIView(APIView):
     """
     API to distribute level income.
     """
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        calculate_lifetime_reward_income_task()
-        process_monthly_reward_payments()
-        return Response("serializer.data")
+        # calculate_lifetime_reward_income_task()
+        # process_monthly_reward_payments()
+        LifeTimeRewardIncome.check_and_allocate_rewards()
+        return Response({"message": "successful earned life time Income"})
 
 
 class RoyaltyIncome(APIView):
@@ -123,6 +124,6 @@ class RoyaltyIncome(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        check_royalty_club_membership()
-        process_monthly_reward_payments()
-        return Response("serializer.data")
+        RoyaltyClubDistribute.check_royalty_club_membership()
+        # process_monthly_reward_payments()
+        return Response({"message": "Royalty income distribute successfully."})

@@ -11,6 +11,7 @@ router.register(r'banner-image', BannerImageViewSet)
 router.register(r'gst', GstViewSet)
 router.register(r'rewards', RewardMasterViewSet)
 router.register(r'company-bank-detail', CompanyBankDetailsMasterViewSet)
+router.register(r'royalty', RoyaltyMasterViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),

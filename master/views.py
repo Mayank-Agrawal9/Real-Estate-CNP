@@ -97,3 +97,11 @@ class CompanyBankDetailsMasterViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_fields = ['is_applicable_for_super_agency', 'is_applicable_for_agency',
                         'is_applicable_for_field_agent', 'is_applicable_for_p2pmb']
+
+
+class RoyaltyMasterViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    queryset = RoyaltyMaster.objects.filter(status='active')
+    serializer_class = RoyaltyMasterSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_fields = ['club_type',]

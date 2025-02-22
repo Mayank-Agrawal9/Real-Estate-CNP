@@ -32,6 +32,7 @@ class ScheduledCommission(ModelMixin):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="scheduled_commissions")
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     scheduled_date = models.DateTimeField()
+    remarks = models.TextField(null=True, blank=True)
     is_paid = models.BooleanField(default=False)
 
     def __str__(self):

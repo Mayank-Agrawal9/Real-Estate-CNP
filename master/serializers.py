@@ -43,3 +43,9 @@ class CompanyBankDetailsMasterSerializer(serializers.ModelSerializer):
     class Meta:
         model = CompanyBankDetailsMaster
         fields = '__all__'
+
+
+class RoyaltyMasterSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RoyaltyMaster
+        fields = '__all__'

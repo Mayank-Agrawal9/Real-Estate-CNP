@@ -20,3 +20,11 @@ GST_METHOD = (
     ('withdraw', 'Withdraw'),
     ('transfer', 'Transfer'),
 )
+
+ROYALTY_CLUB_TYPE = (
+    ('star', 'Star Club'),
+    ('2_star', '2-Star Club'),
+    ('3_star', '3-Star Club'),
+    ('5_star', '5-Star Club'),
+)
+

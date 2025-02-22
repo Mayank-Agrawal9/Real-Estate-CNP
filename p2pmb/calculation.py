@@ -1,11 +1,15 @@
 import datetime
 from decimal import Decimal
+from itertools import combinations
 
 from django.db import transaction
 
+from agency.models import RewardEarned
+from master.models import RewardMaster, RoyaltyMaster
 from p2pmb.helpers import create_transaction_entry, create_commission_entry
-from p2pmb.models import MLMTree, ScheduledCommission, Commission, Reward, RoyaltyClub
+from p2pmb.models import MLMTree, ScheduledCommission, Commission, RoyaltyClub, Reward
 from payment_app.models import Transaction, UserWallet
+from real_estate.constant import TURNOVER_DISTRIBUTION
 
 
 # def calculate_level_income(instance, amount):
@@ -299,85 +303,102 @@ class DistributeLevelIncome:
         return Decimal(amount) * percent * Decimal(remaining_levels)
 
 
-def calculate_lifetime_reward_income_task():
-    """
-    Celery task to calculate and award lifetime reward income based on turnover.
-    """
-    persons = MLMTree.objects.filter(status='active')
-    for person in persons:
-        turnover = int(person.turnover)
-        if turnover >= 500000000:
-            reward_type = 'blue_sapphire'
-        elif turnover >= 250000000:
-            reward_type = 'commander'
-        elif turnover >= 100000000:
-            reward_type = 'relic'
-        elif turnover >= 50000000:
-            reward_type = 'almighty'
-        elif turnover >= 25000000:
-            reward_type = 'conqueron'
-        elif turnover >= 10000000:
-            reward_type = 'titan'
-        elif turnover >= 5000000:
-            reward_type = 'diamond'
-        elif turnover >= 2500000:
-            reward_type = 'gold'
-        elif turnover >= 1000000:
-            reward_type = 'silver'
-        elif turnover >= 500000:
-            reward_type = 'star'
-        else:
-            continue
+class LifeTimeRewardIncome:
+    @staticmethod
+    def check_and_allocate_rewards():
+        parents = MLMTree.objects.filter(parent__isnull=False, status='active').select_related('parent')
 
-        try:
-            reward = Reward.objects.filter(person=person, reward_type=reward_type).last()
-            if reward:
-                continue
-        except Exception as e:
-            continue
-        if reward_type == 'star':
-            monthly_payment = 1000
-            months_duration = 10
-        elif reward_type == 'silver':
-            monthly_payment = 1000
-            months_duration = 22
-        elif reward_type == 'gold':
-            monthly_payment = 2000
-            months_duration = 25
-        elif reward_type == 'diamond':
-            monthly_payment = 4000
-            months_duration = 25
-        elif reward_type == 'titan':
-            monthly_payment = 6000
-            months_duration = 25
-        elif reward_type == 'conqueron':
-            monthly_payment = 8000
-            months_duration = 35
-        elif reward_type == 'almighty':
-            monthly_payment = 10000
-            months_duration = 60
-        elif reward_type == 'relic':
-            monthly_payment = 20000
-            months_duration = 60
-        elif reward_type == 'commander':
-            monthly_payment = 50000
-            months_duration = 60
-        elif reward_type == 'blue_sapphire':
-            monthly_payment = 100000
-            months_duration = 75
-        else:
-            print("Invalid reward type")
-            continue
+        processed_parents = {}
 
-        Reward.objects.create(
-            person=person,
-            reward_type=reward_type,
-            turnover_required=turnover,
-            monthly_payment=monthly_payment,
-            months_duration=months_duration,
-            achieved_date=datetime.datetime.now()
+        reward_master_queryset = RewardMaster.objects.filter(applicable_for='p2pmb').only(
+            'id', 'turnover_threshold', 'gift_amount', 'total_paid_month'
         )
-        print(f"Created {reward_type} reward for {person.user.username}.")
+
+        for parent in parents:
+            if parent.parent_id in processed_parents:
+                continue
+
+            children = list(MLMTree.objects.filter(parent=parent.parent, status='active')[:5])
+
+            if len(children) < 4:
+                continue
+
+            processed_parents[parent.parent_id] = True
+
+            for reward in reward_master_queryset:
+                if RewardEarned.objects.filter(
+                        user=parent.parent, reward=reward, status='active', is_p2p=True
+                ).exists():
+                    continue
+
+                threshold = reward.turnover_threshold
+
+                for comb in combinations(children, 4):
+                    turnovers = sorted([child.turnover for child in comb], reverse=True)
+
+                    if all(turnovers[i] >= (threshold * TURNOVER_DISTRIBUTION[i]) / 100 for i in range(4)):
+                        parent.commission_earned += reward.gift_amount or 0
+                        parent.save()
+
+                        RewardEarned.objects.create(
+                            user=parent.parent,
+                            created_by=parent.parent,
+                            reward=reward,
+                            earned_at=datetime.datetime.now(),
+                            turnover_at_earning=parent.turnover,
+                            is_paid=False,
+                            total_month=reward.total_paid_month,
+                            is_p2p=True
+                        )
+
+                        commission_entries = [
+                            ScheduledCommission(
+                                created_by=parent.parent,
+                                send_by=parent.parent,
+                                user=parent.parent,
+                                amount=reward.gift_amount,
+                                scheduled_date=datetime.datetime.now() + datetime.timedelta(days=30 * i),
+                                is_paid=False,
+                                remarks=f'Commission added for life time reward earned {reward.name}'
+                            )
+                            for i in range(reward.total_paid_month)
+                        ]
+                        ScheduledCommission.objects.bulk_create(commission_entries)
+
+                        break
+
+
+class RoyaltyClubDistribute:
+    @staticmethod
+    def check_royalty_club_membership():
+        """
+        Check and assign royalty club membership based on defined criteria.
+        """
+        persons = MLMTree.objects.filter(status='active')
+        royalties = RoyaltyMaster.objects.filter(status='active')
+        for royalty in royalties:
+            for person in persons:
+                direct_ids_count = MLMTree.objects.filter(referral_by=person.child, status='active').count()
+                team_count_level_one = MLMTree.objects.filter(parent=person.child, status='active').count()
+                team_count_level_two = MLMTree.objects.filter(
+                    parent__in=MLMTree.objects.filter(parent=person.child).values_list('child', flat=True)).count()
+
+                if (direct_ids_count >= royalty.direct_ids_required and
+                        team_count_level_one >= royalty.level_one_required and
+                        team_count_level_two >= royalty.level_two_required):
+                    gift_amount = royalty.gift_amount
+                    person.commission_earned += gift_amount
+                    person.save()
+                    Commission.objects.get_or_create(
+                        created_by=person.child, commission_by=person.child, commission_to=person.child,
+                        commission_type='royalty', amount=gift_amount,
+                        description='Earned commission for royalty income in 3 star club.'
+                    )
+                    RoyaltyClub.objects.get_or_create(
+                        person=person, club_type=royalty.club_type, turnover_limit=royalty.turnover_limit,
+                        direct_ids_required=royalty.direct_ids_required, level_one_required=royalty.level_one_required,
+                        level_two_required=royalty.level_two_required, gifts_value=royalty.gift_amount
+                    )
 
 
 def process_monthly_reward_payments():
@@ -439,35 +460,3 @@ def transfer_to_wallet(person, amount):
         amount=amount,
         description=f'Commission Added while adding {person.username}'
     )
-
-
-def check_royalty_club_membership():
-    """
-    Check and assign royalty club membership based on defined criteria.
-    """
-    persons = MLMTree.objects.filter(status='active')
-    for person in persons:
-        direct_ids_count = MLMTree.objects.filter(referral_by=person.child).count()
-        team_count_level_one = MLMTree.objects.filter(parent=person.child).count()
-        team_count_level_two = MLMTree.objects.filter(
-            parent__in=MLMTree.objects.filter(parent=person.child).values_list('child', flat=True)).count()
-
-        if direct_ids_count >= 10:
-            RoyaltyClub.objects.get_or_create(person=person, club_type='star', turnover_limit=1000000,
-                                              direct_ids_required=10, level_one_required=0, level_two_required=0,
-                                              gifts_value=1000000)
-
-        if direct_ids_count >= 10 and team_count_level_one >= 5 and team_count_level_two >= 25:
-            RoyaltyClub.objects.get_or_create(person=person, club_type='2_star', turnover_limit=2500000,
-                                              direct_ids_required=10, level_one_required=5, level_two_required=25,
-                                              gifts_value=5000000)
-
-        if team_count_level_one >= 25 and team_count_level_two >= 125:
-            RoyaltyClub.objects.get_or_create(person=person, club_type='3_star', turnover_limit=5000000,
-                                              direct_ids_required=5, level_one_required=5, level_two_required=25,
-                                              gifts_value=5000000)
-
-        if team_count_level_one >= 100 and team_count_level_two >= 500:
-            RoyaltyClub.objects.get_or_create(person=person, club_type='5_star', turnover_limit=10000000,
-                                              direct_ids_required=10, level_one_required=5, level_two_required=25,
-                                              gifts_value=10000000)

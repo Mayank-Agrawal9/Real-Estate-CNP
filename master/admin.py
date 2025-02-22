@@ -3,9 +3,9 @@ from import_export.admin import ImportExportModelAdmin
 
 from accounts.admin import CustomModelAdminMixin
 from agency.resources import RewardEarnedResource
-from master.models import Country, State, GST, BannerImage, City, RewardMaster, CompanyBankDetailsMaster
+from master.models import Country, State, GST, BannerImage, City, RewardMaster, CompanyBankDetailsMaster, RoyaltyMaster
 from master.resources import CountryResource, StateResource, CityResource, BannerImageResource, GSTResource, \
-    RewardMasterResource, CompanyBankDetailsMasterResource
+    RewardMasterResource, CompanyBankDetailsMasterResource, RoyaltyMasterResource
 
 
 # Register your models here.
@@ -56,5 +56,12 @@ class RewardMasterAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
 @admin.register(CompanyBankDetailsMaster)
 class CompanyBankDetailsMasterAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
     resource_class = CompanyBankDetailsMasterResource
+    raw_id_fields = ('created_by', 'updated_by')
+    list_filter = ('status', )
+
+
+@admin.register(RoyaltyMaster)
+class RoyaltyMasterAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
+    resource_class = RoyaltyMasterResource
     raw_id_fields = ('created_by', 'updated_by')
     list_filter = ('status', )
