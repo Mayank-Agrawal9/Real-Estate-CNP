@@ -138,6 +138,7 @@ def update_profile(user, basic_details, role, referral_by=None):
     profile.other_email = basic_details.get("other_email", profile.other_email)
     profile.voter_number = basic_details.get("voter_number", profile.voter_number)
     profile.pan_remarks = basic_details.get("pan_remarks", profile.pan_remarks)
+    profile.pin_code = basic_details.get("pin_code", profile.pin_code)
 
     profile.referral_by = referral_by.user if hasattr(referral_by, "user") else None
     profile.role = role

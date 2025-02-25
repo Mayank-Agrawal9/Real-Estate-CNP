@@ -400,6 +400,22 @@ class RoyaltyClubDistribute:
                         level_two_required=royalty.level_two_required, gifts_value=royalty.gift_amount
                     )
 
+    @staticmethod
+    def check_working_id_active():
+        """
+        Check and update the status of working id.
+        """
+        persons = MLMTree.objects.filter(status='active', is_working_id=False)
+        for person in persons:
+            direct_ids_count = MLMTree.objects.filter(referral_by=person.child, status='active').count()
+            team_count_level_one = MLMTree.objects.filter(parent=person.child, status='active').count()
+            team_count_level_two = MLMTree.objects.filter(
+                parent__in=MLMTree.objects.filter(parent=person.child).values_list('child', flat=True)).count()
+
+            if (direct_ids_count >= 10) or (team_count_level_one >= 5 and team_count_level_two >= 25):
+                person.is_working_id = True
+                person.save()
+
 
 def process_monthly_reward_payments():
     """

@@ -73,6 +73,9 @@ class Investment(ModelMixin):
     gst = models.DecimalField(max_digits=10, decimal_places=2)
     guaranteed_agreement = models.BooleanField(default=False)
     is_approved = models.BooleanField(default=False)
+    approved_by = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True,
+                                    related_name='investment_approval')
+    approved_on = models.DateTimeField(null=True, blank=True)
 
     def total_investment(self):
         return self.amount + self.gst
@@ -170,3 +173,44 @@ class RewardEarned(ModelMixin):
 
     def __str__(self):
         return f"Reward for {self.user.username} Earned at {self.earned_at}"
+
+
+class InterestEarnings(models.Model):
+    investment = models.ForeignKey(Investment, on_delete=models.CASCADE)
+    earned_amount = models.DecimalField(max_digits=15, decimal_places=2)
+    earned_date = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Interest of {self.earned_amount} earned on {self.earned_date} for Investment ID: {self.investment.id}"
+
+    @classmethod
+    def calculate_interest(cls, investment):
+        if (investment.is_approved and investment.investment_type == 'p2pmb' and
+                investment.investment_guaranteed_type == 'guaranteed_investment'):
+            interest_rate = 0.01  # 1% interest rate
+            current_date = datetime.datetime.now()
+
+            # Check if it's time to calculate new interest
+            if investment.last_interest_received_date is None:
+                investment.last_interest_received_date = current_date
+
+            # Calculate the time since the last interest was received
+            time_since_last_interest = current_date - investment.last_interest_received_date
+
+            # If more than a year has passed since the last interest calculation
+            if time_since_last_interest >= datetime.timedelta(days=365):
+                years_passed = time_since_last_interest.days // 365
+                interest_to_add = investment.amount * interest_rate * years_passed
+
+                # Create a new entry in InterestEarnings
+                cls.objects.create(investment=investment, earned_amount=interest_to_add)
+
+                # Update the last interest received date
+                investment.last_interest_received_date = current_date
+
+                # Save changes to the Investment model
+                investment.save()
+
+                return interest_to_add
+
+        return 0

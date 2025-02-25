@@ -19,6 +19,7 @@ class MLMTree(ModelMixin):
     commission_earned = models.DecimalField(max_digits=12, decimal_places=2, default=0.0)
     send_direct_income = models.BooleanField(default=False)
     send_level_income = models.BooleanField(default=False)
+    is_working_id = models.BooleanField(default=False)
 
     class Meta:
         constraints = [

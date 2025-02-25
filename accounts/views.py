@@ -355,8 +355,7 @@ class GetUserFriendReferralCodeDetails(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        profile = Profile.objects.filter(referral_code=friend_referral_code, is_kyc=True,
-                                         is_kyc_verified=True).first()
+        profile = Profile.objects.filter(referral_code=friend_referral_code, is_kyc=True, is_kyc_verified=True).first()
 
         if not profile:
             return Response({'status_code': 400, 'message': 'Invalid referral code or the user has not completed KYC.'
@@ -376,6 +375,25 @@ class GetUserFriendReferralCodeDetails(APIView):
         return Response({
                 'status_code': 200, 'message': 'Fetched data successfully.', 'friend_referral_data': data
             }, status=status.HTTP_200_OK)
+
+
+class GetReferralCode(APIView):
+    permission_classes = [IsAuthenticated]
+    ROLE_MAPPING = {
+        'super_agency': 'agency',
+        'agency': 'field_agent'
+    }
+
+    def post(self, request, *args, **kwargs):
+        city = request.data.get('city')
+        role = request.data.get('role')
+        mapped_role = self.ROLE_MAPPING.get(role, role)
+        profile = Profile.objects.filter(city=city, is_kyc=True, is_kyc_verified=True,
+                                         role=mapped_role).first()
+        if profile:
+            return Response({'referral_code': profile.referral_code}, status=status.HTTP_200_OK)
+        else:
+            return Response({'referral_code': 'CNPRS00001'}, status=status.HTTP_200_OK)
 
 
 class VerifyBankIFSCCodeView(APIView):
