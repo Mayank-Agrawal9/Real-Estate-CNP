@@ -104,15 +104,11 @@ class MLMTreeNodeSerializer(serializers.ModelSerializer):
         fields = ['child', 'position', 'level', 'children', 'user']
 
     def get_children(self, obj):
-        # Fetch children of the current node, using select_related for better performance
         children = MLMTree.objects.filter(parent=obj.child).select_related(
             'child', 'parent', 'referral_by').order_by('position')
-
-        # Use a context to avoid recursive serialization issues if needed
         return MLMTreeNodeSerializer(children, many=True, context=self.context).data
 
     def get_user(self, obj):
-        # Assuming 'child' is a foreign key to User model
         user_data = {
             "id": obj.child.id,
             "username": obj.child.username,
@@ -120,21 +116,25 @@ class MLMTreeNodeSerializer(serializers.ModelSerializer):
             "first_name": obj.child.first_name,
             "last_name": obj.child.last_name
         }
-
-        # Consider using a separate serializer for User if it's used elsewhere
         return user_data
 
 
-# Optional: If you frequently serialize User data, consider a dedicated serializer
-class UserSerializer(serializers.ModelSerializer):
+class MLMTreeNodeSerializerV2(serializers.ModelSerializer):
+    user = serializers.SerializerMethodField()
+
     class Meta:
-        model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name']
+        model = MLMTree
+        fields = ['child', 'position', 'level', 'user']
 
-
-# Then you could use it like this:
-def get_user(self, obj):
-    return UserSerializer(obj.child).data
+    def get_user(self, obj):
+        user_data = {
+            "id": obj.child.id,
+            "username": obj.child.username,
+            "email": obj.child.email,
+            "first_name": obj.child.first_name,
+            "last_name": obj.child.last_name
+        }
+        return user_data
 
 
 class PackageSerializer(serializers.ModelSerializer):

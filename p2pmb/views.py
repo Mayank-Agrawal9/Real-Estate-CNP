@@ -10,7 +10,7 @@ from p2pmb.calculation import (RoyaltyClubDistribute, DistributeDirectCommission
                                LifeTimeRewardIncome)
 from p2pmb.models import MLMTree, Package, Commission
 from p2pmb.serializers import MLMTreeSerializer, MLMTreeNodeSerializer, PackageSerializer, CommissionSerializer, \
-    ShowInvestmentDetail, GetP2PMBLevelData, GetMyApplyingData
+    ShowInvestmentDetail, GetP2PMBLevelData, GetMyApplyingData, MLMTreeNodeSerializerV2
 
 
 # Create your views here.
@@ -49,6 +49,25 @@ class MLMTreeView(APIView):
             return Response({"detail": "Error"}, status=status.HTTP_400_BAD_REQUEST)
 
         serializer = MLMTreeNodeSerializer(master_node)
+        return Response(serializer.data)
+
+
+class MLMTreeViewV2(APIView):
+    """
+    API to retrieve the MLM tree structure.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        child = request.query_params.get('child', None)
+        if not child:
+            master_node = MLMTree.objects.filter(parent=None).select_related('child', 'parent', 'referral_by').first()
+        else:
+            master_node = MLMTree.objects.filter(parent=child).select_related('child', 'parent', 'referral_by')
+        if not master_node:
+            return Response({"detail": "Error"}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = MLMTreeNodeSerializerV2(master_node, many=True)
         return Response(serializer.data)
 
 
