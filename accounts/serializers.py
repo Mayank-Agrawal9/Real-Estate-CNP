@@ -98,9 +98,9 @@ class CompanyDetailsSerializer(serializers.Serializer):
     pan_number = serializers.CharField(required=False, allow_blank=True)
     email = serializers.EmailField(required=True)
     office_address = serializers.CharField(required=False, allow_blank=True)
-    city = serializers.PrimaryKeyRelatedField(
-        queryset=City.objects.filter(status='active'), many=False, required=True
-    )
+    # city = serializers.PrimaryKeyRelatedField(
+    #     queryset=City.objects.filter(status='active'), many=False, required=True
+    # )
     office_area = serializers.DecimalField(required=False, max_digits=10, decimal_places=2, default=0.0)
 
 

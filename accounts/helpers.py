@@ -162,8 +162,7 @@ def update_super_agency(user, profile, company_details):
             "gst_number": company_details.get("gst_number"),
             "email": company_details["email"],
             "office_address": company_details.get("office_address"),
-            "office_area": company_details.get("office_area"),
-            "city": company_details.get("city"),
+            "office_area": company_details.get("office_area")
         }
     )
 
@@ -180,8 +179,7 @@ def update_agency(user, company_details, id):
             "email": company_details["email"],
             "office_address": company_details.get("office_address"),
             "office_area": company_details.get("office_area"),
-            "company": id,
-            "city": company_details.get("city"),
+            "company": id
         }
     )
 
