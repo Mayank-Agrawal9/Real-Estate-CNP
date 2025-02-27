@@ -3,7 +3,7 @@ from rest_framework import serializers
 
 from p2pmb.models import Package
 from payment_app.choices import PAYMENT_METHOD
-from payment_app.models import Transaction
+from payment_app.models import Transaction, UserWallet
 from .choices import INVESTMENT_GUARANTEED_TYPE
 from .models import User, Investment, Commission, RefundPolicy, FundWithdrawal, SuperAgency, Agency, \
     FieldAgent, RewardEarned, PPDAccount
@@ -52,8 +52,31 @@ class CreateInvestmentSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         user = self.context['request'].user
+        amount = attrs.get('amount')
+        pay_method = attrs.get('pay_method')
         # if not user.profile.is_kyc:
         #     raise serializers.ValidationError("User has not completed their KYC. Please complete KYC first.")
+        if pay_method == 'main_wallet':
+            user_wallet = UserWallet.objects.filter(user=user, status='active').first()
+
+            if not user_wallet:
+                raise serializers.ValidationError("User wallet not found.")
+
+            if user_wallet.main_wallet_balance < amount:
+                raise serializers.ValidationError("Insufficient balance in main wallet.")
+            user_wallet.main_wallet_balance -= amount
+            user_wallet.save()
+
+        if pay_method == 'app_wallet':
+            user_wallet = UserWallet.objects.filter(user=user, status='active').first()
+
+            if not user_wallet:
+                raise serializers.ValidationError("User wallet not found.")
+
+            if user_wallet.app_wallet_balance < amount:
+                raise serializers.ValidationError("Insufficient balance in main wallet.")
+            user_wallet.app_wallet_balance -= amount
+            user_wallet.save()
         attrs['user'] = user
         return attrs
 
