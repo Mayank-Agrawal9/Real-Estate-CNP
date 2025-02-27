@@ -62,6 +62,21 @@ class InvestmentViewSet(viewsets.ModelViewSet):
         serializer.save()
         return Response({"message": "Request for payment deposit sent successfully."}, status=status.HTTP_200_OK)
 
+    @action(detail=False, methods=['post'], url_path='get-balance')
+    def check_balance(self, request):
+        amount = request.data.get('amount')
+        wallet_type = request.data.get('wallet_type')
+        filter_condition = Q(user=self.request.user)
+        if wallet_type == 'main_wallet':
+            filter_condition &= Q(main_wallet_balance__gte=amount)
+        if wallet_type == 'app_wallet':
+            filter_condition &= Q(app_wallet_balance__gte=amount)
+        check_wallet_balance = UserWallet.objects.filter(filter_condition)
+        if check_wallet_balance:
+            return Response({"status": True}, status=status.HTTP_200_OK)
+        else:
+            return Response({"status": False}, status=status.HTTP_200_OK)
+
 
 class CommissionViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
@@ -177,22 +192,23 @@ class PPDAccountViewSet(viewsets.ModelViewSet):
     def create_ppd_account(self, request):
         deposit_amount = Decimal(request.data.get('deposit_amount'))
         remarks = request.data.get('remarks')
-        if not (request.user.profile.is_kyc and request.user.profile.is_kyc_verified):
-            return Response(
-                {"error": "You has not completed you KYC verification."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        if deposit_amount < 100 or deposit_amount > 4999:
-            return Response({"error": "Deposit amount must be between ₹100 and ₹4999."},
-                            status=status.HTTP_400_BAD_REQUEST)
+        wallet_type = request.data.get('wallet_type')
         sender_wallet = UserWallet.objects.filter(user=request.user).last()
         if not sender_wallet:
             return Response({"error": "Please create your wallet first."},
                             status=status.HTTP_400_BAD_REQUEST)
-        if sender_wallet.app_wallet_balance < deposit_amount:
-            return Response({"error": "Insufficient balance in your wallet."}, status=status.HTTP_400_BAD_REQUEST)
-
-        sender_wallet.app_wallet_balance -= deposit_amount
+        if wallet_type == 'app_wallet' and sender_wallet.app_wallet_balance < deposit_amount:
+            return Response({"error": "Insufficient balance in your app wallet."}, status=status.HTTP_400_BAD_REQUEST)
+        elif wallet_type == 'main_wallet' and sender_wallet.main_wallet_balance < deposit_amount:
+            return Response({"error": "Insufficient balance in your main wallet."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        if deposit_amount < 100 or deposit_amount > 4999:
+            return Response({"error": "Deposit amount must be between ₹100 and ₹4999."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        if wallet_type == 'app_wallet':
+            sender_wallet.app_wallet_balance -= deposit_amount
+        if wallet_type == 'main_wallet':
+            sender_wallet.main_wallet_balance -= deposit_amount
         sender_wallet.save()
 
         Transaction.objects.create(
@@ -201,9 +217,9 @@ class PPDAccountViewSet(viewsets.ModelViewSet):
             amount=deposit_amount,
             transaction_status='approved',
             transaction_type='investment',
-            status='active'
+            status='active',
+            payment_method='wallet'
         )
-
         ppd_account = PPDAccount.objects.create(created_by=request.user, user=request.user,
                                                 deposit_amount=deposit_amount,
                                                 deposit_date=datetime.datetime.now().date(), remarks=remarks)
@@ -213,6 +229,12 @@ class PPDAccountViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'], url_path='withdraw-ppd-amount/(?P<account_id>\d+)')
     def withdraw_ppd_amount(self, request, account_id):
         try:
+            if not (request.user.profile.is_kyc and request.user.profile.is_kyc_verified):
+                return Response(
+                    {"error": "You are not completed your KYC, "
+                              "Please first verify your KYC then you are able to withdraw you amount."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
             ppd_account = PPDAccount.objects.get(id=account_id, user=request.user, is_active=True)
             withdrawal_amount = ppd_account.calculate_withdrawal_amount()
             ppd_account.withdrawal_date = datetime.datetime.now().date()

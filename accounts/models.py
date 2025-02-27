@@ -102,3 +102,16 @@ class FAQ(models.Model):
         verbose_name = "FAQ"
         verbose_name_plural = "FAQs"
         ordering = ['created_at']
+
+
+class ChangeRequest(ModelMixin):
+    phone_number = models.CharField(max_length=20, null=True, blank=True)
+    email = models.EmailField(null=True, blank=True)
+    account_number = models.CharField(max_length=20, null=True, blank=True)
+    full_name = models.CharField(max_length=200, null=True, blank=True)
+    verified_by = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True, related_name="request_accept")
+    verified_on = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Change Request"
+        verbose_name_plural = "Change Requests"

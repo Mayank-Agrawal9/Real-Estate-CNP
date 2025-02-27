@@ -6,19 +6,21 @@ import requests
 from django.contrib.auth.models import User
 from django.core.mail import send_mail
 from django.db import transaction
-from rest_framework import status
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import status, viewsets
 from rest_framework.authtoken.models import Token
 from rest_framework.exceptions import ValidationError
+from rest_framework.filters import SearchFilter
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.helpers import generate_unique_referral_code, update_super_agency_profile, generate_qr_code_with_email, \
     update_agency_profile, update_field_agent_profile, update_p2pmb_profile
-from accounts.models import OTP, Profile, BankDetails, UserPersonalDocument, SoftwarePolicy, FAQ
+from accounts.models import OTP, Profile, BankDetails, UserPersonalDocument, SoftwarePolicy, FAQ, ChangeRequest
 from accounts.serializers import RequestOTPSerializer, VerifyOTPSerializer, ResendOTPSerializer, ProfileSerializer, \
     SuperAgencyKycSerializer, BasicDetailsSerializer, CompanyDetailsSerializer, BankDetailsSerializer, \
-    DocumentSerializer, FAQSerializer
+    DocumentSerializer, FAQSerializer, ChangeRequestSerializer
 from agency.models import SuperAgency, FieldAgent, Agency, Investment
 from payment_app.models import UserWallet, Transaction
 from real_estate import settings
@@ -639,3 +641,17 @@ class DeleteUser(APIView):
             )
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ChangeRequestViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    queryset = ChangeRequest.objects.filter(status='active')
+    serializer_class = ChangeRequestSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_fields = ['phone_number', 'email', 'verified_by']
+
+    def get_queryset(self):
+        return ChangeRequest.objects.filter(created_by=self.request.user, status='active')
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)

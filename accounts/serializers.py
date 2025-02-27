@@ -4,7 +4,7 @@ import uuid
 from django.core.files.base import ContentFile
 from rest_framework import serializers
 
-from accounts.models import Profile, FAQ
+from accounts.models import Profile, FAQ, ChangeRequest
 from master.models import City
 
 
@@ -156,3 +156,9 @@ class FAQSerializer(serializers.ModelSerializer):
     class Meta:
         model = FAQ
         fields = ['id', 'question', 'answer', 'created_at', 'updated_at']
+
+
+class ChangeRequestSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ChangeRequest
+        fields = '__all__'

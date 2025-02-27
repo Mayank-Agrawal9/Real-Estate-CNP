@@ -6,7 +6,8 @@ from django.db import models
 
 from accounts.choices import COMPANY_TYPE
 from accounts.models import Profile
-from agency.choices import REFUND_CHOICES, INVESTMENT_TYPE_CHOICES, REFUND_STATUS_CHOICES, INVESTMENT_GUARANTEED_TYPE
+from agency.choices import REFUND_CHOICES, INVESTMENT_TYPE_CHOICES, REFUND_STATUS_CHOICES, INVESTMENT_GUARANTEED_TYPE, \
+    PAYMENT_CHOICES
 from master.models import RewardMaster, City
 from p2pmb.models import Package
 from payment_app.models import Transaction
@@ -66,6 +67,7 @@ class Investment(ModelMixin):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     amount = models.DecimalField(max_digits=15, decimal_places=2)
     investment_type = models.CharField(max_length=20, choices=INVESTMENT_TYPE_CHOICES)
+    pay_method = models.CharField(max_length=20, choices=PAYMENT_CHOICES, default='new')
     investment_guaranteed_type = models.CharField(max_length=30, choices=INVESTMENT_GUARANTEED_TYPE,
                                                   null=True, blank=True)
     transaction_id = models.ForeignKey(Transaction, on_delete=models.CASCADE, null=True, blank=True)

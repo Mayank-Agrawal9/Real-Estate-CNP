@@ -29,6 +29,13 @@ INVESTMENT_TYPE_CHOICES = [
     ('p2pmb', 'Person 2 Person'),
 ]
 
+
+PAYMENT_CHOICES = [
+    ('new', 'New'),
+    ('main_wallet', 'Main Wallet'),
+    ('app_wallet', 'App Wallet')
+]
+
 INVESTMENT_GUARANTEED_TYPE = [
     ('guaranteed_investment', 'Guaranteed Investment'),
     ('non_guaranteed_investment', 'Non Guaranteed Investment'),

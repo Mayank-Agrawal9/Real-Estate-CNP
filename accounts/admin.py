@@ -3,7 +3,7 @@ from import_export.admin import ImportExportModelAdmin
 
 from accounts.models import *
 from accounts.resources import ProfileResource, OTPResource, EXCLUDE_FOR_API, BankDetailsResource, \
-    UserPersonalDocumentResource, FAQResource, SoftwarePolicyResource
+    UserPersonalDocumentResource, FAQResource, SoftwarePolicyResource, ChangeRequestResource
 
 
 # Register your models here.
@@ -53,3 +53,9 @@ class SoftwarePolicyAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
 class FAQAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
     resource_class = FAQResource
     list_filter = ('is_enabled', )
+
+
+@admin.register(ChangeRequest)
+class ChangeRequestAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
+    raw_id_fields = ('created_by', 'updated_by', 'verified_by')
+    resource_class = ChangeRequestResource

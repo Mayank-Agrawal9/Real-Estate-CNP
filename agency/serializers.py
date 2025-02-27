@@ -44,6 +44,7 @@ class CreateInvestmentSerializer(serializers.ModelSerializer):
     package = serializers.PrimaryKeyRelatedField(
         queryset=Package.objects.filter(status='active'), many=True, required=False, allow_empty=True
     )
+    pay_method = serializers.ChoiceField(choices=['main_wallet', 'app_wallet', 'new'], default='new')
 
     class Meta:
         model = Investment
@@ -51,8 +52,8 @@ class CreateInvestmentSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         user = self.context['request'].user
-        if not user.profile.is_kyc:
-            raise serializers.ValidationError("User has not completed their KYC. Please complete KYC first.")
+        # if not user.profile.is_kyc:
+        #     raise serializers.ValidationError("User has not completed their KYC. Please complete KYC first.")
         attrs['user'] = user
         return attrs
 

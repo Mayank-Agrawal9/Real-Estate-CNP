@@ -28,10 +28,10 @@ class MLMTreeSerializer(serializers.ModelSerializer):
         get_verified = Profile.objects.filter(user=child).last()
         if not get_verified:
             raise serializers.ValidationError("You don't have profile, Please connect to admin first.")
-        if get_verified and get_verified.is_kyc and not get_verified.is_kyc_verified:
-            raise serializers.ValidationError("Your KYC request is in process, Once it is approved we will notify you.")
-        elif get_verified and not get_verified.is_kyc:
-            raise serializers.ValidationError("Please verify KYC then you will able to get into P2PMB model.")
+        # if get_verified and get_verified.is_kyc and not get_verified.is_kyc_verified:
+        #     raise serializers.ValidationError("Your KYC request is in process, Once it is approved we will notify you.")
+        # elif get_verified and not get_verified.is_kyc:
+        #     raise serializers.ValidationError("Please verify KYC then you will able to get into P2PMB model.")
         investment = Investment.objects.filter(user=child, package__isnull=False, investment_type='p2pmb').last()
         if not investment:
             raise serializers.ValidationError("First Please buy package then you are able to get into P2PMB model.")

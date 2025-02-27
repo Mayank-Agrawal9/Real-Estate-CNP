@@ -1,9 +1,16 @@
-from django.urls import path
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+
 from .views import ResendOTPView, VerifyOTPView, RequestOTPView, LogoutView, ProfileView, UserKycAPIView, \
     GetUserFriendReferralCodeDetails, VerifyBankIFSCCodeView, VerifyAndUpdateProfile, FAQAPIView, SoftwarePolicyAPIView, \
-    DeleteUser, GetReferralCode
+    DeleteUser, GetReferralCode, ChangeRequestViewSet
+
+router = DefaultRouter()
+router.register(r'change-request', ChangeRequestViewSet)
+
 
 urlpatterns = [
+    path('', include(router.urls)),
     path('request-otp/', RequestOTPView.as_view(), name='request-otp'),
     path('verify-otp/', VerifyOTPView.as_view(), name='verify-otp'),
     path('resend-otp/', ResendOTPView.as_view(), name='resend-otp'),

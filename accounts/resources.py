@@ -45,3 +45,10 @@ class FAQResource(resources.ModelResource):
         model = FAQ
         import_id_fields = ('id',)
         exclude = EXCLUDE_FOR_API
+
+
+class ChangeRequestResource(resources.ModelResource):
+    class Meta:
+        model = ChangeRequest
+        import_id_fields = ('id',)
+        exclude = EXCLUDE_FOR_API
