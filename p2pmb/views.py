@@ -9,7 +9,8 @@ from agency.models import Investment
 from p2pmb.calculation import (RoyaltyClubDistribute, DistributeDirectCommission, DistributeLevelIncome,
                                LifeTimeRewardIncome)
 from p2pmb.models import MLMTree, Package, Commission
-from p2pmb.serializers import MLMTreeSerializer, MLMTreeNodeSerializer, PackageSerializer, CommissionSerializer
+from p2pmb.serializers import MLMTreeSerializer, MLMTreeNodeSerializer, PackageSerializer, CommissionSerializer, \
+    ShowInvestmentDetail
 
 
 # Create your views here.
@@ -49,6 +50,39 @@ class MLMTreeView(APIView):
 
         serializer = MLMTreeNodeSerializer(master_node)
         return Response(serializer.data)
+
+
+class PackageBuyView(APIView):
+    """
+    API to retrieve the MLM tree structure.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        do_investment = Investment.objects.filter(user=self.request.user, package__isnull=False)
+        if do_investment.exists():
+            return Response({"message": True}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return Response({"message": False}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class GetUserDetailsView(APIView):
+    """
+    API to get the user details according to the child id.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        child_id = request.query_params.get('child_id')
+
+        if not child_id:
+            return Response({"error": "child_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+        get_user_details = Investment.objects.filter(user=child_id, package__isnull=False).last()
+        if get_user_details:
+            serializer = ShowInvestmentDetail(get_user_details, many=False)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        else:
+            return Response({"error": "Invalid User Id."}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class PackageViewSet(viewsets.ModelViewSet):

@@ -131,3 +131,23 @@ class CommissionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Commission
         fields = '__all__'
+
+
+class ShowInvestmentDetail(serializers.ModelSerializer):
+    user = serializers.SerializerMethodField()
+    package = PackageSerializer(many=True)
+
+    def get_user(self, obj):
+        if obj.user:
+            return {
+                "id": obj.user.id,
+                "username": obj.user.username,
+                "email": obj.user.email,
+                "first_name": obj.user.first_name,
+                "last_name": obj.user.last_name
+            }
+        return None
+
+    class Meta:
+        model = Investment
+        fields = '__all__'
