@@ -182,3 +182,38 @@ class GetP2PMBLevelData(serializers.ModelSerializer):
     class Meta:
         model = MLMTree
         fields = '__all__'
+
+
+class GetMyApplyingData(serializers.ModelSerializer):
+    referral_by = serializers.SerializerMethodField()
+    parent = serializers.SerializerMethodField()
+
+    def get_referral_by(self, obj):
+        if obj.referral_by:
+            return {
+                "id": obj.referral_by.id,
+                "username": obj.referral_by.username,
+                "email": obj.referral_by.email,
+                "first_name": obj.referral_by.first_name,
+                "last_name": obj.referral_by.last_name,
+                "mobile_no": obj.referral_by.profile.mobile_number if obj.referral_by and obj.referral_by.profile else None,
+                "state": obj.referral_by.profile.city.state.name  if obj.referral_by and obj.referral_by.profile and obj.referral_by.profile.city and obj.referral_by.profile.city.state else None
+            }
+        return None
+
+    def get_parent(self, obj):
+        if obj.parent:
+            return {
+                "id": obj.parent.id,
+                "username": obj.parent.username,
+                "email": obj.parent.email,
+                "first_name": obj.parent.first_name,
+                "last_name": obj.parent.last_name,
+                "mobile_no": obj.referral_by.profile.mobile_number if obj.referral_by and obj.referral_by.profile else None,
+                "state": obj.referral_by.profile.city.state.name if obj.referral_by and obj.referral_by.profile and obj.referral_by.profile.city and obj.referral_by.profile.city.state else None
+            }
+        return None
+
+    class Meta:
+        model = MLMTree
+        fields = '__all__'

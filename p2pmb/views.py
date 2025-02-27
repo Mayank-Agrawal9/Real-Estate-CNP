@@ -10,7 +10,7 @@ from p2pmb.calculation import (RoyaltyClubDistribute, DistributeDirectCommission
                                LifeTimeRewardIncome)
 from p2pmb.models import MLMTree, Package, Commission
 from p2pmb.serializers import MLMTreeSerializer, MLMTreeNodeSerializer, PackageSerializer, CommissionSerializer, \
-    ShowInvestmentDetail, GetP2PMBLevelData
+    ShowInvestmentDetail, GetP2PMBLevelData, GetMyApplyingData
 
 
 # Create your views here.
@@ -152,6 +152,18 @@ class GetUserDetailsView(APIView):
             return Response(serializer.data, status=status.HTTP_200_OK)
         else:
             return Response({"error": "Invalid User Id."}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class MyApplying(APIView):
+    """
+    API to get my applying.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = MLMTree.objects.filter(child=self.request.user, status='active').last()
+        serializer = GetMyApplyingData(user, many=False)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class PackageViewSet(viewsets.ModelViewSet):
