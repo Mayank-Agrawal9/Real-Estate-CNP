@@ -405,6 +405,10 @@ class GetPPDReferralCode(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
+        get_user_referral = Profile.objects.filter(user=self.request.user).last()
+        if get_user_referral and get_user_referral.referral_by:
+            return Response({'referral_code': get_user_referral.referral_by.profile.referral_code},
+                            status=status.HTTP_200_OK)
         profile = Profile.objects.filter(is_kyc=True, is_kyc_verified=True, is_p2pmb=True, user__is_staff=True).first()
         if not profile:
             return Response({'referral_code': 'CNPPB0088'}, status=status.HTTP_200_OK)
