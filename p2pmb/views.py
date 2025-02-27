@@ -84,7 +84,7 @@ class GetParentLevelsView(APIView):
         levels = []
 
         while distributed_levels < max_levels:
-            children = MLMTree.objects.filter(parent=current_user, status='active')
+            children = MLMTree.objects.filter(child=user.child, status='active')
 
             if not children.exists():
                 break
