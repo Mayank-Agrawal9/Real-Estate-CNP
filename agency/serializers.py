@@ -74,7 +74,7 @@ class CreateInvestmentSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("User wallet not found.")
 
             if user_wallet.app_wallet_balance < amount:
-                raise serializers.ValidationError("Insufficient balance in main wallet.")
+                raise serializers.ValidationError("Insufficient balance in app wallet.")
             user_wallet.app_wallet_balance -= amount
             user_wallet.save()
         attrs['user'] = user

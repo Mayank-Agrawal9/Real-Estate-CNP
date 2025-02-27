@@ -44,11 +44,24 @@ class MLMTreeView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        master_node = MLMTree.objects.filter(parent=None).first()
+        # Fetch all nodes in a single query
+        all_nodes = MLMTree.objects.select_related('child').order_by('position')
+
+        # Create a dictionary to map parents to children
+        children_dict = {}
+        master_node = None
+
+        for node in all_nodes:
+            if node.parent_id is None:
+                master_node = node  # Root node
+            else:
+                children_dict.setdefault(node.parent_id, []).append(node)
+
         if not master_node:
             return Response({"detail": "Error"}, status=status.HTTP_400_BAD_REQUEST)
 
-        serializer = MLMTreeNodeSerializer(master_node)
+        # Serialize using pre-fetched children dictionary
+        serializer = MLMTreeNodeSerializer(master_node, context={'children_dict': children_dict})
         return Response(serializer.data)
 
 

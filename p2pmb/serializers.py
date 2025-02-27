@@ -104,11 +104,12 @@ class MLMTreeNodeSerializer(serializers.ModelSerializer):
         fields = ['child', 'position', 'level', 'children', 'user']
 
     def get_children(self, obj):
-        children = MLMTree.objects.filter(parent=obj.child).order_by('position')
-        return MLMTreeNodeSerializer(children, many=True).data
+        children_dict = self.context.get('children_dict', {})
+        children = children_dict.get(obj.child_id, [])
+        return MLMTreeNodeSerializer(children, many=True, context=self.context).data
 
     def get_user(self, obj):
-        if obj.child:  # Assuming child is a ForeignKey to User
+        if obj.child:
             return {
                 "id": obj.child.id,
                 "username": obj.child.username,
