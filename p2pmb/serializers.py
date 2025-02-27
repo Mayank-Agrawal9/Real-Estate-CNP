@@ -3,7 +3,7 @@ from rest_framework import serializers
 
 from accounts.models import Profile
 from agency.models import Investment
-from .models import MLMTree, User, Package
+from .models import MLMTree, User, Package, Commission
 
 
 class MLMTreeSerializer(serializers.ModelSerializer):
@@ -124,3 +124,10 @@ class PackageSerializer(serializers.ModelSerializer):
     class Meta:
         model = Package
         fields = ['id', 'name', 'description', 'amount']
+
+
+class CommissionSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Commission
+        fields = '__all__'

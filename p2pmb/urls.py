@@ -2,10 +2,11 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
 from p2pmb.views import MLMTreeCreateView, MLMTreeView, PackageViewSet, LifeTimeRewardIncomeAPIView, \
-    RoyaltyIncome, DistributeDirectIncome, DistributeLevelIncomeAPIView
+    RoyaltyIncome, DistributeDirectIncome, DistributeLevelIncomeAPIView, CommissionViewSet
 
 router = DefaultRouter()
 router.register(r'package', PackageViewSet)
+router.register(r'commission', CommissionViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),

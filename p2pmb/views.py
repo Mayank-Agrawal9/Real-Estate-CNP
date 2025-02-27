@@ -8,8 +8,8 @@ from rest_framework.views import APIView
 from agency.models import Investment
 from p2pmb.calculation import (RoyaltyClubDistribute, DistributeDirectCommission, DistributeLevelIncome,
                                LifeTimeRewardIncome)
-from p2pmb.models import MLMTree, Package
-from p2pmb.serializers import MLMTreeSerializer, MLMTreeNodeSerializer, PackageSerializer
+from p2pmb.models import MLMTree, Package, Commission
+from p2pmb.serializers import MLMTreeSerializer, MLMTreeNodeSerializer, PackageSerializer, CommissionSerializer
 
 
 # Create your views here.
@@ -60,6 +60,17 @@ class PackageViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return Package.objects.filter(status='active')
+
+
+class CommissionViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    serializer_class = CommissionSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    queryset = Commission.objects.all()
+    filterset_fields = ['commission_type', 'commission_to', 'commission_by']
+
+    def get_queryset(self):
+        return Commission.objects.filter(status='active', commission_to=self.request.user)
 
 
 class DistributeLevelIncomeAPIView(APIView):

@@ -99,6 +99,7 @@ def validate_referral_code(basic_details, role):
         super_agency = SuperAgency.objects.filter(profile=referral_by, status='active').last()
         if not super_agency:
             raise ValidationError("Referral code should be your upper-level user.")
+
         return super_agency, referral_by
 
     elif referral_by.role == 'agency':
