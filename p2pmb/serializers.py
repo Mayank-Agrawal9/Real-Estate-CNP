@@ -96,19 +96,15 @@ class MLMTreeSerializer(serializers.ModelSerializer):
 
 
 class MLMTreeNodeSerializer(serializers.ModelSerializer):
-    children = serializers.SerializerMethodField()
     user = serializers.SerializerMethodField()
+    children = serializers.ListField(child=serializers.DictField(), read_only=True)
 
     class Meta:
         model = MLMTree
         fields = ['child', 'position', 'level', 'children', 'user']
 
-    def get_children(self, obj):
-        children_dict = self.context.get('children_dict', {})
-        children = children_dict.get(obj.child_id, [])
-        return MLMTreeNodeSerializer(children, many=True, context=self.context).data
-
     def get_user(self, obj):
+        """Retrieve user details for the child node."""
         if obj.child:
             return {
                 "id": obj.child.id,
