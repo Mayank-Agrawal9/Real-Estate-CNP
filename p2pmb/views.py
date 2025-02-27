@@ -44,37 +44,12 @@ class MLMTreeView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        # Fetch all MLMTree records in one query
-        nodes = MLMTree.objects.select_related("child", "parent").order_by("position")
+        master_node = MLMTree.objects.filter(parent=None).select_related('child', 'parent', 'referral_by').first()
+        if not master_node:
+            return Response({"detail": "Error"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Build a dictionary mapping parent to children
-        tree_dict = {node.child_id: {"node": node, "children": []} for node in nodes}
-
-        # Populate the children lists
-        root = None
-        for node in nodes:
-            if node.parent_id:
-                tree_dict[node.parent_id]["children"].append(tree_dict[node.child_id])
-            else:
-                root = tree_dict[node.child_id]  # This is the root node (Master)
-
-        if not root:
-            return Response({"detail": "Tree not found"}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Convert the tree into a nested dictionary for serialization
-        def build_tree(node_data):
-            node = node_data["node"]
-            return {
-                "child": node.child_id,
-                "position": node.position,
-                "level": node.level,
-                "user": MLMTreeNodeSerializer().get_user(node),
-                "children": [build_tree(child) for child in node_data["children"]]
-            }
-
-        tree_data = build_tree(root)
-
-        return Response(tree_data, status=status.HTTP_200_OK)
+        serializer = MLMTreeNodeSerializer(master_node)
+        return Response(serializer.data)
 
 
 class GetParentLevelsView(APIView):

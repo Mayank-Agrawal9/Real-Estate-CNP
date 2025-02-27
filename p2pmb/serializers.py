@@ -96,24 +96,27 @@ class MLMTreeSerializer(serializers.ModelSerializer):
 
 
 class MLMTreeNodeSerializer(serializers.ModelSerializer):
+    children = serializers.SerializerMethodField()
     user = serializers.SerializerMethodField()
-    children = serializers.ListField(child=serializers.DictField(), read_only=True)
 
     class Meta:
         model = MLMTree
         fields = ['child', 'position', 'level', 'children', 'user']
 
+    def get_children(self, obj):
+        # Fetch children of the current node
+        children = MLMTree.objects.filter(parent=obj.child).select_related(
+            'child', 'parent', 'referral_by').order_by('position')
+        return MLMTreeNodeSerializer(children, many=True).data
+
     def get_user(self, obj):
-        """Retrieve user details for the child node."""
-        if obj.child:
-            return {
-                "id": obj.child.id,
-                "username": obj.child.username,
-                "email": obj.child.email,
-                "first_name": obj.child.first_name,
-                "last_name": obj.child.last_name
-            }
-        return None
+        return {
+            "id": obj.child.id,
+            "username": obj.child.username,
+            "email": obj.child.email,
+            "first_name": obj.child.first_name,
+            "last_name": obj.child.last_name
+        }
 
 
 class PackageSerializer(serializers.ModelSerializer):
