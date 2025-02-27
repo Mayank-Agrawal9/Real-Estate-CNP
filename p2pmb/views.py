@@ -10,7 +10,7 @@ from p2pmb.calculation import (RoyaltyClubDistribute, DistributeDirectCommission
                                LifeTimeRewardIncome)
 from p2pmb.models import MLMTree, Package, Commission
 from p2pmb.serializers import MLMTreeSerializer, MLMTreeNodeSerializer, PackageSerializer, CommissionSerializer, \
-    ShowInvestmentDetail
+    ShowInvestmentDetail, GetP2PMBLevelData
 
 
 # Create your views here.
@@ -50,6 +50,75 @@ class MLMTreeView(APIView):
 
         serializer = MLMTreeNodeSerializer(master_node)
         return Response(serializer.data)
+
+
+class GetParentLevelsView(APIView):
+    """
+    API to get up to 20 levels of parent users above the given child ID.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get_levels_above(self, user, max_levels=20):
+        """ Retrieve up to 20 levels of parent users. """
+        current_user = user.parent
+        levels = []
+        level_count = 0
+
+        while level_count < max_levels and current_user:
+            parent = MLMTree.objects.filter(child=current_user, status='active').first()
+            if not parent or not parent.parent:
+                break
+
+            levels.append(parent)
+            current_user = parent.parent
+            level_count += 1
+
+        return levels
+
+    def get_users_below(self, user, max_levels=10):
+        """
+        Returns the remaining amount if fewer levels are available.
+        """
+        current_user = user.child
+        distributed_levels = 0
+        levels = []
+
+        while distributed_levels < max_levels:
+            children = MLMTree.objects.filter(parent=current_user, status='active')
+
+            if not children.exists():
+                break
+
+            for child in children:
+                levels.append(child)
+                distributed_levels += 1
+
+                if distributed_levels >= max_levels:
+                    break
+
+            if children.exists():
+                current_user = children.first()
+            else:
+                break
+
+        return levels
+
+    def get(self, request):
+        """
+        Get parent hierarchy for a given child user up to 20 levels.
+        """
+        level = request.query_params.get('level')
+        user = MLMTree.objects.filter(child=self.request.user, status='active').last()
+        if not user:
+            return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+        if level == 'up':
+            users = self.get_levels_above(user)
+        elif level == 'down':
+            users = self.get_users_below(user)
+        else:
+            return Response({"error": "Invalid level type"}, status=status.HTTP_404_NOT_FOUND)
+        serialized_data = GetP2PMBLevelData(users, many=True).data
+        return Response(serialized_data, status=status.HTTP_200_OK)
 
 
 class PackageBuyView(APIView):

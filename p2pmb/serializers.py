@@ -151,3 +151,34 @@ class ShowInvestmentDetail(serializers.ModelSerializer):
     class Meta:
         model = Investment
         fields = '__all__'
+
+
+class GetP2PMBLevelData(serializers.ModelSerializer):
+    child = serializers.SerializerMethodField()
+    parent = serializers.SerializerMethodField()
+
+    def get_child(self, obj):
+        if obj.child:
+            return {
+                "id": obj.child.id,
+                "username": obj.child.username,
+                "email": obj.child.email,
+                "first_name": obj.child.first_name,
+                "last_name": obj.child.last_name
+            }
+        return None
+
+    def get_parent(self, obj):
+        if obj.parent:
+            return {
+                "id": obj.parent.id,
+                "username": obj.parent.username,
+                "email": obj.parent.email,
+                "first_name": obj.parent.first_name,
+                "last_name": obj.parent.last_name
+            }
+        return None
+
+    class Meta:
+        model = MLMTree
+        fields = '__all__'
