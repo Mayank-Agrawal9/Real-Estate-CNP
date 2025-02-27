@@ -382,8 +382,8 @@ class GetUserFriendReferralCodeDetails(APIView):
 class GetReferralCode(APIView):
     permission_classes = [IsAuthenticated]
     ROLE_MAPPING = {
-        'super_agency': 'agency',
-        'agency': 'field_agent'
+        'agency': 'super_agency',
+        'field_agent': 'agency'
     }
 
     def post(self, request, *args, **kwargs):
@@ -395,7 +395,20 @@ class GetReferralCode(APIView):
         if profile:
             return Response({'referral_code': profile.referral_code}, status=status.HTTP_200_OK)
         else:
-            return Response({'referral_code': 'CNPRS00001'}, status=status.HTTP_200_OK)
+            profile = Profile.objects.filter(is_kyc=True, is_kyc_verified=True, role=mapped_role,
+                                             user__is_staff=True).first()
+            return Response({'referral_code': profile.referral_code}, status=status.HTTP_200_OK)
+
+
+class GetPPDReferralCode(APIView):
+    '''This API is used to get the ppd referral code.'''
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        profile = Profile.objects.filter(is_kyc=True, is_kyc_verified=True, is_p2pmb=True, user__is_staff=True).first()
+        if not profile:
+            return Response({'referral_code': 'CNPPB0088'}, status=status.HTTP_200_OK)
+        return Response({'referral_code': profile.referral_code}, status=status.HTTP_200_OK)
 
 
 class VerifyBankIFSCCodeView(APIView):
