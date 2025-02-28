@@ -10,6 +10,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.models import Profile
+from p2pmb.calculation import DistributeDirectCommission
+from p2pmb.models import MLMTree
 from payment_app.models import UserWallet, Transaction
 from .calculation import distribute_monthly_rent_for_super_agency, calculate_super_agency_rewards, \
     calculate_agency_rewards, calculate_field_agent_rewards, process_monthly_rentals_for_ppd_interest
@@ -139,6 +141,10 @@ class InvestmentViewSet(viewsets.ModelViewSet):
             investment = Investment.objects.create(**investment_data)
             if package:
                 investment.package.set(package)
+            get_mlm = MLMTree.objects.filter(child=self.request.user).last()
+            if get_mlm:
+                get_mlm.turnover += amount
+                get_mlm.save()
             return Response({"status": True}, status=status.HTTP_200_OK)
         else:
             return Response({"status": False}, status=status.HTTP_200_OK)

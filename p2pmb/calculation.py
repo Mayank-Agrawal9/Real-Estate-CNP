@@ -94,7 +94,7 @@ class DistributeDirectCommission:
 
     @staticmethod
     def handle_no_referral(profile_instance, instant_commission, monthly_commission):
-        top_user = MLMTree.objects.filter(parent=None).first()
+        top_user = MLMTree.objects.filter(parent=12, position=1).first()
         if top_user:
             top_user.app_wallet_balance += instant_commission
             top_user.commission_earned += instant_commission
@@ -210,11 +210,11 @@ class DistributeLevelIncome:
 
             # Create transaction record for this distribution
             create_transaction_entry(
-                instance.child, top_node, total_remaining, 'commission', 'approved',
+                instance.child, top_node.child, total_remaining, 'commission', 'approved',
                 f'Level Commission added by adding {instance.child.get_full_name()}')
 
             # Create commission record
-            create_commission_entry(top_node, instance.child, 'level', total_remaining,
+            create_commission_entry(top_node.child, instance.child, 'level', total_remaining,
                                     f'Commission added for {instance.child.get_full_name()}')
 
     @staticmethod
@@ -230,28 +230,25 @@ class DistributeLevelIncome:
 
         while distributed_levels < max_levels:
             parent = MLMTree.objects.filter(child=current_user).first()
-
             if not parent or not parent.parent:
                 break
 
-            for child in parent:
-                # Update parent wallet balance
-                parent_wallet = UserWallet.objects.filter(user=child.parent, status='active')
-                if parent_wallet:
-                    parent_wallet.app_wallet_balance += commission
-                    parent_wallet.save()
+            parent_wallet = UserWallet.objects.filter(user=parent.parent, status='active').last()
+            if parent_wallet:
+                parent_wallet.app_wallet_balance += commission
+                parent_wallet.save()
 
-                # Create transaction record for this distribution
-                create_transaction_entry(
-                    base_user.child, child.parent, commission, 'commission', 'approved',
-                    f'Level Commission added by adding {base_user.child.get_full_name()}')
+            # Create transaction record for this distribution
+            create_transaction_entry(
+                base_user.child, parent.parent, commission, 'commission', 'approved',
+                f'Level Commission added by adding {base_user.child.get_full_name()}')
 
-                # Create commission record
-                create_commission_entry(child.parent, base_user.child, 'level', commission,
-                                        f'Commission added for {base_user.child.get_full_name()}')
+            # Create commission record
+            create_commission_entry(parent.parent, base_user.child, 'level', commission,
+                                    f'Commission added for {base_user.child.get_full_name()}')
 
-                current_user = parent.parent
-                distributed_levels += 1
+            current_user = parent.parent
+            distributed_levels += 1
 
         remaining_levels = max_levels - distributed_levels
         return Decimal(amount) * percent * Decimal(remaining_levels)

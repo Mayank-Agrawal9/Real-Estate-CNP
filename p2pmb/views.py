@@ -225,11 +225,13 @@ class DistributeLevelIncomeAPIView(APIView):
         if not instance or not investment_instance:
             return Response({'message': "Either you did not do investment or your investment in progress"},
                             status=status.HTTP_400_BAD_REQUEST)
-        elif instance.send_level_income:
+        elif instance.send_level_income or investment_instance.send_level_income:
             return Response({'message': "We already send commission to this user."},
                             status=status.HTTP_400_BAD_REQUEST)
         amount = investment_instance.amount if investment_instance.amount else 0
         DistributeLevelIncome.distribute_level_income(instance, amount)
+        investment_instance.send_level_income = True
+        investment_instance.save()
         return Response({'message': "Payment of Level Income Distribute successfully."},
                         status=status.HTTP_400_BAD_REQUEST)
 
@@ -243,13 +245,17 @@ class DistributeDirectIncome(APIView):
     def post(self, request):
         user_id = request.data.get('user_id')
         investment_id = request.data.get('investment_id')
-        investment_instance = Investment.objects.filter(id=investment_id, status='active', is_approved=True).last()
+        investment_instance = Investment.objects.filter(id=investment_id, status='active',
+                                                        is_approved=True, ).last()
         instance = MLMTree.objects.filter(status='active', child=user_id).last()
         if not instance or not investment_instance:
             return Response({'message': "Invalid id"}, status=status.HTTP_400_BAD_REQUEST)
-        elif instance.send_direct_income:
-            return Response({'message': "We already send commission to this user."}, status=status.HTTP_400_BAD_REQUEST)
+        elif instance.send_direct_income or investment_instance.send_direct_income:
+            return Response({'message': "We already send commission to this user."},
+                            status=status.HTTP_400_BAD_REQUEST)
         DistributeDirectCommission.distribute_p2pmb_commission(instance, investment_instance.amount)
+        investment_instance.send_direct_income = True
+        investment_instance.save()
         return Response({'message': 'Payment of Direct Income Distribute successfully.'}, status=status.HTTP_200_OK)
 
 

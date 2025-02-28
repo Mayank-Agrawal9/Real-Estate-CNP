@@ -79,6 +79,8 @@ class Investment(ModelMixin):
                                     related_name='investment_approval')
     approved_on = models.DateTimeField(null=True, blank=True)
     referral_by = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name="referral_code")
+    send_direct_income = models.BooleanField(default=False)
+    send_level_income = models.BooleanField(default=False)
 
     def total_investment(self):
         return self.amount + self.gst
