@@ -87,7 +87,7 @@ class GetParentLevelsView(APIView):
         level_count = 0
 
         while level_count < max_levels and current_user:
-            parent = MLMTree.objects.filter(child=current_user, status='active').first()
+            parent = MLMTree.objects.filter(child=current_user, status='active', is_show=True).first()
             if not parent or not parent.parent:
                 break
 
@@ -106,7 +106,7 @@ class GetParentLevelsView(APIView):
         levels = []
 
         while distributed_levels < max_levels:
-            children = MLMTree.objects.filter(child=user.child, status='active')
+            children = MLMTree.objects.filter(child=user.child, status='active', is_show=True)
 
             if not children.exists():
                 break
@@ -130,7 +130,7 @@ class GetParentLevelsView(APIView):
         Get parent hierarchy for a given child user up to 20 levels.
         """
         level = request.query_params.get('level')
-        user = MLMTree.objects.filter(child=self.request.user, status='active').last()
+        user = MLMTree.objects.filter(child=self.request.user, status='active', is_show=True).last()
         if not user:
             return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
         if level == 'up':
