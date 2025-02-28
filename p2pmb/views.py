@@ -62,13 +62,15 @@ class MLMTreeViewV2(APIView):
         child = request.query_params.get('child', None)
         if not child:
             master_node = MLMTree.objects.filter(parent=None).select_related('child', 'parent', 'referral_by').first()
+            if not master_node:
+                return Response({"detail": "Error"}, status=status.HTTP_400_BAD_REQUEST)
+            serializer = MLMTreeNodeSerializerV2(master_node)
+            return Response(serializer.data)
         else:
             master_node = MLMTree.objects.filter(parent=child).select_related('child', 'parent', 'referral_by')
-        if not master_node:
-            return Response({"detail": "Error"}, status=status.HTTP_400_BAD_REQUEST)
+            serializer = MLMTreeNodeSerializerV2(master_node, many=True)
+            return Response(serializer.data)
 
-        serializer = MLMTreeNodeSerializerV2(master_node, many=True)
-        return Response(serializer.data)
 
 
 class GetParentLevelsView(APIView):
