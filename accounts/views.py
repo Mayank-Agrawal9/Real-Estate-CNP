@@ -84,7 +84,6 @@ class VerifyOTPView(APIView):
             })
 
             if not created:
-                profile.referral_code = referral_code
                 profile.qr_code = qr_code_file
                 profile.save()
 
