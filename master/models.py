@@ -72,6 +72,7 @@ class CompanyBankDetailsMaster(ModelMixin):
     is_applicable_for_super_agency = models.BooleanField(default=False)
     is_applicable_for_agency = models.BooleanField(default=False)
     is_applicable_for_field_agent = models.BooleanField(default=False)
+    is_applicable_for_customer = models.BooleanField(default=False)
     is_applicable_for_p2pmb = models.BooleanField(default=False)
 
     def __str__(self):

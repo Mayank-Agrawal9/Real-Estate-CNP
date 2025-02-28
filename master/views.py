@@ -96,7 +96,7 @@ class CompanyBankDetailsMasterViewSet(viewsets.ModelViewSet):
     serializer_class = CompanyBankDetailsMasterSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_fields = ['is_applicable_for_super_agency', 'is_applicable_for_agency',
-                        'is_applicable_for_field_agent', 'is_applicable_for_p2pmb']
+                        'is_applicable_for_field_agent', 'is_applicable_for_p2pmb', 'is_applicable_for_customer']
 
 
 class RoyaltyMasterViewSet(viewsets.ModelViewSet):
