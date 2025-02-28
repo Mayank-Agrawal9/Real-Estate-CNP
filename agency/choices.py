@@ -26,6 +26,7 @@ INVESTMENT_TYPE_CHOICES = [
     ('super_agency', 'Super Agency'),
     ('agency', 'Agency'),
     ('field_agent', 'Field Agent'),
+    ('customer', 'Customer'),
     ('p2pmb', 'Person 2 Person'),
 ]
 
