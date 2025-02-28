@@ -9,6 +9,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from accounts.models import Profile
 from payment_app.models import UserWallet, Transaction
 from .calculation import distribute_monthly_rent_for_super_agency, calculate_super_agency_rewards, \
     calculate_agency_rewards, calculate_field_agent_rewards, process_monthly_rentals_for_ppd_interest
@@ -67,8 +68,20 @@ class InvestmentViewSet(viewsets.ModelViewSet):
         amount = Decimal(request.data.get('amount'))
         wallet_type = request.data.get('wallet_type')
         package = request.data.get('package')
+        referral_code = request.data.get('referral_by')
+        referral_by = None
+
         if not amount and not wallet_type and not package:
             return Response({'status': False}, status=status.HTTP_400_BAD_REQUEST)
+
+        if referral_code:
+            get_user_by_referral = Profile.objects.filter(referral_code=referral_code).last()
+            referral_by = get_user_by_referral.user
+
+        if not referral_by:
+            get_user_by_referral = Profile.objects.filter(referral_code='CNPPB0077').last()
+            referral_by = get_user_by_referral.user
+
         filter_condition = Q(user=self.request.user)
         if wallet_type == 'main_wallet':
             filter_condition &= Q(main_wallet_balance__gte=amount)
@@ -109,7 +122,6 @@ class InvestmentViewSet(viewsets.ModelViewSet):
             }
 
             transaction = Transaction.objects.create(**transaction_data)
-            get_referral_by = Investment.objects.filter(user=self.request.user, is_approved=True).last()
             investment_data = {
                 'created_by': self.request.user,
                 'user': self.request.user,
@@ -121,7 +133,7 @@ class InvestmentViewSet(viewsets.ModelViewSet):
                 'is_approved': True,
                 'approved_by': self.request.user,
                 'approved_on': datetime.datetime.now(),
-                'referral_by': get_referral_by.referral_by if get_referral_by else None
+                'referral_by': referral_by if referral_by else None
             }
 
             investment = Investment.objects.create(**investment_data)
