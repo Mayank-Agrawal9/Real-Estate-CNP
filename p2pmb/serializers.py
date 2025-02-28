@@ -38,17 +38,19 @@ class MLMTreeSerializer(serializers.ModelSerializer):
         elif investment and not investment.is_approved:
             raise serializers.ValidationError("Your investment request is in process, "
                                               "Once it is approved we will notify you.")
+        data['referral_by'] = investment.referral_by if investment and investment.referral_by else None
         if MLMTree.objects.filter(child=child).exists():
             raise serializers.ValidationError("You have already register in P2PMB model.")
         return data
 
     def create(self, validated_data):
         child = validated_data['child']
+        referral_by = validated_data['referral_by']
         master_node = self.get_or_create_master_node()
         parent_node = self.find_next_available_parent_node(master_node)
-        return self.create_mlm_tree_node(parent_node, child)
+        return self.create_mlm_tree_node(parent_node, child, referral_by)
 
-    def create_mlm_tree_node(self, parent_node, child_node):
+    def create_mlm_tree_node(self, parent_node, child_node, referral_by):
         """
         Create the MLM tree node with parent-child relation.
         """
@@ -60,7 +62,7 @@ class MLMTreeSerializer(serializers.ModelSerializer):
             child=child_node,
             position=position,
             level=level,
-            referral_by=parent_node.child
+            referral_by=referral_by if referral_by else parent_node.child
         )
 
     def find_next_available_parent_node(self, master_node):
@@ -104,7 +106,7 @@ class MLMTreeNodeSerializer(serializers.ModelSerializer):
         fields = ['child', 'position', 'level', 'children', 'user']
 
     def get_children(self, obj):
-        children = MLMTree.objects.filter(parent=obj.child).select_related(
+        children = MLMTree.objects.filter(parent=obj.child, is_show=True).select_related(
             'child', 'parent', 'referral_by').order_by('position')
         return MLMTreeNodeSerializer(children, many=True, context=self.context).data
 

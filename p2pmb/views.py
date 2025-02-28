@@ -67,7 +67,8 @@ class MLMTreeViewV2(APIView):
             serializer = MLMTreeNodeSerializerV2(master_node)
             return Response(serializer.data)
         else:
-            master_node = MLMTree.objects.filter(parent=child).select_related('child', 'parent', 'referral_by')
+            master_node = MLMTree.objects.filter(parent=child, is_show=True).select_related('child', 'parent',
+                                                                                            'referral_by')
             serializer = MLMTreeNodeSerializerV2(master_node, many=True)
             return Response(serializer.data)
 

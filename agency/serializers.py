@@ -44,6 +44,9 @@ class CreateInvestmentSerializer(serializers.ModelSerializer):
     package = serializers.PrimaryKeyRelatedField(
         queryset=Package.objects.filter(status='active'), many=True, required=False, allow_empty=True
     )
+    referral_by = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.filter(is_active=True), required=False, allow_empty=True
+    )
     pay_method = serializers.ChoiceField(choices=['main_wallet', 'app_wallet', 'new'], default='new')
 
     class Meta:

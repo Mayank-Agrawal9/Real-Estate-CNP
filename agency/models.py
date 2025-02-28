@@ -78,6 +78,7 @@ class Investment(ModelMixin):
     approved_by = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True,
                                     related_name='investment_approval')
     approved_on = models.DateTimeField(null=True, blank=True)
+    referral_by = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name="referral_code")
 
     def total_investment(self):
         return self.amount + self.gst
