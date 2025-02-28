@@ -64,8 +64,11 @@ class InvestmentViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'], url_path='get-balance')
     def check_balance(self, request):
-        amount = request.data.get('amount')
+        amount = Decimal(request.data.get('amount'))
         wallet_type = request.data.get('wallet_type')
+        package = request.data.get('package')
+        if not amount and not wallet_type and not package:
+            return Response({'status': False}, status=status.HTTP_400_BAD_REQUEST)
         filter_condition = Q(user=self.request.user)
         if wallet_type == 'main_wallet':
             filter_condition &= Q(main_wallet_balance__gte=amount)
@@ -73,6 +76,57 @@ class InvestmentViewSet(viewsets.ModelViewSet):
             filter_condition &= Q(app_wallet_balance__gte=amount)
         check_wallet_balance = UserWallet.objects.filter(filter_condition)
         if check_wallet_balance:
+            user_wallet = UserWallet.objects.filter(user=self.request.user, status='active').first()
+            if wallet_type == 'app_wallet':
+                if not user_wallet:
+                    return Response({'status': False}, status=status.HTTP_400_BAD_REQUEST)
+
+                if user_wallet.app_wallet_balance < amount:
+                    return Response({'status': False}, status=status.HTTP_400_BAD_REQUEST)
+
+                user_wallet.app_wallet_balance -= amount
+                user_wallet.save()
+            elif wallet_type == 'main_wallet':
+                user_wallet = UserWallet.objects.filter(user=self.request.user, status='active').first()
+
+                if not user_wallet:
+                    return Response({'status': False}, status=status.HTTP_400_BAD_REQUEST)
+
+                if user_wallet.main_wallet_balance < amount:
+                    return Response({'status': False}, status=status.HTTP_400_BAD_REQUEST)
+                user_wallet.main_wallet_balance -= amount
+                user_wallet.save()
+
+            transaction_data = {
+                'created_by': self.request.user,
+                'sender': self.request.user,
+                'amount': amount,
+                'taxable_amount': 0,
+                'transaction_type': "investment",
+                'transaction_status': "approved",
+                'payment_method': "wallet",
+                'remarks': "Payment Initiated for P2PMB Model.",
+            }
+
+            transaction = Transaction.objects.create(**transaction_data)
+            get_referral_by = Investment.objects.filter(user=self.request.user, is_approved=True).last()
+            investment_data = {
+                'created_by': self.request.user,
+                'user': self.request.user,
+                'amount': amount,
+                'investment_type': "p2pmb",
+                'gst': 0,
+                'transaction_id': transaction,
+                'pay_method': wallet_type,
+                'is_approved': True,
+                'approved_by': self.request.user,
+                'approved_on': datetime.datetime.now(),
+                'referral_by': get_referral_by.referral_by if get_referral_by else None
+            }
+
+            investment = Investment.objects.create(**investment_data)
+            if package:
+                investment.package.set(package)
             return Response({"status": True}, status=status.HTTP_200_OK)
         else:
             return Response({"status": False}, status=status.HTTP_200_OK)
