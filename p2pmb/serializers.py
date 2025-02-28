@@ -1,4 +1,6 @@
 from collections import deque
+
+from django.db import transaction
 from rest_framework import serializers
 
 from accounts.models import Profile
@@ -14,86 +16,80 @@ class MLMTreeSerializer(serializers.ModelSerializer):
         fields = ['child', 'children']
 
     def get_children(self, obj):
-        """
-        Recursively fetch and serialize child nodes for each parent node.
-        """
+        """ Recursively fetch and serialize child nodes for each parent node. """
         children = MLMTree.objects.filter(parent=obj.child)
         return MLMTreeSerializer(children, many=True).data
 
     def validate(self, data):
-        """
-        Validate that the child doesn't already exist in the tree.
-        """
+        """ Validate child eligibility and retrieve referral information. """
         child = data.get('child')
-        get_verified = Profile.objects.filter(user=child).last()
-        if not get_verified:
-            raise serializers.ValidationError("You don't have profile, Please connect to admin first.")
-        # if get_verified and get_verified.is_kyc and not get_verified.is_kyc_verified:
-        #     raise serializers.ValidationError("Your KYC request is in process, Once it is approved we will notify you.")
-        # elif get_verified and not get_verified.is_kyc:
-        #     raise serializers.ValidationError("Please verify KYC then you will able to get into P2PMB model.")
+        profile = Profile.objects.filter(user=child).last()
+        if not profile:
+            raise serializers.ValidationError("You don't have a profile. Please connect with admin first.")
+
         investment = Investment.objects.filter(user=child, package__isnull=False, investment_type='p2pmb').last()
-        if not investment:
-            raise serializers.ValidationError("First Please buy package then you are able to get into P2PMB model.")
-        elif investment and not investment.is_approved:
-            raise serializers.ValidationError("Your investment request is in process, "
-                                              "Once it is approved we will notify you.")
-        data['referral_by'] = investment.referral_by if investment and investment.referral_by else None
+        if not investment or not investment.is_approved:
+            raise serializers.ValidationError("Investment not approved. Please complete the required steps.")
+
         if MLMTree.objects.filter(child=child).exists():
-            raise serializers.ValidationError("You have already register in P2PMB model.")
+            raise serializers.ValidationError("You are already registered in the MLM system.")
+
+        data['referral_by'] = investment.referral_by if investment.referral_by else None
         return data
 
+    @transaction.atomic
     def create(self, validated_data):
+        """ Create MLM tree node based on referral system and availability. """
         child = validated_data['child']
         referral_by = validated_data['referral_by']
+
         master_node = self.get_or_create_master_node()
-        parent_node = self.find_next_available_parent_node(master_node)
+
+        if referral_by:
+            referral_parent = MLMTree.objects.filter(child=referral_by).first()
+            if referral_parent:
+                parent_node = self.find_next_available_parent_node(referral_parent)
+            else:
+                parent_node = self.find_next_available_parent_node(master_node)
+        else:
+            parent_node = self.find_next_available_parent_node(master_node)
+
         return self.create_mlm_tree_node(parent_node, child, referral_by)
 
     def create_mlm_tree_node(self, parent_node, child_node, referral_by):
-        """
-        Create the MLM tree node with parent-child relation.
-        """
+        """ Create a new MLM tree node under the assigned parent. """
         position = MLMTree.objects.filter(parent=parent_node.child).count() + 1
         level = parent_node.level + 1
         Profile.objects.filter(user=child_node).update(is_p2pmb=True)
-        MLMTree.objects.create(
+
+        return MLMTree.objects.create(
             parent=parent_node.child,
             child=child_node,
             position=position,
             level=level,
-            referral_by=referral_by if referral_by else parent_node.child
+            referral_by=referral_by if referral_by else None
         )
 
-    def find_next_available_parent_node(self, master_node):
-        """
-        Find the next available parent node using BFS for a balanced binary tree.
-        """
-        queue = deque([master_node])
+    def find_next_available_parent_node(self, start_node):
+        """ Find the next available parent node in a breadth-first manner. """
+        queue = deque([start_node])
 
         while queue:
             current_node = queue.popleft()
-            if current_node:
-                children_count = MLMTree.objects.filter(parent=current_node.child).count()
+            children = MLMTree.objects.filter(parent=current_node.child).order_by('position')
 
-                if children_count < 5:
-                    return current_node
-                sub_nodes = MLMTree.objects.filter(parent=current_node.child).order_by('position')
-                queue.extend(sub_nodes)
+            if children.count() < 5:
+                return current_node
+
+            queue.extend(children)
 
         raise serializers.ValidationError("No available parent node found.")
 
     def get_or_create_master_node(self):
-        """
-        Ensures the Master Node exists or creates it if necessary.
-        """
-        master_node = MLMTree.objects.filter(parent=None).first()
+        """ Retrieve or validate the existence of the master node. """
+        master_node = MLMTree.objects.filter(level=12, position=1).first()
         if not master_node:
-            master_user = User.objects.filter(username="Master").first()
-            if not master_user:
-                raise serializers.ValidationError("Master user must be created before adding MLM tree nodes.")
-            master_node = MLMTree.objects.create(
-                parent=None, child=master_user, position=1, level=0, referral_by=None)
+            raise serializers.ValidationError("Master MLM node (level 11, position 1) does not exist.")
         return master_node
 
 

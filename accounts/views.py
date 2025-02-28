@@ -22,6 +22,7 @@ from accounts.serializers import RequestOTPSerializer, VerifyOTPSerializer, Rese
     SuperAgencyKycSerializer, BasicDetailsSerializer, CompanyDetailsSerializer, BankDetailsSerializer, \
     DocumentSerializer, FAQSerializer, ChangeRequestSerializer
 from agency.models import SuperAgency, FieldAgent, Agency, Investment
+from p2pmb.models import MLMTree
 from payment_app.models import UserWallet, Transaction
 from real_estate import settings
 
@@ -408,10 +409,10 @@ class GetPPDReferralCode(APIView):
         if get_user_referral and get_user_referral.referral_by:
             return Response({'referral_code': get_user_referral.referral_by.profile.referral_code},
                             status=status.HTTP_200_OK)
-        profile = Profile.objects.filter(is_kyc=True, is_kyc_verified=True, is_p2pmb=True, user__is_staff=True).first()
-        if not profile:
-            return Response({'referral_code': 'CNPPB0088'}, status=status.HTTP_200_OK)
-        return Response({'referral_code': profile.referral_code}, status=status.HTTP_200_OK)
+        mlm = MLMTree.objects.filter(level=12, position=1, is_show=True).last()
+        if not mlm:
+            return Response({'referral_code': 'CNPPB007700'}, status=status.HTTP_200_OK)
+        return Response({'referral_code': mlm.child.profile.referral_code}, status=status.HTTP_200_OK)
 
 
 class VerifyBankIFSCCodeView(APIView):

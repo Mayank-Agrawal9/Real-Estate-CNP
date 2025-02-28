@@ -61,7 +61,8 @@ class MLMTreeViewV2(APIView):
     def get(self, request):
         child = request.query_params.get('child', None)
         if not child:
-            master_node = MLMTree.objects.filter(parent=None).select_related('child', 'parent', 'referral_by').first()
+            master_node = MLMTree.objects.filter(level=12, position=1, is_show=True).select_related(
+                'child', 'parent', 'referral_by').first()
             if not master_node:
                 return Response({"detail": "Error"}, status=status.HTTP_400_BAD_REQUEST)
             serializer = MLMTreeNodeSerializerV2(master_node)
@@ -183,7 +184,7 @@ class MyApplying(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        user = MLMTree.objects.filter(child=self.request.user, status='active').last()
+        user = MLMTree.objects.filter(child=self.request.user, status='active', is_show=True).last()
         serializer = GetMyApplyingData(user, many=False)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
