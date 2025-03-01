@@ -81,8 +81,9 @@ class InvestmentViewSet(viewsets.ModelViewSet):
             referral_by = get_user_by_referral.user
 
         if not referral_by:
-            get_user_by_referral = Profile.objects.filter(referral_code='CNPPB0077').last()
-            referral_by = get_user_by_referral.user
+            get_user_by_referral = Profile.objects.filter(referral_code='CNPPB007700').last()
+            if get_user_by_referral:
+                referral_by = get_user_by_referral.user
 
         filter_condition = Q(user=self.request.user)
         if wallet_type == 'main_wallet':
