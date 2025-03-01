@@ -409,7 +409,7 @@ class GetPPDReferralCode(APIView):
         if get_user_referral and get_user_referral.referral_by:
             return Response({'referral_code': get_user_referral.referral_by.profile.referral_code},
                             status=status.HTTP_200_OK)
-        mlm = MLMTree.objects.filter(level=12, position=1, is_show=True).last()
+        mlm = MLMTree.objects.filter(level=13, position=1, is_show=True).last()
         if not mlm:
             return Response({'referral_code': 'CNPPB007700'}, status=status.HTTP_200_OK)
         return Response({'referral_code': mlm.child.profile.referral_code}, status=status.HTTP_200_OK)

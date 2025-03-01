@@ -35,7 +35,7 @@ class FieldAgentAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
 class InvestmentAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
     resource_class = InvestmentResource
     search_fields = ['user__username', ]
-    raw_id_fields = ('created_by', 'updated_by', 'user')
+    raw_id_fields = ('created_by', 'updated_by', 'user', 'approved_by', 'referral_by')
     list_filter = ('status', )
 
 
