@@ -61,7 +61,9 @@ class MLMTreeViewV2(APIView):
     def get(self, request):
         child = request.query_params.get('child', None)
         if not child:
-            master_node = MLMTree.objects.filter(level=12, position=1, is_show=True).select_related(
+            # master_node = MLMTree.objects.filter(level=12, position=1, is_show=True).select_related(
+            #     'child', 'parent', 'referral_by').first()
+            master_node = MLMTree.objects.filter(parent=None, is_show=True).select_related(
                 'child', 'parent', 'referral_by').first()
             if not master_node:
                 return Response({"detail": "Error"}, status=status.HTTP_400_BAD_REQUEST)
