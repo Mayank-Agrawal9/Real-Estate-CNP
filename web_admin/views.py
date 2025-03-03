@@ -203,6 +203,7 @@ class GetUserAPIView(ListAPIView):
     permission_classes = [IsStaffUser]
     queryset = Profile.objects.filter(status='active', user__is_staff=False)
     serializer_class = ProfileSerializer
+    pagination_class = None
 
 
 class ManualFundViewSet(viewsets.ModelViewSet):
@@ -211,3 +212,4 @@ class ManualFundViewSet(viewsets.ModelViewSet):
     serializer_class = ManualFundSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_fields = ['amount', ]
+    pagination_class = None

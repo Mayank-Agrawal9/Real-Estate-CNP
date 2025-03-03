@@ -5,7 +5,7 @@ from web_admin.views import StaffLoginAPIView, VerifyKycAPIView, InvestmentAPIVi
     GetUserAPIView, ManualFundViewSet
 
 router = DefaultRouter()
-router.register(r'manual-attendance', ManualFundViewSet)
+router.register(r'manual-fund', ManualFundViewSet)
 
 
 urlpatterns = [
