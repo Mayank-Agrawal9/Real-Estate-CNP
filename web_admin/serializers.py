@@ -8,14 +8,23 @@ from web_admin.models import ManualFund
 
 class ProfileSerializer(serializers.ModelSerializer):
     user = serializers.SerializerMethodField()
+    city = serializers.SerializerMethodField()
+    state = serializers.SerializerMethodField()
 
     def get_user(self, obj):
         return {
+            'id': obj.user.id,
             'first_name': obj.user.first_name,
             'last_name': obj.user.last_name,
             'email': obj.user.email,
             'username': obj.user.username,
         }
+
+    def get_city(self, obj):
+        return obj.city.name if obj.city else None
+
+    def get_state(self, obj):
+        return obj.state.name if obj.state else None
 
     class Meta:
         model = Profile

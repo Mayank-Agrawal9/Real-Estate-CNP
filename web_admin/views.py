@@ -201,7 +201,7 @@ class CreateManualInvestmentAPIView(APIView):
 
 class GetUserAPIView(ListAPIView):
     permission_classes = [IsStaffUser]
-    queryset = Profile.objects.filter(status='active', user__is_staff=False)
+    queryset = Profile.objects.filter(status='active', user__is_staff=False).order_by('-user')
     serializer_class = ProfileSerializer
     pagination_class = None
 
