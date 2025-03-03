@@ -3,14 +3,18 @@ from decimal import Decimal
 
 from django.contrib.auth import authenticate
 from django.db import transaction
-from rest_framework import status, permissions
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import status, permissions, viewsets
 from rest_framework.authtoken.models import Token
+from rest_framework.filters import SearchFilter
+from rest_framework.generics import ListAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.models import Profile
-from admin.serializers import ProfileSerializer, InvestmentSerializer
+from web_admin.models import ManualFund
+from web_admin.serializers import ProfileSerializer, InvestmentSerializer, ManualFundSerializer
 from agency.models import Investment, SuperAgency, Agency, FieldAgent
 from payment_app.models import UserWallet, Transaction
 
@@ -117,45 +121,93 @@ class InvestmentAPIView(APIView):
         wallet, _ = UserWallet.objects.get_or_create(user=investment.user)
         wallet.main_wallet_balance += investment.amount
         wallet.save()
+        # if investment.user.profile.role == 'agency':
+        #     agency = Agency.objects.filter(created_by=investment.user).last()
+        #     if agency and agency.company:
+        #         commission = Decimal(str(investment.amount * 0.25))
+        #         self.update_user_commission_(
+        #             user=agency.company.profile.user,
+        #             sender=investment.user,
+        #             verify_by=request.user,
+        #             remarks='Commission added due to agency added.',
+        #             commission_amount=commission
+        #         )
+        # elif investment.user.profile.role == 'field_agent':
+        #     field_agent = FieldAgent.objects.filter(profile=investment.user.profile).last()
+        #     if field_agent and field_agent.agency:
+        #         commission = Decimal(str(investment.amount * 0.25))
+        #         self.update_user_commission_(
+        #             user=field_agent.agency.created_by,
+        #             sender=investment.user,
+        #             verify_by=request.user,
+        #             remarks='Commission added due to field agent added.',
+        #             commission_amount=commission
+        #         )
+        #         if field_agent.agency.company:
+        #             commission = Decimal(str(investment.amount * 0.05))
+        #             self.update_user_commission_(
+        #                 user=field_agent.agency.company.profile.user,
+        #                 sender=investment.user,
+        #                 verify_by=request.user,
+        #                 remarks='Commission added due to field agent added.',
+        #                 commission_amount=commission
+        #             )
+        return Response({'message': 'Investment approved successfully'}, status=status.HTTP_200_OK)
+
+
+class CreateManualInvestmentAPIView(APIView):
+    permission_classes = [IsStaffUser]
+
+    def post(self, request):
+        user_id = request.data.get('user_id')
+        amount = Decimal(request.data.get('amount'))
+        user_profile = Profile.objects.filter(user=user_id).last()
+        if not user_profile:
+            return Response({'error': 'User id not found'}, status=status.HTTP_400_BAD_REQUEST)
+
+        wallet, _ = UserWallet.objects.get_or_create(user=user_profile.user)
+        wallet.main_wallet_balance += amount
+        wallet.save()
+
         Transaction.objects.create(
-            created_by=investment.user,
-            sender=investment.user,
-            amount=investment.amount,
-            transaction_type='investment',
+            created_by=user_profile.user,
+            sender=user_profile.user,
+            receiver=user_profile.user,
+            amount=amount,
+            transaction_type='deposit',
             transaction_status='approved',
             verified_by=request.user,
             verified_on=datetime.datetime.now(),
-            payment_method='wallet'
+            payment_method='upi'
         )
-        if investment.user.profile.role == 'agency':
-            agency = Agency.objects.filter(created_by=investment.user).last()
-            if agency and agency.company:
-                commission = Decimal(str(investment.amount * 0.25))
-                self.update_user_commission_(
-                    user=agency.company.profile.user,
-                    sender=investment.user,
-                    verify_by=request.user,
-                    remarks='Commission added due to agency added.',
-                    commission_amount=commission
-                )
-        elif investment.user.profile.role == 'field_agent':
-            field_agent = FieldAgent.objects.filter(profile=investment.user.profile).last()
-            if field_agent and field_agent.agency:
-                commission = Decimal(str(investment.amount * 0.25))
-                self.update_user_commission_(
-                    user=field_agent.agency.created_by,
-                    sender=investment.user,
-                    verify_by=request.user,
-                    remarks='Commission added due to field agent added.',
-                    commission_amount=commission
-                )
-                if field_agent.agency.company:
-                    commission = Decimal(str(investment.amount * 0.05))
-                    self.update_user_commission_(
-                        user=field_agent.agency.company.profile.user,
-                        sender=investment.user,
-                        verify_by=request.user,
-                        remarks='Commission added due to field agent added.',
-                        commission_amount=commission
-                    )
-        return Response({'message': 'Investment approved successfully'}, status=status.HTTP_200_OK)
+        Investment.objects.create(
+            created_by=user_profile.user,
+            user=user_profile.user,
+            amount=amount,
+            investment_type='p2pmb',
+            pay_method='new',
+            gst=0,
+            is_approved=True,
+            approved_by=request.user,
+            approved_on=datetime.datetime.now(),
+        )
+        ManualFund.objects.create(
+            created_by=user_profile.user,
+            added_to=user_profile.user,
+            amount=amount
+        )
+        return Response({'message': 'Fund Added successfully.'}, status=status.HTTP_200_OK)
+
+
+class GetUserAPIView(ListAPIView):
+    permission_classes = [IsStaffUser]
+    queryset = Profile.objects.filter(status='active', user__is_staff=False)
+    serializer_class = ProfileSerializer
+
+
+class ManualFundViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsStaffUser]
+    queryset = ManualFund.objects.filter(status='active')
+    serializer_class = ManualFundSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_fields = ['amount', ]

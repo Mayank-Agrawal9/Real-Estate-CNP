@@ -3,6 +3,7 @@ from rest_framework import serializers
 from accounts.models import Profile
 from agency.models import Investment
 from p2pmb.models import Package
+from web_admin.models import ManualFund
 
 
 class ProfileSerializer(serializers.ModelSerializer):
@@ -42,3 +43,21 @@ class InvestmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Investment
         fields = '__all__'
+
+
+class ManualFundSerializer(serializers.ModelSerializer):
+    added_to = serializers.SerializerMethodField()
+
+    def get_added_to(self, obj):
+        return {
+            'first_name': obj.added_to.first_name,
+            'last_name': obj.added_to.last_name,
+            'email': obj.added_to.email,
+            'username': obj.added_to.username
+        }
+
+    class Meta:
+        model = ManualFund
+        fields = '__all__'
+
+
