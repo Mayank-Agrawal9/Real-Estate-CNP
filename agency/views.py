@@ -71,6 +71,7 @@ class InvestmentViewSet(viewsets.ModelViewSet):
         wallet_type = request.data.get('wallet_type')
         package = request.data.get('package')
         investment_type = request.data.get('investment_type')
+        investment_guaranteed_type = request.data.get('investment_guaranteed_type')
         if not investment_type:
             investment_type = 'p2pmb'
         referral_code = request.data.get('referral_by')
@@ -139,6 +140,7 @@ class InvestmentViewSet(viewsets.ModelViewSet):
                 'is_approved': True,
                 'approved_by': self.request.user,
                 'approved_on': datetime.datetime.now(),
+                'investment_guaranteed_type': investment_guaranteed_type,
                 'referral_by': referral_by if referral_by else None
             }
 

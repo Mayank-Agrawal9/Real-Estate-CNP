@@ -38,8 +38,8 @@ PAYMENT_CHOICES = [
 ]
 
 INVESTMENT_GUARANTEED_TYPE = [
-    ('full_investment', 'Full Investment'),
-    ('half_investment', 'Half Investment')
+    ('full_payment', 'Full Payment'),
+    ('part_payment', 'Part Payment')
 ]
 
 
