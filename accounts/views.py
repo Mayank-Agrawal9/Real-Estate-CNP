@@ -706,3 +706,27 @@ class ChangeRequestViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
+
+
+class ShowUserDetail(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        try:
+            referral_code = request.data.get('referral_code')
+            if not referral_code:
+                return Response({'error': 'Need to pass referral code.'}, status=status.HTTP_400_BAD_REQUEST)
+            check_referral = Profile.objects.filter(referral_code=referral_code).last()
+            if not check_referral:
+                return Response({'error': 'Invalid referral code.'}, status=status.HTTP_400_BAD_REQUEST)
+            profile_dict = {
+                'referral_code': check_referral.referral_code,
+                'first_name': check_referral.user.first_name,
+                'last_name': check_referral.user.last_name,
+                'email': check_referral.user.email,
+                'username': check_referral.user.username
+            }
+            return Response(profile_dict, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)

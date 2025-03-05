@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 
 from .views import ResendOTPView, VerifyOTPView, RequestOTPView, LogoutView, ProfileView, UserKycAPIView, \
     GetUserFriendReferralCodeDetails, VerifyBankIFSCCodeView, VerifyAndUpdateProfile, FAQAPIView, SoftwarePolicyAPIView, \
-    DeleteUser, GetReferralCode, ChangeRequestViewSet, GetPPDReferralCode
+    DeleteUser, GetReferralCode, ChangeRequestViewSet, GetPPDReferralCode, ShowUserDetail
 
 router = DefaultRouter()
 router.register(r'change-request', ChangeRequestViewSet)
@@ -21,6 +21,7 @@ urlpatterns = [
     path('apply-referral-code/', GetUserFriendReferralCodeDetails.as_view(), name='apply_referral_code'),
     path('get-referral-code/', GetReferralCode.as_view(), name='get_referral_code'),
     path('get-ppd-referral-code/', GetPPDReferralCode.as_view(), name='get_p2pmb_code'),
+    path('show-detail/', ShowUserDetail.as_view(), name='show_user_detail'),
     path('verify-bank-ifsc-code/', VerifyBankIFSCCodeView.as_view(), name='verify_bank_ifsc_code'),
     path('software-policy/', SoftwarePolicyAPIView.as_view(), name='software-policy'),
     path('faqs/', FAQAPIView.as_view(), name='faqs'),
