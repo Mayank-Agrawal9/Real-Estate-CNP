@@ -70,6 +70,9 @@ class InvestmentViewSet(viewsets.ModelViewSet):
         amount = Decimal(request.data.get('amount'))
         wallet_type = request.data.get('wallet_type')
         package = request.data.get('package')
+        investment_type = request.data.get('investment_type')
+        if not investment_type:
+            investment_type = 'p2pmb'
         referral_code = request.data.get('referral_by')
         referral_by = None
 
@@ -129,7 +132,7 @@ class InvestmentViewSet(viewsets.ModelViewSet):
                 'created_by': self.request.user,
                 'user': self.request.user,
                 'amount': amount,
-                'investment_type': "p2pmb",
+                'investment_type': investment_type,
                 'gst': 0,
                 'transaction_id': transaction,
                 'pay_method': wallet_type,
