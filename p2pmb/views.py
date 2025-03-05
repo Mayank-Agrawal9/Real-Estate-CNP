@@ -196,6 +196,7 @@ class PackageViewSet(viewsets.ModelViewSet):
     serializer_class = PackageSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter]
     search_fields = ['name', 'applicable_for']
+    filterset_fields = ['applicable_for', ]
     queryset = Package.objects.all()
 
     def get_queryset(self):
