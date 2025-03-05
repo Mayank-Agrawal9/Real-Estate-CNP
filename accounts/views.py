@@ -393,11 +393,25 @@ class GetReferralCode(APIView):
         profile = Profile.objects.filter(city=city, is_kyc=True, is_kyc_verified=True,
                                          role=mapped_role).first()
         if profile:
-            return Response({'referral_code': profile.referral_code}, status=status.HTTP_200_OK)
+            profile_dict = {
+                'referral_code': profile.referral_code,
+                'first_name': profile.user.first_name,
+                'last_name': profile.user.last_name,
+                'email': profile.user.email,
+                'username': profile.user.username
+            }
+            return Response(profile_dict, status=status.HTTP_200_OK)
         else:
             profile = Profile.objects.filter(is_kyc=True, is_kyc_verified=True, role=mapped_role,
                                              user__is_staff=True).first()
-            return Response({'referral_code': profile.referral_code}, status=status.HTTP_200_OK)
+            profile_dict = {
+                'referral_code': profile.referral_code,
+                'first_name': profile.user.first_name,
+                'last_name': profile.user.last_name,
+                'email': profile.user.email,
+                'username': profile.user.username
+            }
+            return Response(profile_dict, status=status.HTTP_200_OK)
 
 
 class GetPPDReferralCode(APIView):
@@ -407,12 +421,32 @@ class GetPPDReferralCode(APIView):
     def get(self, request, *args, **kwargs):
         get_user_referral = Profile.objects.filter(user=self.request.user).last()
         if get_user_referral and get_user_referral.referral_by:
-            return Response({'referral_code': get_user_referral.referral_by.profile.referral_code},
-                            status=status.HTTP_200_OK)
-        mlm = MLMTree.objects.filter(level=13, position=1, is_show=True).last()
+            profile_dict = {
+                'referral_code': get_user_referral.referral_by.profile.referral_code,
+                'first_name': get_user_referral.referral_by.first_name,
+                'last_name': get_user_referral.referral_by.last_name,
+                'email': get_user_referral.referral_by.email,
+                'username': get_user_referral.referral_by.username
+            }
+            return Response(profile_dict, status=status.HTTP_200_OK)
+        mlm = MLMTree.objects.filter(level=12, position=1, is_show=True).last()
         if not mlm:
-            return Response({'referral_code': 'CNPPB007700'}, status=status.HTTP_200_OK)
-        return Response({'referral_code': mlm.child.profile.referral_code}, status=status.HTTP_200_OK)
+            profile_dict = {
+                'referral_code': 'CNPPB007700',
+                'first_name': 'Click N Pay',
+                'last_name': 'Real Estate',
+                'email': 'clicknpayrealestate@gmail.com',
+                'username': 'clicknpayrealestate@gmail.com'
+            }
+            return Response(profile_dict, status=status.HTTP_200_OK)
+        profile_dict = {
+            'referral_code': mlm.child.profile.referral_code,
+            'first_name': mlm.child.first_name,
+            'last_name': mlm.child.last_name,
+            'email': mlm.child.email,
+            'username': mlm.child.username
+        }
+        return Response(profile_dict, status=status.HTTP_200_OK)
 
 
 class VerifyBankIFSCCodeView(APIView):

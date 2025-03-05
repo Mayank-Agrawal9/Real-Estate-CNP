@@ -42,9 +42,16 @@ class ScheduledCommission(ModelMixin):
 
 
 class Package(ModelMixin):
+    APPLICABLE_FOR_CHOICES = [
+        ('super_agency', 'Star Agency'),
+        ('agency', 'Agency'),
+        ('field_agent', 'field_agent'),
+        ('p2pmb', 'p2pmb')
+    ]
     name = models.CharField(max_length=100)
     description = models.TextField(null=True, blank=True)
     amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.0)
+    applicable_for = models.CharField(max_length=15, choices=APPLICABLE_FOR_CHOICES, default='p2pmb')
 
     def __str__(self):
         return str(self.id)

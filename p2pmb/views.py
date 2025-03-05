@@ -195,7 +195,7 @@ class PackageViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = PackageSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter]
-    search_fields = ['name',]
+    search_fields = ['name', 'applicable_for']
     queryset = Package.objects.all()
 
     def get_queryset(self):
