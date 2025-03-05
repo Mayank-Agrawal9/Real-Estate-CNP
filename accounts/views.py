@@ -713,7 +713,7 @@ class ShowUserDetail(APIView):
 
     def get(self, request, *args, **kwargs):
         try:
-            referral_code = request.data.get('referral_code')
+            referral_code = request.GET.get('referral_code')
             if not referral_code:
                 return Response({'error': 'Need to pass referral code.'}, status=status.HTTP_400_BAD_REQUEST)
             check_referral = Profile.objects.filter(referral_code=referral_code).last()
