@@ -33,6 +33,7 @@ INVESTMENT_TYPE_CHOICES = [
 
 PAYMENT_CHOICES = [
     ('new', 'New'),
+    ('deduct', 'Deduct'),
     ('main_wallet', 'Main Wallet'),
     ('app_wallet', 'App Wallet')
 ]

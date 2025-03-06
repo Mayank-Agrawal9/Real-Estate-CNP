@@ -2,7 +2,10 @@ import datetime
 from decimal import Decimal
 
 from django.contrib.auth import authenticate
+from django.contrib.auth.hashers import check_password, make_password
+from django.contrib.auth.models import User
 from django.db import transaction
+from django.db.models import Count, Q, Sum
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status, permissions, viewsets
 from rest_framework.authtoken.models import Token
@@ -15,7 +18,7 @@ from rest_framework.views import APIView
 from accounts.models import Profile
 from web_admin.models import ManualFund
 from web_admin.serializers import ProfileSerializer, InvestmentSerializer, ManualFundSerializer
-from agency.models import Investment, SuperAgency, Agency, FieldAgent
+from agency.models import Investment, SuperAgency, Agency, FieldAgent, FundWithdrawal
 from payment_app.models import UserWallet, Transaction
 
 
@@ -161,9 +164,13 @@ class CreateManualInvestmentAPIView(APIView):
     def post(self, request):
         user_id = request.data.get('user_id')
         amount = Decimal(request.data.get('amount'))
+        password = request.data.get('password', None)
         user_profile = Profile.objects.filter(user=user_id).last()
         if not user_profile:
             return Response({'error': 'User id not found'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if password and password != request.user.profile.payment_password:
+            return Response({'error': 'Incorrect Password'}, status=status.HTTP_400_BAD_REQUEST)
 
         wallet, _ = UserWallet.objects.get_or_create(user=user_profile.user)
         wallet.main_wallet_balance += amount
@@ -196,7 +203,52 @@ class CreateManualInvestmentAPIView(APIView):
             added_to=user_profile.user,
             amount=amount
         )
-        return Response({'message': 'Fund Added successfully.'}, status=status.HTTP_200_OK)
+        return Response({'message': 'Fund Deduct successfully.'}, status=status.HTTP_200_OK)
+
+
+class DeductManualInvestmentAPIView(APIView):
+    permission_classes = [IsStaffUser]
+
+    def post(self, request):
+        user_id = request.data.get('user_id')
+        amount = Decimal(request.data.get('amount'))
+        user_profile = Profile.objects.filter(user=user_id).last()
+        if not user_profile:
+            return Response({'error': 'User id not found'}, status=status.HTTP_400_BAD_REQUEST)
+
+        wallet, _ = UserWallet.objects.get_or_create(user=user_profile.user)
+        wallet.main_wallet_balance -= amount
+        wallet.save()
+
+        Transaction.objects.create(
+            created_by=user_profile.user,
+            sender=user_profile.user,
+            receiver=user_profile.user,
+            amount=amount,
+            transaction_type='deduct',
+            transaction_status='approved',
+            verified_by=request.user,
+            verified_on=datetime.datetime.now(),
+            payment_method='wallet'
+        )
+        Investment.objects.create(
+            created_by=user_profile.user,
+            user=user_profile.user,
+            amount=amount,
+            investment_type='deduct',
+            pay_method='new',
+            gst=0,
+            is_approved=True,
+            approved_by=request.user,
+            approved_on=datetime.datetime.now(),
+        )
+        ManualFund.objects.create(
+            created_by=user_profile.user,
+            added_to=user_profile.user,
+            amount=amount,
+            fund_type='deduct'
+        )
+        return Response({'message': 'Fund Deduct successfully.'}, status=status.HTTP_200_OK)
 
 
 class GetUserAPIView(ListAPIView):
@@ -213,3 +265,66 @@ class ManualFundViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_fields = ['amount', ]
     pagination_class = None
+
+
+class DashboardCountAPIView(APIView):
+    permission_classes = [IsStaffUser]
+
+    def get(self, request):
+        user_counts = User.objects.aggregate(
+            all_user=Count("id"),
+            active_user=Count("id", filter=Q(is_active=True)),
+            inactive_user=Count("id", filter=Q(is_active=False)),
+            staff_user=Count("id", filter=Q(is_staff=True)),
+        )
+
+        investment_data = Investment.objects.aggregate(
+            investment_approved_user=Count("user", distinct=True, filter=Q(is_approved=True)),
+            p2pmb_fund_added=Sum("amount", filter=Q(is_approved=True, investment_type="p2pmb")),
+            super_agency_fund_added=Sum("amount", filter=Q(is_approved=True, investment_type="super_agency")),
+            agency_fund_added=Sum("amount", filter=Q(is_approved=True, investment_type="agency")),
+            field_agent_fund_added=Sum("amount", filter=Q(is_approved=True, investment_type="field_agent")),
+            pending_approval_payment=Sum("amount", filter=Q(is_approved=False)),
+        )
+
+        fund_withdraw = FundWithdrawal.objects.aggregate(
+            total_distinct_withdraw_user=Count("user", distinct=True),
+            pending_withdraw_amount=Sum("withdrawal_amount", filter=Q(is_paid=False)),
+            initiate_withdraw_amount=Sum("withdrawal_amount", filter=Q(is_paid=True)),
+            total_withdraw_amount=Sum("withdrawal_amount"),
+        )
+
+        admin_paid_amount = ManualFund.objects.filter(status="active").aggregate(Sum("amount"))["amount__sum"]
+        dashboard_count = {
+            **user_counts,
+            **investment_data,
+            **fund_withdraw,
+            "admin_paid_amount": admin_paid_amount or 0,
+        }
+        return Response(dashboard_count, status=status.HTTP_200_OK)
+
+
+class UpdatePasswordView(APIView):
+    permission_classes = [IsStaffUser]
+
+    def post(self, request):
+        user = request.user
+        old_password = request.data.get("old_password")
+        new_password = request.data.get("new_password")
+        confirm_password = request.data.get("confirm_password")
+
+        if not old_password or not new_password or not confirm_password:
+            return Response({"error": "All fields are required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not check_password(old_password, user.payment_password):
+            return Response({"error": "Old password is incorrect."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if new_password != confirm_password:
+            return Response({"error": "New password and confirm password do not match."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        user.password = make_password(new_password)
+        user.save()
+
+        return Response({"message": "Password updated successfully."}, status=status.HTTP_200_OK)
+

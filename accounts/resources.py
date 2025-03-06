@@ -9,7 +9,7 @@ class ProfileResource(resources.ModelResource):
     class Meta:
         model = Profile
         import_id_fields = ('id',)
-        exclude = ('date_created', 'updated_by', 'date_updated', 'created_by', 'picture')
+        exclude = ('date_created', 'updated_by', 'date_updated', 'created_by', 'picture', 'payment_password')
 
 
 class OTPResource(resources.ModelResource):

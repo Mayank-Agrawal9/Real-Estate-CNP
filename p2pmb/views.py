@@ -249,11 +249,11 @@ class DistributeDirectIncome(APIView):
         user_id = request.data.get('user_id')
         investment_id = request.data.get('investment_id')
         investment_instance = Investment.objects.filter(id=investment_id, status='active',
-                                                        is_approved=True, ).last()
+                                                        is_approved=True).last()
         instance = MLMTree.objects.filter(status='active', child=user_id).last()
         if not instance or not investment_instance:
             return Response({'message': "Invalid id"}, status=status.HTTP_400_BAD_REQUEST)
-        elif instance.send_direct_income or investment_instance.send_direct_income:
+        elif investment_instance.send_direct_income:
             return Response({'message': "We already send commission to this user."},
                             status=status.HTTP_400_BAD_REQUEST)
         DistributeDirectCommission.distribute_p2pmb_commission(instance, investment_instance.amount)

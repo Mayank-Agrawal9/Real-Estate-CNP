@@ -87,7 +87,7 @@ class MLMTreeSerializer(serializers.ModelSerializer):
 
     def get_or_create_master_node(self):
         """ Retrieve or validate the existence of the master node. """
-        master_node = MLMTree.objects.filter(level=13, position=1).first()
+        master_node = MLMTree.objects.filter(level=12, position=1).first()
         if not master_node:
             raise serializers.ValidationError("Master MLM node (level 11, position 1) does not exist.")
         return master_node

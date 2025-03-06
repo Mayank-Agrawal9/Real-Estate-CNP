@@ -58,6 +58,7 @@ class Profile(ModelMixin):
     pin_code = models.CharField(max_length=7, null=True, blank=True)
     referral_by = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name="referral_by")
     kyc_video = models.FileField(null=True, blank=True)
+    payment_password = models.CharField(max_length=128, blank=True, null=True)
 
 
 class BankDetails(ModelMixin):

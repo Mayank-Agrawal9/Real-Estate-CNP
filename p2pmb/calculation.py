@@ -2,6 +2,7 @@ import datetime
 from decimal import Decimal
 from itertools import combinations
 
+from dateutil.relativedelta import relativedelta
 from django.db import transaction
 
 from agency.models import RewardEarned
@@ -47,13 +48,14 @@ class DistributeDirectCommission:
                                                                        instant_commission)
 
                 # Process parent commission if exists
-                if profile_instance.parent:
-                    DistributeDirectCommission.process_parent_commission(profile_instance.parent,
-                                                                         profile_instance.child, monthly_commission)
+                # if profile_instance.parent:
+                #     DistributeDirectCommission.process_parent_commission(profile_instance.parent,
+                #                                                          profile_instance.child, monthly_commission)
 
                 # Schedule monthly payments for 9 months
-                DistributeDirectCommission.schedule_monthly_payments(profile_instance.child, profile_instance.parent,
-                                                                     monthly_commission)
+                if profile_instance.parent:
+                    DistributeDirectCommission.schedule_monthly_payments(profile_instance.child,
+                                                                         profile_instance.parent, monthly_commission)
 
             else:
                 # Handle case where there is no referral
@@ -140,14 +142,21 @@ class DistributeDirectCommission:
 
     @staticmethod
     def schedule_monthly_payments(child, parent, monthly_amount):
-        for month in range(1, 10):
+        for month in range(1, 11):
             DistributeDirectCommission.schedule_payment(child, parent, monthly_amount, month)
 
     @staticmethod
     def schedule_payment(sender, user, amount, months_ahead):
-        scheduled_date = datetime.datetime.now() + datetime.timedelta(days=31 * months_ahead)
-        ScheduledCommission.objects.create(created_by=user, send_by=sender, user=user, amount=amount,
-                                           scheduled_date=scheduled_date)
+        today = datetime.date.today()
+        first_of_next_month = (today.replace(day=1) + relativedelta(months=1))
+        scheduled_date = first_of_next_month + relativedelta(months=months_ahead - 1)
+        ScheduledCommission.objects.create(
+            created_by=user,
+            send_by=sender,
+            user=user,
+            amount=amount,
+            scheduled_date=scheduled_date
+        )
 
     @staticmethod
     def cron_send_monthly_payment_direct_income():
