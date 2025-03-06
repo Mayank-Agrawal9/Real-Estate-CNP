@@ -256,9 +256,9 @@ AUDITLOG_INCLUDE_ALL_MODELS = True
 
 # Cron Jobs
 
-# CRONJOBS = [
-#     ('0 0 1 * *', 'real_estate.cron.monthly_task')
-# ]
+CRONJOBS = [
+    ('*/5 * * * *', 'p2pmb.cron.distribute_direct_income')
+]
 
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:4200',

@@ -67,9 +67,13 @@ class DistributeDirectCommission:
     @staticmethod
     def process_referral_commission(referral_by, child, instant_commission):
         referral_user_wallet = UserWallet.objects.filter(user=referral_by, status='active').last()
+        mlm_commission = MLMTree.objects.filter(child=referral_by, status='active').last()
         if referral_user_wallet:
             referral_user_wallet.app_wallet_balance += instant_commission
             referral_user_wallet.save()
+            if mlm_commission:
+                mlm_commission.commission_earned += instant_commission
+                mlm_commission.save()
 
             DistributeDirectCommission.create_commission_entry(
                 referral_by, child, 'direct', instant_commission,
@@ -97,9 +101,11 @@ class DistributeDirectCommission:
     @staticmethod
     def handle_no_referral(profile_instance, instant_commission, monthly_commission):
         top_user = MLMTree.objects.filter(parent=12, position=1).first()
+        admin_wallet = UserWallet.objects.filter(user=top_user.child, status='active').last()
         if top_user:
-            top_user.app_wallet_balance += instant_commission
+            admin_wallet.app_wallet_balance += instant_commission
             top_user.commission_earned += instant_commission
+            admin_wallet.save()
             top_user.save()
 
             DistributeDirectCommission.create_commission_entry(
@@ -111,8 +117,8 @@ class DistributeDirectCommission:
                 'approved', f'Direct Commission Added while adding {profile_instance.child.username}')
 
             if profile_instance.parent:
-                DistributeDirectCommission.process_parent_commission(profile_instance.parent, profile_instance.child,
-                                                                     monthly_commission)
+                DistributeDirectCommission.schedule_monthly_payments(profile_instance.child,
+                                                                     profile_instance.parent, monthly_commission)
 
     @staticmethod
     def create_commission_entry(created_by, commission_by, commission_type, amount, description):
