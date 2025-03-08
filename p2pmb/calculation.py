@@ -228,11 +228,11 @@ class DistributeLevelIncome:
             # Create transaction record for this distribution
             create_transaction_entry(
                 instance.child, top_node.child, total_remaining, 'commission', 'approved',
-                f'Level Commission added by adding {instance.child.get_full_name()} remaining account.')
+                f'Level Commission added by adding {instance.child.username} remaining account.')
 
             # Create commission record
             create_commission_entry(top_node.child, instance.child, 'level', total_remaining,
-                                    f'Commission added for {instance.child.get_full_name()} remaining account.')
+                                    f'Commission added for {instance.child.username} remaining account.')
 
     @staticmethod
     def distribute_to_levels_above(user, amount, percent, max_levels):
@@ -258,11 +258,11 @@ class DistributeLevelIncome:
             # Create transaction record for this distribution
             create_transaction_entry(
                 base_user.child, parent.parent, commission, 'commission', 'approved',
-                f'Level Commission added by adding {base_user.child.get_full_name()}')
+                f'Level Commission added by adding {base_user.child.username}')
 
             # Create commission record
             create_commission_entry(parent.parent, base_user.child, 'level', commission,
-                                    f'Commission added for {base_user.child.get_full_name()}')
+                                    f'Commission added for {base_user.child.username}')
 
             current_user = parent.parent
             distributed_levels += 1

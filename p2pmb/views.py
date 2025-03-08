@@ -249,6 +249,18 @@ class DistributeLevelIncomeAPIView(APIView):
                         status=status.HTTP_400_BAD_REQUEST)
 
 
+class CommissionMessageAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        commissions = Commission.objects.filter(commission_type='level')
+        for commission in commissions:
+            commission.description = f"Level Commission added while adding {commission.commission_by.username}"
+            commission.save()
+
+        return Response({'message': 'Update Message.'}, status=status.HTTP_200_OK)
+
+
 class DistributeDirectIncome(APIView):
     """
     API to distribute level income.
