@@ -23,7 +23,7 @@ def distribute_direct_income():
         investments = Investment.objects.filter(
             status='active', is_approved=True, pay_method='main_wallet', investment_type='p2pmb',
             send_direct_income=False
-        )
+        ).order_by('id')
         for investment_instance in investments:
             if investment_instance and investment_instance.user:
                 instance = MLMTree.objects.filter(status='active', child=investment_instance.user).last()
@@ -52,10 +52,7 @@ def distribute_level_income():
         open(LOCK_LEVEL_INCOME_FILE, "w").close()
         print("🚀 Starting Direct Income Distribution...")
 
-        investments = Investment.objects.filter(
-            status='active', is_approved=True, pay_method='main_wallet', investment_type='p2pmb',
-            send_level_income=False
-        )
+        investments = Investment.objects.filter(status='active', is_approved=True, pay_method='main_wallet', investment_type='p2pmb', send_level_income=False)
         for investment_instance in investments:
 
             if investment_instance and investment_instance.user:
