@@ -122,7 +122,7 @@ class MLMTreeNodeSerializerV2(serializers.ModelSerializer):
 
     class Meta:
         model = MLMTree
-        fields = ['child', 'position', 'level', 'user']
+        fields = ['child', 'position', 'level', 'user', 'parent']
 
     def get_user(self, obj):
         user_data = {
@@ -132,6 +132,44 @@ class MLMTreeNodeSerializerV2(serializers.ModelSerializer):
             "first_name": obj.child.first_name,
             "last_name": obj.child.last_name
         }
+        return user_data
+
+
+class MLMTreeParentNodeSerializerV2(serializers.ModelSerializer):
+    user = serializers.SerializerMethodField()
+    parent = serializers.SerializerMethodField()
+
+    class Meta:
+        model = MLMTree
+        fields = ['child', 'position', 'level', 'user', 'parent']
+
+    def get_user(self, obj):
+        user_data = {
+            "id": obj.child.id,
+            "username": obj.child.username,
+            "email": obj.child.email,
+            "first_name": obj.child.first_name,
+            "last_name": obj.child.last_name
+        }
+        return user_data
+
+    def get_parent(self, obj):
+        if obj.parent:
+            user_data = {
+                "id": obj.parent.id,
+                "username": obj.child.username,
+                "email": obj.child.email,
+                "first_name": obj.child.first_name,
+                "last_name": obj.child.last_name
+            }
+        else:
+            user_data = {
+                "id": None,
+                "username": None,
+                "email": None,
+                "first_name": None,
+                "last_name": None
+            }
         return user_data
 
 

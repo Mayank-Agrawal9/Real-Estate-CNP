@@ -8,9 +8,10 @@ from rest_framework.views import APIView
 from agency.models import Investment
 from p2pmb.calculation import (RoyaltyClubDistribute, DistributeDirectCommission, DistributeLevelIncome,
                                LifeTimeRewardIncome)
+from p2pmb.cron import distribute_level_income
 from p2pmb.models import MLMTree, Package, Commission
 from p2pmb.serializers import MLMTreeSerializer, MLMTreeNodeSerializer, PackageSerializer, CommissionSerializer, \
-    ShowInvestmentDetail, GetP2PMBLevelData, GetMyApplyingData, MLMTreeNodeSerializerV2
+    ShowInvestmentDetail, GetP2PMBLevelData, GetMyApplyingData, MLMTreeNodeSerializerV2, MLMTreeParentNodeSerializerV2
 
 
 # Create your views here.
@@ -60,6 +61,7 @@ class MLMTreeViewV2(APIView):
 
     def get(self, request):
         child = request.query_params.get('child', None)
+        show_parent = request.query_params.get('show_parent', False)
         if not child:
             master_node = MLMTree.objects.filter(level=12, position=1, is_show=True).select_related(
                 'child', 'parent', 'referral_by').first()
@@ -70,11 +72,16 @@ class MLMTreeViewV2(APIView):
             serializer = MLMTreeNodeSerializerV2(master_node)
             return Response(serializer.data)
         else:
-            master_node = MLMTree.objects.filter(parent=child, is_show=True).select_related('child', 'parent',
-                                                                                            'referral_by')
-            serializer = MLMTreeNodeSerializerV2(master_node, many=True)
-            return Response(serializer.data)
+            if not show_parent:
+                master_node = MLMTree.objects.filter(parent=child, is_show=True).select_related('child', 'parent',
+                                                                                                'referral_by')
+                serializer = MLMTreeNodeSerializerV2(master_node, many=True)
+            else:
+                master_node = MLMTree.objects.filter(child=child, is_show=True).select_related('child', 'parent',
+                                                                                               'referral_by')
+                serializer = MLMTreeParentNodeSerializerV2(master_node, many=True)
 
+            return Response(serializer.data)
 
 
 class GetParentLevelsView(APIView):
@@ -221,21 +228,24 @@ class DistributeLevelIncomeAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        user_id = request.data.get('user_id')
-        investment_id = request.data.get('investment_id')
-        investment_instance = Investment.objects.filter(id=investment_id, status='active', is_approved=True).last()
-        instance = MLMTree.objects.filter(status='active', child=user_id).last()
-        if not instance or not investment_instance:
-            return Response({'message': "Either you did not do investment or your investment in progress"},
-                            status=status.HTTP_400_BAD_REQUEST)
-        elif instance.send_level_income or investment_instance.send_level_income:
-            return Response({'message': "We already send commission to this user."},
-                            status=status.HTTP_400_BAD_REQUEST)
-        amount = investment_instance.amount if investment_instance.amount else 0
-        DistributeLevelIncome.distribute_level_income(instance, amount)
-        investment_instance.send_level_income = True
-        investment_instance.save()
-        return Response({'message': "Payment of Level Income Distribute successfully."},
+        distribute_level_income()
+        # investment_id = request.data.get('investment_id')
+        # investment_instance = Investment.objects.filter(
+        #     id=investment_id, status='active', is_approved=True, pay_method='main_wallet', investment_type='p2pmb',
+        #     send_level_income=False
+        # ).last()
+        # if investment_instance and investment_instance.user:
+        #     instance = MLMTree.objects.filter(status='active', child=investment_instance.user).last()
+        #     if instance:
+        #         amount = investment_instance.amount if investment_instance.amount else 0
+        #         DistributeLevelIncome.distribute_level_income(instance, amount)
+        #         investment_instance.send_level_income = True
+        #         investment_instance.save()
+        #         return Response({'message': 'Payment of Level Income Distribute successfully.'},
+        #                         status=status.HTTP_200_OK)
+        #     return Response({'message': 'This user is not enroll in MLM model.'},
+        #                     status=status.HTTP_400_BAD_REQUEST)
+        return Response({'message': 'This user is not invest any amount yet.'},
                         status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -253,11 +263,16 @@ class DistributeDirectIncome(APIView):
         ).last()
         if investment_instance and investment_instance.user:
             instance = MLMTree.objects.filter(status='active', child=investment_instance.user).last()
-            DistributeDirectCommission.distribute_p2pmb_commission(instance, investment_instance.amount)
-            investment_instance.send_direct_income = True
-            investment_instance.save()
-            return Response({'message': 'Payment of Direct Income Distribute successfully.'},
-                            status=status.HTTP_200_OK)
+            if instance:
+                DistributeDirectCommission.distribute_p2pmb_commission(instance, investment_instance.amount)
+                investment_instance.send_direct_income = True
+                investment_instance.save()
+                return Response({'message': 'Payment of Direct Income Distribute successfully.'},
+                                status=status.HTTP_200_OK)
+            return Response({'message': 'This user is not enroll in MLM model.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        return Response({'message': 'This user is not invest any amount.'},
+                        status=status.HTTP_400_BAD_REQUEST)
 
 
 class LifeTimeRewardIncomeAPIView(APIView):

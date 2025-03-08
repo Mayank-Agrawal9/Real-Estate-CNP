@@ -207,13 +207,15 @@ class DistributeLevelIncome:
         )
 
         # Distribute to 10 levels below
-        remaining_below = DistributeLevelIncome.distribute_to_levels_below(
-            instance, amount, level_below_percent, 10
-        )
+        # remaining_below = DistributeLevelIncome.distribute_to_levels_below(
+        #     instance, amount, level_below_percent, 10
+        # )
+
+        remaining_below = Decimal(amount) * level_below_percent * Decimal(10)
 
         # Send remaining amounts to the top node
-        instance.send_level_income = True
-        instance.save()
+        # instance.send_level_income = True
+        # instance.save()
         top_node = MLMTree.objects.filter(parent=None).first()
         if top_node:
             total_remaining = remaining_above + remaining_below
@@ -226,11 +228,11 @@ class DistributeLevelIncome:
             # Create transaction record for this distribution
             create_transaction_entry(
                 instance.child, top_node.child, total_remaining, 'commission', 'approved',
-                f'Level Commission added by adding {instance.child.get_full_name()}')
+                f'Level Commission added by adding {instance.child.get_full_name()} remaining account.')
 
             # Create commission record
             create_commission_entry(top_node.child, instance.child, 'level', total_remaining,
-                                    f'Commission added for {instance.child.get_full_name()}')
+                                    f'Commission added for {instance.child.get_full_name()} remaining account.')
 
     @staticmethod
     def distribute_to_levels_above(user, amount, percent, max_levels):

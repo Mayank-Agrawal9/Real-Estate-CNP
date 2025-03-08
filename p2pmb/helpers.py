@@ -16,7 +16,6 @@ def create_commission_entry(commission_to, commission_by, commission_type, amoun
 
 
 def create_transaction_entry(sender, receiver, amount, transaction_type, transaction_status, remarks):
-    print(sender, receiver, amount, transaction_type, transaction_status, remarks)
     Transaction.objects.create(
         created_by=sender,
         sender=sender,
