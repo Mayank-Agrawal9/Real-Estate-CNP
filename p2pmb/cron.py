@@ -23,7 +23,7 @@ def distribute_direct_income():
         investments = Investment.objects.filter(
             status='active', is_approved=True, pay_method='main_wallet', investment_type='p2pmb',
             send_direct_income=False
-        ).order_by('id')
+        ).order_by('id')[:5]
         for investment_instance in investments:
             if investment_instance and investment_instance.user:
                 instance = MLMTree.objects.filter(status='active', child=investment_instance.user).last()
