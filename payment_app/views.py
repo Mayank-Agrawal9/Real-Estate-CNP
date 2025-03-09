@@ -132,7 +132,8 @@ class UserWalletViewSet(viewsets.ModelViewSet):
             transaction_status='approved',
             transaction_type='transfer',
             status='active',
-            taxable_amount=taxable_amount if taxable_amount else 0
+            taxable_amount=taxable_amount if taxable_amount else 0,
+            payment_method='wallet'
         )
 
         return Response(
