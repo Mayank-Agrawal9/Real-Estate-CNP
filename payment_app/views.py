@@ -127,6 +127,7 @@ class UserWalletViewSet(viewsets.ModelViewSet):
         Transaction.objects.create(
             created_by=request.user,
             sender=request.user,
+            receiver=request.user,
             amount=amount_after_fee,
             transaction_status='approved',
             transaction_type='transfer',
@@ -156,6 +157,7 @@ class UserWalletViewSet(viewsets.ModelViewSet):
         Transaction.objects.create(
             created_by=request.user,
             sender=request.user,
+            receiver=request.user,
             amount=amount,
             taxable_amount=taxable_amount,
             transaction_type='withdraw',
