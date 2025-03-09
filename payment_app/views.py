@@ -113,13 +113,15 @@ class UserWalletViewSet(viewsets.ModelViewSet):
             return Response(
                 {"error": "Insufficient balance in app wallet."}, status=status.HTTP_400_BAD_REQUEST)
 
-        admin_charge = transfer_amount * Decimal('0.10')
+        admin_charge = transfer_amount * Decimal('0.05')
         fee = transfer_amount * Decimal('0.05')
+        taxable_amount = admin_charge + fee
         amount_after_fee = transfer_amount - admin_charge - fee
 
         # Update wallet balances
         user_wallet.app_wallet_balance -= transfer_amount
         user_wallet.main_wallet_balance += amount_after_fee
+        user_wallet.tds_amount += taxable_amount if taxable_amount else 0
         user_wallet.save()
 
         Transaction.objects.create(
@@ -129,7 +131,7 @@ class UserWalletViewSet(viewsets.ModelViewSet):
             transaction_status='approved',
             transaction_type='transfer',
             status='active',
-            taxable_amount=fee
+            taxable_amount=taxable_amount if taxable_amount else 0
         )
 
         return Response(
@@ -150,7 +152,7 @@ class UserWalletViewSet(viewsets.ModelViewSet):
         serializer = WithdrawRequestSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         amount = serializer.validated_data['amount']
-        taxable_amount = (Decimal(amount) * Decimal('0.15'))
+        taxable_amount = (Decimal(amount) * Decimal('0.05'))
         Transaction.objects.create(
             created_by=request.user,
             sender=request.user,
@@ -159,7 +161,8 @@ class UserWalletViewSet(viewsets.ModelViewSet):
             transaction_type='withdraw',
             transaction_status='pending'
         )
-        return Response({"message": "Withdraw request created."}, status=status.HTTP_201_CREATED)
+        return Response({"message": "Your withdrawal will be credited to your account within 48 hours. "
+                                    "Thank you for your patience."}, status=status.HTTP_201_CREATED)
 
 
 class TransactionViewSet(viewsets.ModelViewSet):
