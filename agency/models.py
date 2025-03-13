@@ -81,6 +81,7 @@ class Investment(ModelMixin):
     referral_by = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name="referral_code")
     send_direct_income = models.BooleanField(default=False)
     send_level_income = models.BooleanField(default=False)
+    is_royalty_calculate = models.BooleanField(default=False)
 
     def total_investment(self):
         return self.amount + self.gst

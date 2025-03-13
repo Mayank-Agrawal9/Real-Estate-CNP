@@ -109,29 +109,25 @@ class GetParentLevelsView(APIView):
 
     def get_users_below(self, user, max_levels=10):
         """
-        Returns the remaining amount if fewer levels are available.
+        Retrieves child users up to a maximum depth of `max_levels`.
         """
+        levels = []
         current_user = user.child
         distributed_levels = 0
-        levels = []
 
         while distributed_levels < max_levels:
-            children = MLMTree.objects.filter(child=user.child, status='active', is_show=True)
+            children = MLMTree.objects.filter(parent=current_user, status='active', is_show=True).first()
 
-            if not children.exists():
+            if not children:
                 break
 
-            for child in children:
-                levels.append(child)
-                distributed_levels += 1
+            levels.append(children)
+            distributed_levels += 1
 
-                if distributed_levels >= max_levels:
-                    break
-
-            if children.exists():
-                current_user = children.first()
-            else:
+            if distributed_levels >= max_levels:
                 break
+
+            current_user = children.child
 
         return levels
 

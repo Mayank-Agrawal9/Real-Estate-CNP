@@ -8,7 +8,7 @@ from django.db import transaction
 from agency.models import RewardEarned
 from master.models import RewardMaster, RoyaltyMaster
 from p2pmb.helpers import create_transaction_entry, create_commission_entry
-from p2pmb.models import MLMTree, ScheduledCommission, Commission, RoyaltyClub, Reward
+from p2pmb.models import MLMTree, ScheduledCommission, Commission, RoyaltyClub, Reward, P2PMBRoyaltyMaster
 from payment_app.models import Transaction, UserWallet
 from real_estate.constant import TURNOVER_DISTRIBUTION
 
@@ -429,6 +429,41 @@ class RoyaltyClubDistribute:
             if (direct_ids_count >= 10) or (team_count_level_one >= 5 and team_count_level_two >= 25):
                 person.is_working_id = True
                 person.save()
+
+    # New Working
+    @staticmethod
+    def distribute_royalty():
+        royalties = P2PMBRoyaltyMaster.objects.filter(month=datetime.datetime.month)
+        for royalty_master in royalties:
+            eligible_users = royalty_master.eligible_user.all()
+            if not eligible_users.exists():
+                return "No eligible users found."
+
+            income_fields = {
+                'star_income': royalty_master.star_income,
+                'two_star_income': royalty_master.two_star_income,
+                'three_star_income': royalty_master.three_star_income,
+                'lifetime_income': royalty_master.lifetime_income
+            }
+
+            for user in eligible_users:
+                for income_type, amount in income_fields.items():
+                    commission = amount / len(eligible_users)
+                    user_wallet = UserWallet.objects.filter(user=user, status='active').last()
+                    if user_wallet:
+                        user_wallet.app_wallet_balance += commission
+                        user_wallet.save()
+
+                    # Create transaction record for this distribution
+                    create_transaction_entry(
+                        user, user, commission, 'commission', 'approved',
+                        f'Royalty Commission added by Click N Pay.')
+
+                    # Create commission record
+                    create_commission_entry(user, user, 'royalty', commission,
+                                            f'Royalty Commission added by Click N Pay.')
+
+            return "Royalty distributed successfully."
 
 
 def process_monthly_reward_payments():

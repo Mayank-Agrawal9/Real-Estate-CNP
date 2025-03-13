@@ -14,6 +14,7 @@ class MLMTree(ModelMixin):
     child = models.ForeignKey(User, on_delete=models.CASCADE, related_name='parent_relation')
     position = models.IntegerField()
     level = models.IntegerField()
+    show_level = models.IntegerField(null=True, blank=True)
     referral_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='parent_referral', null=True, blank=True)
     turnover = models.DecimalField(max_digits=12, decimal_places=2, default=0.0)
     commission_earned = models.DecimalField(max_digits=12, decimal_places=2, default=0.0)
@@ -120,3 +121,28 @@ class Commission(ModelMixin):
 
     def __str__(self):
         return f"{self.commission_by.username} - {self.get_commission_type_display()} - {self.amount}"
+
+
+class P2PMBRoyaltyMaster(ModelMixin):
+    total_turnover = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    calculated_amount_turnover = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    star_income = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    two_star_income = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    three_star_income = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    lifetime_income = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    eligible_user = models.ManyToManyField(User, blank=True, related_name='royalty_user')
+    month = models.DateField()
+    # is_distributed = models.BooleanField(default=False)
+
+    def save(self, *args, **kwargs):
+        if self.total_turnover:
+            self.calculated_amount_turnover = self.total_turnover * Decimal("0.01")
+            distributed_amount = self.calculated_amount_turnover / Decimal("4")
+            self.star_income = distributed_amount
+            self.two_star_income = distributed_amount
+            self.three_star_income = distributed_amount
+            self.lifetime_income = distributed_amount
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Total company turnover {self.total_turnover} - Calculated Amount {self.calculated_amount_turnover}"

@@ -60,6 +60,7 @@ class MLMTreeSerializer(serializers.ModelSerializer):
         """ Create a new MLM tree node under the assigned parent. """
         position = MLMTree.objects.filter(parent=parent_node.child).count() + 1
         level = parent_node.level + 1
+        show_level = parent_node.show_level + 1
         Profile.objects.filter(user=child_node).update(is_p2pmb=True)
 
         return MLMTree.objects.create(
@@ -67,6 +68,7 @@ class MLMTreeSerializer(serializers.ModelSerializer):
             child=child_node,
             position=position,
             level=level,
+            show_level=show_level,
             referral_by=referral_by if referral_by else None
         )
 
@@ -99,7 +101,7 @@ class MLMTreeNodeSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = MLMTree
-        fields = ['child', 'position', 'level', 'children', 'user']
+        fields = ['child', 'position', 'level', 'children', 'user', 'show_level']
 
     def get_children(self, obj):
         children = MLMTree.objects.filter(parent=obj.child, is_show=True).select_related(
@@ -122,7 +124,7 @@ class MLMTreeNodeSerializerV2(serializers.ModelSerializer):
 
     class Meta:
         model = MLMTree
-        fields = ['child', 'position', 'level', 'user', 'parent']
+        fields = ['child', 'position', 'level', 'user', 'parent', 'show_level']
 
     def get_user(self, obj):
         user_data = {
@@ -141,7 +143,7 @@ class MLMTreeParentNodeSerializerV2(serializers.ModelSerializer):
 
     class Meta:
         model = MLMTree
-        fields = ['child', 'position', 'level', 'user', 'parent']
+        fields = ['child', 'position', 'level', 'user', 'parent', 'show_level']
 
     def get_user(self, obj):
         user_data = {
@@ -251,7 +253,7 @@ class GetMyApplyingData(serializers.ModelSerializer):
                 "first_name": obj.referral_by.first_name,
                 "last_name": obj.referral_by.last_name,
                 "mobile_no": obj.referral_by.profile.mobile_number if obj.referral_by and obj.referral_by.profile else None,
-                "state": obj.referral_by.profile.city.state.name  if obj.referral_by and obj.referral_by.profile and obj.referral_by.profile.city and obj.referral_by.profile.city.state else None
+                "state": obj.referral_by.profile.city.state.name if obj.referral_by and obj.referral_by.profile and obj.referral_by.profile.city and obj.referral_by.profile.city.state else None
             }
         return None
 

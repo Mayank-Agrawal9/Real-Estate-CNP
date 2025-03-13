@@ -2,9 +2,9 @@ from django.contrib import admin
 from import_export.admin import ImportExportModelAdmin
 
 from accounts.admin import CustomModelAdminMixin
-from p2pmb.models import MLMTree, Package, ScheduledCommission, RoyaltyClub, Reward, Commission
+from p2pmb.models import MLMTree, Package, ScheduledCommission, RoyaltyClub, Reward, Commission, P2PMBRoyaltyMaster
 from p2pmb.resources import MLMTreeResource, PackageResource, RoyaltyClubResource, ScheduledCommissionResource, \
-    RewardResource, CommissionResource
+    RewardResource, CommissionResource, P2PMBRoyaltyMasterResource
 
 
 # Register your models here.
@@ -47,4 +47,11 @@ class RewardAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
 class CommissionAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
     resource_class = CommissionResource
     raw_id_fields = ('created_by', 'updated_by', 'commission_by', 'commission_to')
+    list_filter = ('status', )
+
+
+@admin.register(P2PMBRoyaltyMaster)
+class P2PMBRoyaltyMasterAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
+    resource_class = P2PMBRoyaltyMasterResource
+    raw_id_fields = ('created_by', 'updated_by')
     list_filter = ('status', )
