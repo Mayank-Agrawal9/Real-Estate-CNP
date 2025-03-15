@@ -81,6 +81,7 @@ class Investment(ModelMixin):
     referral_by = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name="referral_code")
     send_direct_income = models.BooleanField(default=False)
     send_level_income = models.BooleanField(default=False)
+    is_interest_send = models.BooleanField(default=False)
     is_royalty_calculate = models.BooleanField(default=False)
 
     def total_investment(self):
@@ -176,6 +177,8 @@ class RewardEarned(ModelMixin):
     is_paid = models.BooleanField(default=False)
     is_p2p = models.BooleanField(default=False)
     total_month = models.IntegerField(default=0)
+    last_payment_send = models.DateTimeField(null=True, blank=True)
+    total_installment_paid = models.IntegerField(default=0)
 
     def __str__(self):
         return f"Reward for {self.user.username} Earned at {self.earned_at}"

@@ -89,6 +89,12 @@ class RewardMasterViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return RewardMaster.objects.filter(applicable_for=self.request.user.profile.role, status='active')
 
+    def get_serializer_context(self):
+        """Pass the user context to the serializer"""
+        context = super().get_serializer_context()
+        context['user'] = self.request.user
+        return context
+
 
 class CompanyBankDetailsMasterViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]

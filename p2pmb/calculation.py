@@ -5,7 +5,7 @@ from itertools import combinations
 from dateutil.relativedelta import relativedelta
 from django.db import transaction
 
-from agency.models import RewardEarned
+from agency.models import RewardEarned, Investment
 from master.models import RewardMaster, RoyaltyMaster
 from p2pmb.helpers import create_transaction_entry, create_commission_entry
 from p2pmb.models import MLMTree, ScheduledCommission, Commission, RoyaltyClub, Reward, P2PMBRoyaltyMaster
@@ -378,7 +378,6 @@ class LifeTimeRewardIncome:
                             for i in range(reward.total_paid_month)
                         ]
                         ScheduledCommission.objects.bulk_create(commission_entries)
-
                         break
 
 
@@ -406,7 +405,7 @@ class RoyaltyClubDistribute:
                     Commission.objects.get_or_create(
                         created_by=person.child, commission_by=person.child, commission_to=person.child,
                         commission_type='royalty', amount=gift_amount,
-                        description='Earned commission for royalty income in 3 star club.'
+                        description=f'Earned commission for royalty income in {royalty.club_type}.'
                     )
                     RoyaltyClub.objects.get_or_create(
                         person=person, club_type=royalty.club_type, turnover_limit=royalty.turnover_limit,
@@ -525,3 +524,62 @@ def transfer_to_wallet(person, amount):
         amount=amount,
         description=f'Commission Added while adding {person.username}'
     )
+
+
+class ProcessMonthlyInterestP2PMB:
+    @staticmethod
+    def process_p2pmb_monthly_interest():
+        """
+        Process monthly interest for all eligible investments.
+        """
+        investments = Investment.objects.filter(
+            status='active', is_approved=True, pay_method='main_wallet', investment_type='p2pmb', is_interest_send=False
+        ).select_related('user')
+
+        for investment in investments:
+            if investment.investment_guaranteed_type:
+                user = investment.user
+                interest_rate = ProcessMonthlyInterestP2PMB.calculate_interest_rate(
+                    user, investment.investment_guaranteed_type)
+                interest_amount = investment.amount * interest_rate
+
+                # Create transaction entry
+                create_transaction_entry(
+                    user, user, interest_amount, 'interest', 'approved',
+                    f'Monthly Interest Added for investment of {investment.amount} in P2PMB.'
+                )
+
+                # Update user wallet
+                user_wallet = UserWallet.objects.filter(user=user, status='active').last()
+                if user_wallet:
+                    user_wallet.app_wallet_balance += interest_amount
+                    user_wallet.save()
+
+                # Mark investment as interest sent
+                investment.is_interest_send = True
+                investment.save()
+
+    @staticmethod
+    def calculate_interest_rate(user, investment_type):
+        """
+        Calculate the interest rate based on user's referrals and team conditions.
+        """
+        referral_count = MLMTree.objects.filter(referral_by=user).count()
+        team_members = MLMTree.objects.filter(parent=user)
+        team_count = team_members.count()
+
+        base_interest_rate = Decimal('0.01') if investment_type == 'full_payment' else Decimal('0.02')
+
+        if referral_count >= 10 and team_count >= 5:
+            eligible_team_count = sum(1 for team in team_members.order_by('level')[:5]
+                                      if MLMTree.objects.filter(referral_by=team.user, status='active').count() >= 10)
+            if eligible_team_count == 5:
+                return Decimal('0.05') if investment_type == 'full_payment' else Decimal('0.10')  # 5x Return
+
+        elif referral_count >= 10:
+            return Decimal('0.03') if investment_type == 'full_payment' else Decimal('0.05')  # 3% or 5%
+
+        elif referral_count >= 5:
+            return Decimal('0.015') if investment_type == 'full_payment' else Decimal('0.025')  # 1.5% or 2.5%
+
+        return base_interest_rate

@@ -176,10 +176,17 @@ class MLMTreeParentNodeSerializerV2(serializers.ModelSerializer):
 
 
 class PackageSerializer(serializers.ModelSerializer):
+    is_buy = serializers.SerializerMethodField()
 
     class Meta:
         model = Package
-        fields = ['id', 'name', 'description', 'amount']
+        fields = ['id', 'name', 'description', 'amount', 'applicable_for', 'is_buy']
+
+    def get_is_buy(self, obj):
+        user = self.context.get('user')
+        if user:
+            return Investment.objects.filter(user=user, package=obj).exists()
+        return False
 
 
 class CommissionSerializer(serializers.ModelSerializer):

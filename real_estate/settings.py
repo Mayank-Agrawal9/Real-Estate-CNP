@@ -257,7 +257,9 @@ AUDITLOG_INCLUDE_ALL_MODELS = True
 # Cron Jobs
 
 CRONJOBS = [
-    ('*/5 * * * *', 'p2pmb.cron.distribute_direct_income')
+    ('*/5 * * * *', 'p2pmb.cron.distribute_direct_income'),
+    ('*/6 * * * *', 'p2pmb.cron.distribute_level_income'),
+    ('0 0 1 * *', 'p2pmb.cron.process_p2pmb_monthly_interest'),
 ]
 
 CORS_ALLOWED_ORIGINS = [

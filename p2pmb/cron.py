@@ -1,6 +1,6 @@
 import os
 from agency.models import Investment
-from p2pmb.calculation import DistributeDirectCommission, DistributeLevelIncome
+from p2pmb.calculation import DistributeDirectCommission, DistributeLevelIncome, ProcessMonthlyInterestP2PMB
 from p2pmb.models import MLMTree
 
 
@@ -52,7 +52,8 @@ def distribute_level_income():
         open(LOCK_LEVEL_INCOME_FILE, "w").close()
         print("🚀 Starting Direct Income Distribution...")
 
-        investments = Investment.objects.filter(status='active', is_approved=True, pay_method='main_wallet', investment_type='p2pmb', send_level_income=False)
+        investments = Investment.objects.filter(status='active', is_approved=True, pay_method='main_wallet',
+                                                investment_type='p2pmb', send_level_income=False)
         for investment_instance in investments:
 
             if investment_instance and investment_instance.user:
@@ -70,3 +71,12 @@ def distribute_level_income():
     finally:
         os.remove(LOCK_LEVEL_INCOME_FILE)
         print("🔄 Job finished. Ready for next execution.")
+
+
+def process_p2pmb_monthly_interest():
+    """
+    Process monthly interest for all eligible investments.
+    """
+    print("🚀 Starting Interest Income Distribution...")
+    ProcessMonthlyInterestP2PMB.process_p2pmb_monthly_interest()
+    print("🔄 Interest Income Distribution Successfully")

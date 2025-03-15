@@ -7,7 +7,7 @@ from rest_framework.views import APIView
 
 from agency.models import Investment
 from p2pmb.calculation import (RoyaltyClubDistribute, DistributeDirectCommission, DistributeLevelIncome,
-                               LifeTimeRewardIncome)
+                               LifeTimeRewardIncome, ProcessMonthlyInterestP2PMB)
 from p2pmb.cron import distribute_level_income
 from p2pmb.models import MLMTree, Package, Commission
 from p2pmb.serializers import MLMTreeSerializer, MLMTreeNodeSerializer, PackageSerializer, CommissionSerializer, \
@@ -205,6 +205,12 @@ class PackageViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return Package.objects.filter(status='active')
 
+    def get_serializer_context(self):
+        """Pass the user context to the serializer"""
+        context = super().get_serializer_context()
+        context['user'] = self.request.user
+        return context
+
 
 class CommissionViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
@@ -304,5 +310,15 @@ class RoyaltyIncome(APIView):
 
     def post(self, request):
         RoyaltyClubDistribute.check_royalty_club_membership()
-        # process_monthly_reward_payments()
         return Response({"message": "Royalty income distribute successfully."})
+
+
+class SendMonthlyInterestIncome(APIView):
+    """
+    API to distribute level income.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        ProcessMonthlyInterestP2PMB.process_p2pmb_monthly_interest()
+        return Response({"message": "Monthly Interest distribute successfully."})

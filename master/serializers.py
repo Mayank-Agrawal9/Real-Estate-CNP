@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+from agency.models import RewardEarned
 from master.models import *
 
 
@@ -34,9 +35,17 @@ class GSTSerializer(serializers.ModelSerializer):
 
 
 class RewardMasterSerializer(serializers.ModelSerializer):
+    is_buy = serializers.SerializerMethodField()
+
     class Meta:
         model = RewardMaster
         fields = '__all__'
+
+    def get_is_buy(self, obj):
+        user = self.context.get('user')
+        if user:
+            return RewardEarned.objects.filter(user=user, reward=obj).exists()
+        return False
 
 
 class CompanyBankDetailsMasterSerializer(serializers.ModelSerializer):
