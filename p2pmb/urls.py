@@ -4,7 +4,7 @@ from rest_framework.routers import DefaultRouter
 from p2pmb.views import MLMTreeCreateView, MLMTreeView, PackageViewSet, LifeTimeRewardIncomeAPIView, \
     RoyaltyIncome, DistributeDirectIncome, DistributeLevelIncomeAPIView, CommissionViewSet, PackageBuyView, \
     GetUserDetailsView, GetParentLevelsView, MyApplying, MLMTreeViewV2, CommissionMessageAPIView, \
-    SendMonthlyInterestIncome
+    SendMonthlyInterestIncome, GetParentLevelCountView
 
 router = DefaultRouter()
 router.register(r'package', PackageViewSet)
@@ -16,6 +16,7 @@ urlpatterns = [
     path('get/', MLMTreeView.as_view()),
     path('get-v2/', MLMTreeViewV2.as_view()),
     path('get-level/', GetParentLevelsView.as_view()),
+    path('get-level-count/', GetParentLevelCountView.as_view()),
     path('package-status/', PackageBuyView.as_view()),
     path('user-detail/', GetUserDetailsView.as_view()),
     path('my-applying/', MyApplying.as_view()),

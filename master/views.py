@@ -110,4 +110,4 @@ class RoyaltyMasterViewSet(viewsets.ModelViewSet):
     queryset = RoyaltyMaster.objects.filter(status='active')
     serializer_class = RoyaltyMasterSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter]
-    filterset_fields = ['club_type',]
+    filterset_fields = ['club_type', ]

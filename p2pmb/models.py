@@ -3,6 +3,7 @@ from decimal import Decimal
 from django.contrib.auth.models import User
 from django.db import models
 
+from master.choices import ROYALTY_CLUB_TYPE
 from real_estate.model_mixin import ModelMixin
 
 
@@ -146,3 +147,15 @@ class P2PMBRoyaltyMaster(ModelMixin):
 
     def __str__(self):
         return f"Total company turnover {self.total_turnover} - Calculated Amount {self.calculated_amount_turnover}"
+
+
+# class RoyaltyEarned(ModelMixin):
+#     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='royalty_earned_user')
+#     club_type = models.CharField(max_length=30, choices=ROYALTY_CLUB_TYPE)
+#     earned_date = models.DateField()
+#     royalty = models.ForeignKey(P2PMBRoyaltyMaster, on_delete=models.CASCADE, null=True, blank=True,
+#                                 related_name='royalty_earned')
+#     is_paid = models.BooleanField(default=False)
+#
+#     def __str__(self):
+#         return f"User {self.user.username} - Earned Date {self.earned_date}"

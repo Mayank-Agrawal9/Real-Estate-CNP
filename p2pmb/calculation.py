@@ -298,12 +298,12 @@ class DistributeLevelIncome:
                 # Create transaction record for this distribution
                 create_transaction_entry(
                     base_user.child, child.child, commission, 'commission', 'approved',
-                    f'Level Commission added by {base_user.child.get_full_name()}'
+                    f'Level Commission added by {base_user.child.username}'
                 )
 
                 # Create commission record
                 create_commission_entry(child.child, base_user.child, 'level', commission,
-                                        f'Commission added for {base_user.child.get_full_name()}')
+                                        f'Commission added for {base_user.child.username}')
 
                 distributed_levels += 1
 
@@ -382,12 +382,19 @@ class LifeTimeRewardIncome:
 
 
 class RoyaltyClubDistribute:
+
+    # @staticmethod
+    # def get_eligible_user():
+    #     star =
+
+
+
     @staticmethod
     def check_royalty_club_membership():
         """
         Check and assign royalty club membership based on defined criteria.
         """
-        persons = MLMTree.objects.filter(status='active')
+        persons = MLMTree.objects.filter(status='active', is_show=True)
         royalties = RoyaltyMaster.objects.filter(status='active')
         for royalty in royalties:
             for person in persons:

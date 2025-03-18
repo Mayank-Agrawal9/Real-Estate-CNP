@@ -220,7 +220,32 @@ class CommissionViewSet(viewsets.ModelViewSet):
     filterset_fields = ['commission_type', 'commission_to', 'commission_by']
 
     def get_queryset(self):
-        return Commission.objects.filter(status='active', commission_to=self.request.user)
+        return Commission.objects.filter(status='active', commission_to=self.request.user).order_by('-date_created')
+
+    def list(self, request, *args, **kwargs):
+        """ Add MLM levels only if `commission_type` is 'level'. """
+        queryset = self.filter_queryset(self.get_queryset())
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serialized_data = self.get_serializer(page, many=True).data
+        else:
+            serialized_data = self.get_serializer(queryset, many=True).data
+
+        for item in serialized_data:
+            if item["commission_type"] == "level":
+                commission_by_user = item["commission_by"]
+                mlm_entry = MLMTree.objects.filter(child=commission_by_user, status='active', is_show=True).first()
+
+                if mlm_entry:
+                    item["show_level"] = mlm_entry.show_level
+                else:
+                    item["show_level"] = None
+
+        if page is not None:
+            return self.get_paginated_response(serialized_data)
+
+        return Response(serialized_data)
 
 
 class DistributeLevelIncomeAPIView(APIView):
@@ -322,3 +347,59 @@ class SendMonthlyInterestIncome(APIView):
     def post(self, request):
         ProcessMonthlyInterestP2PMB.process_p2pmb_monthly_interest()
         return Response({"message": "Monthly Interest distribute successfully."})
+
+
+class GetParentLevelCountView(APIView):
+    """
+    API to get the count of parent and child levels.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get_levels_above_count(self, user, max_levels=20):
+        """ Retrieve and count up to 20 levels of parent users. """
+        current_user = user.parent
+        level_count = 0
+
+        while level_count < max_levels and current_user:
+            parent = MLMTree.objects.filter(child=current_user, status='active', is_show=True).first()
+            if not parent or not parent.parent:
+                break
+
+            current_user = parent.parent
+            level_count += 1
+
+        return level_count
+
+    def get_users_below_count(self, user, max_levels=10):
+        """
+        Retrieve and count child users up to a maximum depth of `max_levels`.
+        """
+        current_user = user.child
+        distributed_levels = 0
+
+        while distributed_levels < max_levels:
+            children = MLMTree.objects.filter(parent=current_user, status='active', is_show=True).first()
+
+            if not children:
+                break
+
+            distributed_levels += 1
+            current_user = children.child
+
+        return distributed_levels
+
+    def get(self, request):
+        """
+        Get the count of parent and child levels.
+        """
+        user = MLMTree.objects.filter(child=self.request.user, status='active', is_show=True).last()
+        if not user:
+            return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        upper_count = self.get_levels_above_count(user)
+        lower_count = self.get_users_below_count(user)
+
+        return Response({
+            "upper_count": upper_count,
+            "lower_count": lower_count
+        }, status=status.HTTP_200_OK)
