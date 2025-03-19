@@ -87,7 +87,8 @@ class RewardMasterViewSet(viewsets.ModelViewSet):
     search_fields = ['name', ]
 
     def get_queryset(self):
-        return RewardMaster.objects.filter(applicable_for=self.request.user.profile.role, status='active')
+        return RewardMaster.objects.filter(applicable_for=self.request.user.profile.role, status='active').order_by(
+            'turnover_threshold')
 
     def get_serializer_context(self):
         """Pass the user context to the serializer"""
