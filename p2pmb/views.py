@@ -355,12 +355,12 @@ class GetParentLevelCountView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
-    def get_levels_above_count(self, user, max_levels=20):
-        """ Retrieve and count up to 20 levels of parent users. """
+    def get_levels_above_count(self, user):
+        """ Retrieve and count all levels of parent users recursively until the root is reached. """
         current_user = user.parent
         level_count = 0
 
-        while level_count < max_levels and current_user:
+        while current_user:
             parent = MLMTree.objects.filter(child=current_user, status='active', is_show=True).first()
             if not parent or not parent.parent:
                 break
@@ -370,23 +370,17 @@ class GetParentLevelCountView(APIView):
 
         return level_count
 
-    def get_users_below_count(self, user, max_levels=10):
+    def count_all_descendants(self, user):
         """
-        Retrieve and count child users up to a maximum depth of `max_levels`.
+        Recursively count all child users at all levels.
         """
-        current_user = user.child
-        distributed_levels = 0
+        children = MLMTree.objects.filter(parent=user, status='active', is_show=True)
+        count = children.count()
 
-        while distributed_levels < max_levels:
-            children = MLMTree.objects.filter(parent=current_user, status='active', is_show=True).first()
+        for child in children:
+            count += self.count_all_descendants(child.child)
 
-            if not children:
-                break
-
-            distributed_levels += 1
-            current_user = children.child
-
-        return distributed_levels
+        return count
 
     def get(self, request):
         """
@@ -397,7 +391,7 @@ class GetParentLevelCountView(APIView):
             return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
 
         upper_count = self.get_levels_above_count(user)
-        lower_count = self.get_users_below_count(user)
+        lower_count = self.count_all_descendants(user.child)
 
         return Response({
             "upper_count": upper_count,

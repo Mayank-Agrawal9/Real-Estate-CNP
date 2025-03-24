@@ -112,6 +112,10 @@ class Commission(ModelMixin):
         ('reward', 'Life Time Reward Income'),
         ('royalty', 'Royalty Company Turnover'),
     ]
+    LEVEL_CHOICES = [
+        ('up', 'Up'),
+        ('down', 'Down')
+    ]
     commission_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name="commissions_by", null=True,
                                       blank=True)
     commission_to = models.ForeignKey(User, on_delete=models.CASCADE, related_name='p2pmb_commission_to', null=True,
@@ -119,6 +123,7 @@ class Commission(ModelMixin):
     commission_type = models.CharField(max_length=20, choices=COMMISSION_TYPE_CHOICES)
     amount = models.DecimalField(max_digits=15, decimal_places=2)
     description = models.CharField(max_length=255, blank=True, null=True)
+    level_type = models.CharField(max_length=8, choices=LEVEL_CHOICES, null=True, blank=True)
 
     def __str__(self):
         return f"{self.commission_by.username} - {self.get_commission_type_display()} - {self.amount}"
