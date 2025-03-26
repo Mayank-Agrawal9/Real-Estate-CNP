@@ -5,7 +5,7 @@ from django.db import models
 
 from master.choices import ROYALTY_CLUB_TYPE
 from master.models import CoreGroupIncome, State
-from p2pmb.choices import EXTRA_REWARD_CHOICES
+from p2pmb.choices import EXTRA_REWARD_CHOICES, INCOME_EARNED_CHOICES
 from real_estate.model_mixin import ModelMixin
 
 
@@ -182,7 +182,7 @@ class ExtraReward(ModelMixin):
 class CoreIncomeEarned(ModelMixin):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='core_income_earned_user')
     state = models.ForeignKey(State, on_delete=models.CASCADE, related_name='core_income_earned_state')
-    income_type = models.CharField(max_length=20, default='leader', choices=EXTRA_REWARD_CHOICES)
+    income_type = models.CharField(max_length=20, default='income', choices=INCOME_EARNED_CHOICES)
     core_income = models.ForeignKey(CoreGroupIncome, on_delete=models.CASCADE, related_name='core_income_master')
     is_paid = models.BooleanField(default=False)
 
