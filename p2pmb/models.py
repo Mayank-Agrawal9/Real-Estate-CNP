@@ -4,6 +4,8 @@ from django.contrib.auth.models import User
 from django.db import models
 
 from master.choices import ROYALTY_CLUB_TYPE
+from master.models import CoreGroupIncome, State
+from p2pmb.choices import EXTRA_REWARD_CHOICES
 from real_estate.model_mixin import ModelMixin
 
 
@@ -164,3 +166,25 @@ class P2PMBRoyaltyMaster(ModelMixin):
 #
 #     def __str__(self):
 #         return f"User {self.user.username} - Earned Date {self.earned_date}"
+
+
+class ExtraReward(ModelMixin):
+    start_date = models.DateField()
+    end_date = models.DateField()
+    reward_type = models.CharField(max_length=20, default='leader', choices=EXTRA_REWARD_CHOICES)
+    turnover_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.0)
+    description = models.TextField()
+
+    def __str__(self):
+        return str(self.id)
+
+
+class CoreIncomeEarned(ModelMixin):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='core_income_earned_user')
+    state = models.ForeignKey(State, on_delete=models.CASCADE, related_name='core_income_earned_state')
+    income_type = models.CharField(max_length=20, default='leader', choices=EXTRA_REWARD_CHOICES)
+    core_income = models.ForeignKey(CoreGroupIncome, on_delete=models.CASCADE, related_name='core_income_master')
+    is_paid = models.BooleanField(default=False)
+
+    def __str__(self):
+        return str(self.id)

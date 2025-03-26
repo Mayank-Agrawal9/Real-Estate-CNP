@@ -28,3 +28,8 @@ ROYALTY_CLUB_TYPE = (
     ('5_star', '5-Star Club'),
 )
 
+CORE_GROUP_TYPE = (
+    ('tour', 'Tour'),
+    ('core_income', 'core_income')
+)
+

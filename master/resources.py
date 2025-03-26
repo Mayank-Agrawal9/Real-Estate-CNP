@@ -1,6 +1,7 @@
 from import_export import resources
 
-from master.models import Country, State, City, BannerImage, GST, RewardMaster, CompanyBankDetailsMaster, RoyaltyMaster
+from master.models import Country, State, City, BannerImage, GST, RewardMaster, CompanyBankDetailsMaster, RoyaltyMaster, \
+    CoreGroupIncome, CoreGroupPhase
 
 
 class CountryResource(resources.ModelResource):
@@ -55,5 +56,19 @@ class CompanyBankDetailsMasterResource(resources.ModelResource):
 class RoyaltyMasterResource(resources.ModelResource):
     class Meta:
         model = RoyaltyMaster
+        import_id_fields = ('id',)
+        exclude = ('date_created', 'updated_by', 'date_updated', 'created_by')
+
+
+class CoreGroupPhaseResource(resources.ModelResource):
+    class Meta:
+        model = CoreGroupPhase
+        import_id_fields = ('id',)
+        exclude = ('date_created', 'updated_by', 'date_updated', 'created_by')
+
+
+class CoreGroupIncomeResource(resources.ModelResource):
+    class Meta:
+        model = CoreGroupIncome
         import_id_fields = ('id',)
         exclude = ('date_created', 'updated_by', 'date_updated', 'created_by')

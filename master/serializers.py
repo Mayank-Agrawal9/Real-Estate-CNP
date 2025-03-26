@@ -58,3 +58,15 @@ class RoyaltyMasterSerializer(serializers.ModelSerializer):
     class Meta:
         model = RoyaltyMaster
         fields = '__all__'
+
+
+class CoreGroupIncomeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CoreGroupIncome
+        fields = '__all__'
+
+
+class CoreGroupPhaseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CoreGroupPhase
+        fields = '__all__'

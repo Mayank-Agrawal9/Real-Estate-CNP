@@ -5,7 +5,7 @@ from rest_framework import serializers
 
 from accounts.models import Profile
 from agency.models import Investment
-from .models import MLMTree, User, Package, Commission
+from .models import MLMTree, User, Package, Commission, ExtraReward, CoreIncomeEarned
 
 
 class MLMTreeSerializer(serializers.ModelSerializer):
@@ -279,4 +279,42 @@ class GetMyApplyingData(serializers.ModelSerializer):
 
     class Meta:
         model = MLMTree
+        fields = '__all__'
+
+
+class ExtraRewardSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExtraReward
+        fields = '__all__'
+
+
+class CoreIncomeEarnedSerializer(serializers.ModelSerializer):
+    user = serializers.SerializerMethodField()
+    state = serializers.SerializerMethodField()
+    core_income = serializers.SerializerMethodField()
+
+    def get_user(self, obj):
+        return{
+            'id': obj.user.id,
+            'name': obj.user.get_full_name(),
+            'username': obj.user.username,
+        }
+
+    def get_state(self, obj):
+        return{
+            'id': obj.state.id,
+            'name': obj.state.name
+        }
+
+    def get_core_income(self, obj):
+        return{
+            'id': obj.core_income.id,
+            'company_turnover': obj.core_income.company_turnover,
+            'monthly_turnover': obj.core_income.monthly_turnover,
+            'tour_income': obj.core_income.tour_income,
+            'core_income': obj.core_income.core_income
+        }
+
+    class Meta:
+        model = CoreIncomeEarned
         fields = '__all__'

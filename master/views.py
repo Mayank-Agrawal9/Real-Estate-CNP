@@ -1,3 +1,4 @@
+import datetime
 from collections import defaultdict
 
 from django_filters.rest_framework import DjangoFilterBackend
@@ -87,8 +88,7 @@ class RewardMasterViewSet(viewsets.ModelViewSet):
     search_fields = ['name', ]
 
     def get_queryset(self):
-        return RewardMaster.objects.filter(applicable_for=self.request.user.profile.role, status='active').order_by(
-            'turnover_threshold')
+        return RewardMaster.objects.filter(status='active').order_by('turnover_threshold')
 
     def get_serializer_context(self):
         """Pass the user context to the serializer"""
@@ -112,3 +112,42 @@ class RoyaltyMasterViewSet(viewsets.ModelViewSet):
     serializer_class = RoyaltyMasterSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_fields = ['club_type', ]
+
+
+class CoreGroupPhaseViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    queryset = CoreGroupPhase.objects.filter(status='active')
+    serializer_class = CoreGroupPhaseSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_fields = ['club_type', ]
+
+
+class CoreGroupIncomeViewset(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    queryset = CoreGroupIncome.objects.filter(status='active')
+    serializer_class = CoreGroupIncomeSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_fields = ['month', 'year', 'phase']
+
+    def list(self, request, *args, **kwargs):
+        current_year = datetime.datetime.now().year
+
+        user_selected_year = request.query_params.get('year')
+        user_selected_month = request.query_params.get('month')
+        phase = request.query_params.get('phase')
+        year_filter = user_selected_year if user_selected_year else current_year
+        queryset = CoreGroupIncome.objects.filter(status='active', year=year_filter)
+
+        if user_selected_month:
+            queryset = queryset.filter(month=user_selected_month)
+
+        if phase:
+            queryset = queryset.filter(phase=phase)
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)

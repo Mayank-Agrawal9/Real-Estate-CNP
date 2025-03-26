@@ -1,7 +1,9 @@
+from decimal import Decimal
+
 from django.db import models
 
 from accounts.choices import USER_ROLE
-from master.choices import GST_METHOD, BANNER_PAGE_CHOICE, CAROUSEL_NUMBER, ROYALTY_CLUB_TYPE
+from master.choices import GST_METHOD, BANNER_PAGE_CHOICE, CAROUSEL_NUMBER, ROYALTY_CLUB_TYPE, CORE_GROUP_TYPE
 from real_estate.model_mixin import ModelMixin
 
 
@@ -89,3 +91,38 @@ class RoyaltyMaster(ModelMixin):
 
     def __str__(self):
         return f"{self.club_type} (Gift: {self.gift_amount})"
+
+
+class CoreGroupPhase(ModelMixin):
+    name = models.CharField(max_length=250, null=True, blank=True)
+    validity = models.DateField()
+
+    def __str__(self):
+        return f"{self.id}"
+
+
+class CoreGroupIncome(ModelMixin):
+    phase = models.ForeignKey(CoreGroupPhase, on_delete=models.CASCADE, related_name='group_phase')
+    company_turnover = models.DecimalField(max_digits=25, decimal_places=2, default=0.0)
+    monthly_turnover = models.DecimalField(max_digits=25, decimal_places=2, default=0.0)
+    tour_income = models.DecimalField(max_digits=25, decimal_places=2, default=0.0)
+    core_income = models.DecimalField(max_digits=25, decimal_places=2, default=0.0)
+    month = models.IntegerField()
+    year = models.IntegerField()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['month', 'year'], name='unique_month_year')
+        ]
+
+    def save(self, *args, **kwargs):
+        if self.company_turnover:
+            self.calculated_amount_turnover = self.company_turnover * Decimal("0.01")
+            self.monthly_turnover = self.calculated_amount_turnover
+            distributed_amount = self.calculated_amount_turnover / Decimal("2")
+            self.tour_income = distributed_amount
+            self.core_income = distributed_amount
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.id}"

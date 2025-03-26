@@ -2,10 +2,7 @@ from django.contrib import admin
 from import_export.admin import ImportExportModelAdmin
 
 from accounts.admin import CustomModelAdminMixin
-from agency.resources import RewardEarnedResource
-from master.models import Country, State, GST, BannerImage, City, RewardMaster, CompanyBankDetailsMaster, RoyaltyMaster
-from master.resources import CountryResource, StateResource, CityResource, BannerImageResource, GSTResource, \
-    RewardMasterResource, CompanyBankDetailsMasterResource, RoyaltyMasterResource
+from master.resources import *
 
 
 # Register your models here.
@@ -64,4 +61,18 @@ class CompanyBankDetailsMasterAdmin(CustomModelAdminMixin, ImportExportModelAdmi
 class RoyaltyMasterAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
     resource_class = RoyaltyMasterResource
     raw_id_fields = ('created_by', 'updated_by')
+    list_filter = ('status', )
+
+
+@admin.register(CoreGroupPhase)
+class CoreGroupPhaseAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
+    resource_class = CoreGroupPhaseResource
+    raw_id_fields = ('created_by', 'updated_by')
+    list_filter = ('status', )
+
+
+@admin.register(CoreGroupIncome)
+class CoreGroupIncomeAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
+    resource_class = CoreGroupIncomeResource
+    raw_id_fields = ('created_by', 'updated_by', 'phase')
     list_filter = ('status', )

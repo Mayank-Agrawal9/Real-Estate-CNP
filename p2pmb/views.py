@@ -1,3 +1,5 @@
+import datetime
+
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import serializers, status, viewsets
 from rest_framework.filters import SearchFilter
@@ -9,9 +11,10 @@ from agency.models import Investment
 from p2pmb.calculation import (RoyaltyClubDistribute, DistributeDirectCommission, DistributeLevelIncome,
                                LifeTimeRewardIncome, ProcessMonthlyInterestP2PMB)
 from p2pmb.cron import distribute_level_income
-from p2pmb.models import MLMTree, Package, Commission
+from p2pmb.models import MLMTree, Package, Commission, ExtraReward, CoreIncomeEarned
 from p2pmb.serializers import MLMTreeSerializer, MLMTreeNodeSerializer, PackageSerializer, CommissionSerializer, \
-    ShowInvestmentDetail, GetP2PMBLevelData, GetMyApplyingData, MLMTreeNodeSerializerV2, MLMTreeParentNodeSerializerV2
+    ShowInvestmentDetail, GetP2PMBLevelData, GetMyApplyingData, MLMTreeNodeSerializerV2, MLMTreeParentNodeSerializerV2, \
+    ExtraRewardSerializer, CoreIncomeEarnedSerializer
 
 
 # Create your views here.
@@ -246,6 +249,26 @@ class CommissionViewSet(viewsets.ModelViewSet):
             return self.get_paginated_response(serialized_data)
 
         return Response(serialized_data)
+
+
+class ExtraRewardViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    serializer_class = ExtraRewardSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    queryset = ExtraReward.objects.all()
+    filterset_fields = ['reward_type',]
+
+    def get_queryset(self):
+        return ExtraReward.objects.filter(status='active', start_date__lte=datetime.datetime.now().date(),
+                                          end_date__gte=datetime.datetime.now().date()).order_by('turnover_amount')
+
+
+class CoreIncomeEarnedViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    serializer_class = CoreIncomeEarnedSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    queryset = CoreIncomeEarned.objects.filter(status='active')
+    filterset_fields = ['income_type',]
 
 
 class DistributeLevelIncomeAPIView(APIView):
