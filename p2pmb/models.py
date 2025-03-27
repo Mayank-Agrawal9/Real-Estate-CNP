@@ -184,6 +184,7 @@ class CoreIncomeEarned(ModelMixin):
     state = models.ForeignKey(State, on_delete=models.CASCADE, related_name='core_income_earned_state')
     income_type = models.CharField(max_length=20, default='income', choices=INCOME_EARNED_CHOICES)
     core_income = models.ForeignKey(CoreGroupIncome, on_delete=models.CASCADE, related_name='core_income_master')
+    income_earned = models.DecimalField(max_digits=12, decimal_places=2, default=0.0)
     is_paid = models.BooleanField(default=False)
 
     def __str__(self):
