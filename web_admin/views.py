@@ -99,7 +99,7 @@ class InvestmentAPIView(APIView):
         wallet.save()
 
     def get(self, request):
-        investment = Investment.objects.filter(is_approved=False)
+        investment = Investment.objects.filter(is_approved=False).order_by('-date_created')
         serializer = InvestmentSerializer(investment, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -253,14 +253,14 @@ class DeductManualInvestmentAPIView(APIView):
 
 class GetUserAPIView(ListAPIView):
     permission_classes = [IsStaffUser]
-    queryset = Profile.objects.filter(status='active', user__is_staff=False).order_by('-user')
+    queryset = Profile.objects.filter(status='active', user__is_staff=False).order_by('-user__id')
     serializer_class = ProfileSerializer
     pagination_class = None
 
 
 class ManualFundViewSet(viewsets.ModelViewSet):
     permission_classes = [IsStaffUser]
-    queryset = ManualFund.objects.filter(status='active')
+    queryset = ManualFund.objects.filter(status='active').order_by('-date_created')
     serializer_class = ManualFundSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_fields = ['amount', ]
