@@ -128,7 +128,8 @@ class DocumentSerializer(serializers.Serializer):
             file_name = f"{uuid.uuid4()}.{ext}"
             return ContentFile(base64.b64decode(img_str), name=file_name)
         except Exception as e:
-            raise serializers.ValidationError("Invalid Base64 encoded image.") from e
+            return None
+            # raise serializers.ValidationError("Invalid Base64 encoded image.") from e
 
 
 class SuperAgencyKycSerializer(serializers.Serializer):
