@@ -12,6 +12,7 @@ from rest_framework import status, permissions, viewsets
 from rest_framework.authtoken.models import Token
 from rest_framework.filters import SearchFilter
 from rest_framework.generics import ListAPIView
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -99,9 +100,11 @@ class InvestmentAPIView(APIView):
         wallet.save()
 
     def get(self, request):
-        investment = Investment.objects.filter(is_approved=False).order_by('-date_created')
-        serializer = InvestmentSerializer(investment, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        investments = Investment.objects.filter(is_approved=False).order_by('-date_created')
+        paginator = PageNumberPagination()
+        paginated_investments = paginator.paginate_queryset(investments, request)
+        serializer = InvestmentSerializer(paginated_investments, many=True)
+        return paginator.get_paginated_response(serializer.data)
 
     def post(self, request):
         investment_id = request.data.get('investment_id')
@@ -255,7 +258,6 @@ class GetUserAPIView(ListAPIView):
     permission_classes = [IsStaffUser]
     queryset = Profile.objects.filter(status='active', user__is_staff=False).order_by('-user__id')
     serializer_class = ProfileSerializer
-    pagination_class = None
 
 
 class ManualFundViewSet(viewsets.ModelViewSet):
@@ -264,7 +266,6 @@ class ManualFundViewSet(viewsets.ModelViewSet):
     serializer_class = ManualFundSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_fields = ['amount', ]
-    pagination_class = None
 
 
 class DashboardCountAPIView(APIView):
