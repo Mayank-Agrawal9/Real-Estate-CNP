@@ -292,6 +292,9 @@ class RoyaltyEarnedViewSet(viewsets.ModelViewSet):
     filterset_fields = ['club_type', 'is_paid']
     search_fields = ['user__username', 'user__first_name', 'user__last_name']
 
+    def get_serializer_class(self):
+        return self.serializer_classes.get(self.action, self.default_serializer_class)
+
 
 class DistributeLevelIncomeAPIView(APIView):
     """
