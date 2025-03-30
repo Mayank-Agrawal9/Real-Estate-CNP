@@ -62,9 +62,11 @@ class VerifyKycAPIView(APIView):
     permission_classes = [IsStaffUser]
 
     def get(self, request):
-        profile = Profile.objects.filter(is_kyc=True, is_kyc_verified=False)
-        serializer = ProfileSerializer(profile, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        profiles = Profile.objects.filter(is_kyc=True, is_kyc_verified=False)
+        paginator = PageNumberPagination()
+        paginated_profiles = paginator.paginate_queryset(profiles, request)
+        serializer = ProfileSerializer(paginated_profiles, many=True)
+        return paginator.get_paginated_response(serializer.data)
 
     def post(self, request):
         user_id = request.data.get('user_id')
@@ -73,6 +75,7 @@ class VerifyKycAPIView(APIView):
             if profile.is_kyc and profile.is_kyc_verified:
                 return Response({"message": "KYC is already verified for this user."},
                                 status=status.HTTP_400_BAD_REQUEST)
+            profile.is_kyc = True
             profile.is_kyc_verified = True
             profile.verified_by = request.user
             profile.verified_on = datetime.datetime.now()
@@ -258,6 +261,9 @@ class GetUserAPIView(ListAPIView):
     permission_classes = [IsStaffUser]
     queryset = Profile.objects.filter(status='active', user__is_staff=False).order_by('-user__id')
     serializer_class = ProfileSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_fields = ['is_kyc', 'is_kyc_verified', 'is_p2pmb']
+    search_fields = ['user__username', 'referral_code', 'user__first_name']
 
 
 class ManualFundViewSet(viewsets.ModelViewSet):
