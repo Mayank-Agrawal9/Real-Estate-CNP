@@ -5,7 +5,7 @@ from rest_framework import serializers
 from master.models import Country, State, City
 from payment_app.models import UserWallet
 from property.choices import MEDIA_TYPE_CHOICES, PROPERTY_TYPE, PROPERTY_STATUS
-from property.models import Property, Media, PropertyEnquiry, PropertyBooking
+from property.models import Property, Media, PropertyEnquiry, PropertyBooking, PropertyBookmark
 
 
 class CreatePropertySerializer(serializers.Serializer):
@@ -237,3 +237,24 @@ class CreatePropertyBookingSerializer(serializers.ModelSerializer):
     #         wallet.save()
     #     except UserWallet.DoesNotExist:
     #         pass
+
+
+class GetPropertyBookmarkSerializer(serializers.ModelSerializer):
+    user = serializers.SerializerMethodField()
+    property = PropertySerializer(read_only=True)
+
+    def get_user(self, obj):
+        if obj.user:
+            return {'id': obj.user.id, 'name': obj.user.get_full_name(), 'username': obj.user.username}
+
+    class Meta:
+        model = PropertyBooking
+        fields = '__all__'
+
+
+class PropertyBookmarkSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = PropertyBookmark
+        fields = '__all__'
+

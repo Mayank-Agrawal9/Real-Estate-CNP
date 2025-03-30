@@ -3,12 +3,15 @@ from decimal import Decimal
 from itertools import combinations
 
 from dateutil.relativedelta import relativedelta
+from django.contrib.auth.models import User
 from django.db import transaction
+from django.db.models import Count, Sum
 
-from agency.models import RewardEarned, Investment
+from agency.models import RewardEarned, Investment, InvestmentInterest
 from master.models import RewardMaster, RoyaltyMaster
 from p2pmb.helpers import create_transaction_entry, create_commission_entry
-from p2pmb.models import MLMTree, ScheduledCommission, Commission, RoyaltyClub, Reward, P2PMBRoyaltyMaster
+from p2pmb.models import MLMTree, ScheduledCommission, Commission, RoyaltyClub, Reward, P2PMBRoyaltyMaster, \
+    RoyaltyEarned
 from payment_app.models import Transaction, UserWallet
 from real_estate.constant import TURNOVER_DISTRIBUTION
 
@@ -436,40 +439,113 @@ class RoyaltyClubDistribute:
                 person.is_working_id = True
                 person.save()
 
+    @staticmethod
+    def calculate_royalty(user):
+        """Calculate royalty for a given user in MLMTree."""
+        mlm_entry = MLMTree.objects.filter(child=user).last()
+        if not mlm_entry:
+            return {"status": "error", "message": "User not found in MLM Tree"}
+
+        direct_referrals = MLMTree.objects.filter(referral_by=user).count()
+        total_team_count = MLMTree.objects.filter(parent__in=MLMTree.objects.filter(parent=user)).count()
+        direct_users = MLMTree.objects.filter(parent=user)
+        compulsory_royalty_users = direct_users.filter(turnover__gte=mlm_entry.turnover).count()
+
+        if direct_referrals >= 5 and compulsory_royalty_users >= 5:
+            royalty = min(200000, mlm_entry.turnover)
+            star_level = "1 Star"
+        elif direct_referrals >= 10 and compulsory_royalty_users >= 10:
+            royalty = min(500000, mlm_entry.turnover)
+            star_level = "2 Star"
+        elif direct_referrals >= 10:
+            valid_users = direct_users.annotate(direct_count=Count('children')).filter(direct_count__gte=10).count()
+            if valid_users >= 5:
+                royalty = min(2500000, mlm_entry.turnover)
+                star_level = "3 Star"
+            else:
+                royalty = 0
+                star_level = "Not Qualified"
+        elif total_team_count >= 10:
+            count_3star_users = MLMTree.objects.filter(child__in=direct_users, level=3).count()
+            if count_3star_users >= 10:
+                royalty = "Lifetime Royalty"
+                star_level = "5 Star"
+            else:
+                royalty = 0
+                star_level = "Not Qualified"
+        else:
+            royalty = 0
+            star_level = "Not Qualified"
+        return {"star_level": star_level, "royalty": royalty}
+
     # New Working
     @staticmethod
     def distribute_royalty():
-        royalties = P2PMBRoyaltyMaster.objects.filter(month=datetime.datetime.month)
-        for royalty_master in royalties:
-            eligible_users = royalty_master.eligible_user.all()
-            if not eligible_users.exists():
-                return "No eligible users found."
+        royalty = P2PMBRoyaltyMaster.objects.filter(
+            month__month=datetime.datetime.now().month, month__year=datetime.datetime.now().year,
+            is_distributed=False
+        ).last()
 
-            income_fields = {
-                'star_income': royalty_master.star_income,
-                'two_star_income': royalty_master.two_star_income,
-                'three_star_income': royalty_master.three_star_income,
-                'lifetime_income': royalty_master.lifetime_income
-            }
+        if not royalty or royalty.star_income == 0:
+            return {"status": "error", "message": "No valid royalty to distribute"}
 
-            for user in eligible_users:
-                for income_type, amount in income_fields.items():
-                    commission = amount / len(eligible_users)
-                    user_wallet = UserWallet.objects.filter(user=user, status='active').last()
-                    if user_wallet:
-                        user_wallet.app_wallet_balance += commission
-                        user_wallet.save()
+        eligible_users = MLMTree.objects.filter(
+            status='active', is_show=True, referral_by__isnull=False
+        ).values_list('referral_by', flat=True).distinct()
 
-                    # Create transaction record for this distribution
-                    create_transaction_entry(
-                        user, user, commission, 'commission', 'approved',
-                        f'Royalty Commission added by Click N Pay.')
+        if not eligible_users:
+            return {"status": "error", "message": "No eligible users for royalty distribution"}
 
-                    # Create commission record
-                    create_commission_entry(user, user, 'royalty', commission,
-                                            f'Royalty Commission added by Click N Pay.')
+        final_eligible_users = []
 
-            return "Royalty distributed successfully."
+        for elg_user in eligible_users:
+            user = User.objects.filter(id=elg_user).last()
+            eligible_users = MLMTree.objects.filter(
+                status='active', is_show=True, referral_by__isnull=False, referral_by=user
+            )
+            if not eligible_users or eligible_users.count() < 5:
+                continue
+
+            # Investment.objects :todo -> Add Amount greater then or equal to logic
+
+            referrer_earnings = RoyaltyEarned.objects.filter(
+                user=user, club_type='star'
+            ).aggregate(total_earned=Sum('earned_amount'))["total_earned"] or 0
+
+            if referrer_earnings > 200000:
+                continue
+
+            final_eligible_users.append(user)
+
+        if not final_eligible_users:
+            return {"status": "error", "message": "No eligible users after applying earnings filter"}
+
+        total_users = len(final_eligible_users)
+        total_income_distributed = royalty.star_income / total_users if total_users > 0 else 0
+
+        for user in final_eligible_users:
+            RoyaltyEarned.objects.create(
+                user=user, club_type='star', earned_date=datetime.datetime.now(),
+                earned_amount=total_income_distributed, royalty=royalty, is_paid=True
+            )
+            user_wallet = UserWallet.objects.filter(user=user, status='active').last()
+            if user_wallet:
+                user_wallet.app_wallet_balance += total_income_distributed
+                user_wallet.save()
+
+            create_transaction_entry(
+                user, user, total_income_distributed, 'commission', 'approved',
+                'Royalty Commission for 1 Star.'
+            )
+
+            create_commission_entry(
+                user, user, 'royalty', total_income_distributed,
+                'Royalty Commission for 1 Star.'
+            )
+        royalty.is_distributed = True
+        royalty.save()
+
+        return {"status": "success", "message": f"Royalty distributed among {total_users} users"}
 
 
 def process_monthly_reward_payments():
@@ -534,37 +610,109 @@ def transfer_to_wallet(person, amount):
 
 
 class ProcessMonthlyInterestP2PMB:
+
     @staticmethod
-    def process_p2pmb_monthly_interest():
-        """
-        Process monthly interest for all eligible investments.
-        """
+    def calculate_monthly_interest_amount(user, investment_type, invested_amount):
+        """Example function to calculate monthly interest."""
+        interest_rate = ProcessMonthlyInterestP2PMB.calculate_interest_rate(
+            user, investment_type)
+        interest_amount = invested_amount * interest_rate
+        return interest_amount
+
+    @staticmethod
+    def get_investment_duration(investment_type):
+        """Example function to calculate monthly interest."""
+        investment_duration = {
+            "full_payment": 10,
+            "part_payment": 6,
+        }
+        return investment_duration.get(investment_type, 0)
+
+    @staticmethod
+    def generate_interest_for_all_investments():
+        """Generate interest for all approved investments that need interest payments."""
+        today = datetime.datetime.now().date()
+        if today.day != 1 or (today.month <= 3 and today.year <= 2025):
+            print("Interest calculation skipped. Only runs on the 1st of each month.")
+            return
         investments = Investment.objects.filter(
-            status='active', is_approved=True, pay_method='main_wallet', investment_type='p2pmb', is_interest_send=False
+            status='active', is_approved=True, pay_method='main_wallet', investment_type='p2pmb',
+            package__isnull=False, investment_guaranteed_type__isnull=False, date_created__gte='2025-03-01'
         ).select_related('user')
 
-        for investment in investments:
-            if investment.investment_guaranteed_type:
-                user = investment.user
-                interest_rate = ProcessMonthlyInterestP2PMB.calculate_interest_rate(
-                    user, investment.investment_guaranteed_type)
-                interest_amount = investment.amount * interest_rate
+        interest_records = []
 
-                # Create transaction entry
-                create_transaction_entry(
-                    user, user, interest_amount, 'interest', 'approved',
-                    f'Monthly Interest Added for investment of {investment.amount} in P2PMB.'
+        for investment in investments:
+            user = investment.user
+            approved_date = investment.date_created.date()
+            duration_years = ProcessMonthlyInterestP2PMB.get_investment_duration(investment.investment_guaranteed_type)
+
+            if duration_years == 0:
+                continue
+
+            first_interest_date = (approved_date.replace(day=1) + relativedelta(months=1))
+            end_date = approved_date + relativedelta(years=duration_years)
+
+            if today > end_date:
+                continue
+
+            existing_interest = InvestmentInterest.objects.filter(
+                investment=investment, interest_send_date=today.replace(day=1)
+            ).exists()
+
+            if existing_interest:
+                continue
+
+            amount = ProcessMonthlyInterestP2PMB.calculate_monthly_interest_amount(
+                user, investment.investment_guaranteed_type, investment.amount)
+
+            # Handle partial month interest for the first month
+            if approved_date.year == today.year and approved_date.month == today.month - 1:
+                days_remaining = (first_interest_date - approved_date).days
+                full_month_days = (first_interest_date - datetime.timedelta(days=1)).day
+
+                amount = (amount / full_month_days) * days_remaining
+
+                interest_records.append(
+                    InvestmentInterest(
+                        created_by=user,
+                        investment=investment,
+                        interest_amount=amount,
+                        interest_send_date=today,
+                        is_sent=True,
+                        end_date=end_date
+                    )
+                )
+            else:
+                interest_records.append(
+                    InvestmentInterest(
+                        created_by=user,
+                        investment=investment,
+                        interest_amount=amount,
+                        interest_send_date=today.replace(day=1),
+                        is_sent=True,
+                        end_date=end_date
+                    )
                 )
 
-                # Update user wallet
-                user_wallet = UserWallet.objects.filter(user=user, status='active').last()
-                if user_wallet:
-                    user_wallet.app_wallet_balance += interest_amount
-                    user_wallet.save()
+            create_transaction_entry(
+                user, user, amount, 'interest', 'approved',
+                f'Monthly Interest Added for investment of {investment.amount} in P2PMB.'
+            )
 
-                # Mark investment as interest sent
-                investment.is_interest_send = True
-                investment.save()
+            # Update user wallet
+            user_wallet = UserWallet.objects.filter(user=user, status='active').last()
+            if user_wallet:
+                user_wallet.app_wallet_balance += amount
+                user_wallet.save()
+
+            # Mark investment as interest sent
+            investment.is_interest_send = True
+            investment.save()
+
+        if interest_records:
+            InvestmentInterest.objects.bulk_create(interest_records)
+            print(f"Interest records created for {len(interest_records)} investments.")
 
     @staticmethod
     def calculate_interest_rate(user, investment_type):

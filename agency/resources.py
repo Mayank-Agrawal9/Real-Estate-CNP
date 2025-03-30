@@ -64,3 +64,10 @@ class RewardEarnedResource(resources.ModelResource):
         model = RewardEarned
         import_id_fields = ('id',)
         exclude = ('date_created', 'updated_by', 'date_updated', 'created_by')
+
+
+class InvestmentInterestResource(resources.ModelResource):
+    class Meta:
+        model = InvestmentInterest
+        import_id_fields = ('id',)
+        exclude = ('date_created', 'updated_by', 'date_updated', 'created_by')

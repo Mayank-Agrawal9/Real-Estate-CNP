@@ -140,7 +140,7 @@ class P2PMBRoyaltyMaster(ModelMixin):
     lifetime_income = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
     eligible_user = models.ManyToManyField(User, blank=True, related_name='royalty_user')
     month = models.DateField()
-    # is_distributed = models.BooleanField(default=False)
+    is_distributed = models.BooleanField(default=False)
 
     def save(self, *args, **kwargs):
         if self.total_turnover:
@@ -156,16 +156,17 @@ class P2PMBRoyaltyMaster(ModelMixin):
         return f"Total company turnover {self.total_turnover} - Calculated Amount {self.calculated_amount_turnover}"
 
 
-# class RoyaltyEarned(ModelMixin):
-#     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='royalty_earned_user')
-#     club_type = models.CharField(max_length=30, choices=ROYALTY_CLUB_TYPE)
-#     earned_date = models.DateField()
-#     royalty = models.ForeignKey(P2PMBRoyaltyMaster, on_delete=models.CASCADE, null=True, blank=True,
-#                                 related_name='royalty_earned')
-#     is_paid = models.BooleanField(default=False)
-#
-#     def __str__(self):
-#         return f"User {self.user.username} - Earned Date {self.earned_date}"
+class RoyaltyEarned(ModelMixin):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='royalty_earned_user')
+    club_type = models.CharField(max_length=30, choices=ROYALTY_CLUB_TYPE)
+    earned_date = models.DateField()
+    royalty = models.ForeignKey(P2PMBRoyaltyMaster, on_delete=models.CASCADE, null=True, blank=True,
+                                related_name='royalty_earned')
+    earned_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    is_paid = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"User {self.user.username} - Earned Date {self.earned_date}"
 
 
 class ExtraReward(ModelMixin):

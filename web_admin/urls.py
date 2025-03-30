@@ -2,7 +2,8 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
 from web_admin.views import StaffLoginAPIView, VerifyKycAPIView, InvestmentAPIView, CreateManualInvestmentAPIView, \
-    GetUserAPIView, ManualFundViewSet, DeductManualInvestmentAPIView, UpdatePasswordView
+    GetUserAPIView, ManualFundViewSet, DeductManualInvestmentAPIView, UpdatePasswordView, DashboardCountAPIView, \
+    ManualFundGraphAPIView, ManualFundDistributionAPIView
 
 router = DefaultRouter()
 router.register(r'manual-fund', ManualFundViewSet)
@@ -16,6 +17,8 @@ urlpatterns = [
     path('create-manual-investment/', CreateManualInvestmentAPIView.as_view(), name='manual-fund-add'),
     path('deduct-investment/', DeductManualInvestmentAPIView.as_view(), name='manual-fund-add'),
     path('get-user/', GetUserAPIView.as_view(), name='get-all-user'),
-    path('dashboard-count/', GetUserAPIView.as_view(), name='get-all-user'),
+    path('dashboard-count/', DashboardCountAPIView.as_view(), name='dashboard-count'),
+    path('dashboard-manual-fund-count/', ManualFundGraphAPIView.as_view(), name='graph-api'),
+    path('fund-distribution/', ManualFundDistributionAPIView.as_view(), name='fund-distribution'),
     path('', include(router.urls)),
 ]

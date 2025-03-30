@@ -16,11 +16,11 @@ from payment_app.models import UserWallet, Transaction
 from .calculation import distribute_monthly_rent_for_super_agency, calculate_super_agency_rewards, \
     calculate_agency_rewards, calculate_field_agent_rewards, process_monthly_rentals_for_ppd_interest
 from .models import Investment, Commission, RefundPolicy, FundWithdrawal, SuperAgency, Agency, FieldAgent, \
-    RewardEarned, PPDAccount
+    RewardEarned, PPDAccount, InvestmentInterest
 from .serializers import (InvestmentSerializer, CommissionSerializer,
                           RefundPolicySerializer, FundWithdrawalSerializer, SuperAgencySerializer, AgencySerializer,
                           FieldAgentSerializer, PPDModelSerializer, RewardEarnedSerializer, CreateInvestmentSerializer,
-                          GetAllEarnedReward)
+                          GetAllEarnedReward, InvestmentInterestSerializer)
 
 
 class SuperAgencyViewSet(viewsets.ModelViewSet):
@@ -370,3 +370,11 @@ class RewardEarnedViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return RewardEarned.objects.filter(user=self.request.user, status='active')
 
+
+class InvestmentInterestViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    queryset = InvestmentInterest.objects.active()
+    serializer_class = InvestmentInterestSerializer
+
+    def get_queryset(self):
+        return InvestmentInterest.objects.active()

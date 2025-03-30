@@ -1,4 +1,5 @@
 import datetime
+from datetime import timedelta, date
 from decimal import Decimal
 
 from django.contrib.auth import authenticate
@@ -11,14 +12,13 @@ from rest_framework import status, permissions, viewsets
 from rest_framework.authtoken.models import Token
 from rest_framework.filters import SearchFilter
 from rest_framework.generics import ListAPIView
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.models import Profile
 from web_admin.models import ManualFund
 from web_admin.serializers import ProfileSerializer, InvestmentSerializer, ManualFundSerializer
-from agency.models import Investment, SuperAgency, Agency, FieldAgent, FundWithdrawal
+from agency.models import Investment, FundWithdrawal
 from payment_app.models import UserWallet, Transaction
 
 
@@ -285,12 +285,17 @@ class DashboardCountAPIView(APIView):
             agency_fund_added=Sum("amount", filter=Q(is_approved=True, investment_type="agency")),
             field_agent_fund_added=Sum("amount", filter=Q(is_approved=True, investment_type="field_agent")),
             pending_approval_payment=Sum("amount", filter=Q(is_approved=False)),
+            send_direct_income=Sum("user", distinct=True, filter=Q(send_direct_income=True)),
+            send_level_income=Sum("user", distinct=True, filter=Q(send_level_income=True)),
+            interest_send_user=Sum("user", distinct=True, filter=Q(is_interest_send=True)),
         )
 
         fund_withdraw = FundWithdrawal.objects.aggregate(
-            total_distinct_withdraw_user=Count("user", distinct=True),
+            total_unique_withdraw_user=Count("user", distinct=True),
+            pending_withdraw_user=Sum("user", distinct=True, filter=Q(is_paid=False)),
             pending_withdraw_amount=Sum("withdrawal_amount", filter=Q(is_paid=False)),
-            initiate_withdraw_amount=Sum("withdrawal_amount", filter=Q(is_paid=True)),
+            approve_withdraw_user=Sum("user", distinct=True, filter=Q(is_paid=True)),
+            approve_withdraw_amount=Sum("withdrawal_amount", filter=Q(is_paid=True)),
             total_withdraw_amount=Sum("withdrawal_amount"),
         )
 
@@ -302,6 +307,108 @@ class DashboardCountAPIView(APIView):
             "admin_paid_amount": admin_paid_amount or 0,
         }
         return Response(dashboard_count, status=status.HTTP_200_OK)
+
+
+class ManualFundGraphAPIView(APIView):
+    permission_classes = [IsStaffUser]
+
+    def get(self, request):
+        filter_type = request.GET.get('filter_type', 'date_wise')
+        today = datetime.datetime.now().date()
+        current_year = today.year
+        month = int(request.GET.get('month', today.month))
+        data = []
+
+        if filter_type == 'date_wise':
+            start_date = date(current_year, month, 1)
+            end_date = today if month == today.month else (start_date.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
+            all_dates = [start_date + timedelta(days=i) for i in range((end_date - start_date).days + 1)]
+            funds = ManualFund.objects.filter(date_created__date__range=[start_date, end_date])
+            funds_dict = {entry['date_created__date']: entry['total_amount'] for entry in funds.values('date_created__date').annotate(total_amount=Sum('amount'))}
+            data = [{"date": date, "total_amount": funds_dict.get(date, 0)} for date in all_dates]
+
+        elif filter_type == 'month_wise':
+            months = range(1, 13)
+            funds = ManualFund.objects.filter(date_created__year=current_year).values('date_created__month').annotate(
+                total_amount=Sum('amount'))
+            funds_dict = {entry['date_created__month']: entry['total_amount'] for entry in funds}
+            data = [{"month": month, "total_amount": funds_dict.get(month, 0)} for month in months]
+
+        elif filter_type == 'quarterly':
+            quarters = {
+                'Q1 (Jan-Mar)': (1, 3),
+                'Q2 (Apr-Jun)': (4, 6),
+                'Q3 (Jul-Sep)': (7, 9),
+                'Q4 (Oct-Dec)': (10, 12)
+            }
+            for quarter, (start_month, end_month) in quarters.items():
+                total = ManualFund.objects.filter(date_created__year=current_year,
+                                                  date_created__month__gte=start_month,
+                                                  date_created__month__lte=end_month).aggregate(Sum('amount'))['amount__sum'] or 0
+                data.append({"quarter": quarter, "total_amount": total})
+
+        elif filter_type == 'half_yearly':
+            halves = {
+                'H1 (Jan-Jun)': (1, 6),
+                'H2 (Jul-Dec)': (7, 12)
+            }
+            for half, (start_month, end_month) in halves.items():
+                total = ManualFund.objects.filter(date_created__year=current_year,
+                                                  date_created__month__gte=start_month,
+                                                  date_created__month__lte=end_month).aggregate(Sum('amount'))['amount__sum'] or 0
+                data.append({"half_year": half, "total_amount": total})
+
+        elif filter_type == 'yearly':
+            for year in range(current_year - 1, current_year + 1):
+                total = ManualFund.objects.filter(date_created__year=year).aggregate(Sum('amount'))['amount__sum'] or 0
+                data.append({"year": year, "total_amount": total})
+
+        return Response({"filter_type": filter_type, "data": data})
+
+
+class ManualFundDistributionAPIView(APIView):
+    permission_classes = [IsStaffUser]
+
+    def get(self, request):
+        month = request.GET.get('month')
+        year = request.GET.get('year')
+
+        month = int(month) if month else None
+        year = int(year) if year else None
+
+        filters = {}
+        if month:
+            filters['date_created__month'] = month
+        if year:
+            filters['date_created__year'] = year
+
+        total_fund = ManualFund.objects.filter(**filters).aggregate(total_amount=Sum('amount'))['total_amount'] or Decimal(0)
+
+        distribution = {
+            "direct_income": Decimal("4.5"),
+            "level": Decimal("4.5"),
+            "reward": Decimal("2"),
+            "royalty": Decimal("1"),
+            "extra_reward": Decimal("2"),
+            "core_team": Decimal("1"),
+            "diwali_gift": Decimal("2"),
+            "donate": Decimal("1"),
+            "company_extra_expenses": Decimal("2"),
+            "properties": Decimal("50"),
+            "crypto": Decimal("10"),
+            "interest": Decimal("20"),
+        }
+        distribution_data = {
+            category: (total_fund * (percent / Decimal(100))).quantize(Decimal("0.01"))
+            for category, percent in distribution.items()
+        }
+
+        return Response({
+            "month": month if month else "All",
+            "year": year if year else "All",
+            "total_fund": total_fund.quantize(Decimal("0.01")),
+            "distribution": distribution_data
+        })
 
 
 class UpdatePasswordView(APIView):

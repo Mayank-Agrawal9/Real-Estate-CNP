@@ -18,7 +18,7 @@ class CustomModelAdminMixin(object):
 class ProfileAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
     exclude = ("payment_password",)
     resource_class = ProfileResource
-    search_fields = ['name', 'user__email']
+    search_fields = ['user__first_name', 'user__email']
     raw_id_fields = ('created_by', 'updated_by', 'user')
     list_filter = ('status', )
 

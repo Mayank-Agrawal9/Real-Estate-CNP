@@ -78,5 +78,5 @@ def process_p2pmb_monthly_interest():
     Process monthly interest for all eligible investments.
     """
     print("🚀 Starting Interest Income Distribution...")
-    ProcessMonthlyInterestP2PMB.process_p2pmb_monthly_interest()
+    ProcessMonthlyInterestP2PMB.generate_interest_for_all_investments()
     print("🔄 Interest Income Distribution Successfully")

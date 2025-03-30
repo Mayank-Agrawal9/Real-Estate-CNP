@@ -2,7 +2,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (InvestmentViewSet, CommissionViewSet, RefundViewSet, FundWithdrawalViewSet,
                     SuperAgencyViewSet, AgencyViewSet, FieldAgentViewSet, RewardEarnedViewSet,
-                    PPDAccountViewSet)
+                    PPDAccountViewSet, InvestmentInterestViewSet)
 
 router = DefaultRouter()
 router.register(r'super-agency', SuperAgencyViewSet)
@@ -14,6 +14,7 @@ router.register(r'refunds', RefundViewSet)
 router.register(r'ppd-account', PPDAccountViewSet)
 router.register(r'fund-withdrawals', FundWithdrawalViewSet)
 router.register(r'reward-earned', RewardEarnedViewSet)
+router.register(r'monthly-interest', InvestmentInterestViewSet)
 
 
 urlpatterns = [

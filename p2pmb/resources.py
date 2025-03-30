@@ -1,6 +1,7 @@
 from import_export import resources
 
-from p2pmb.models import MLMTree, Package, ScheduledCommission, RoyaltyClub, P2PMBRoyaltyMaster, ExtraReward
+from p2pmb.models import MLMTree, Package, ScheduledCommission, RoyaltyClub, P2PMBRoyaltyMaster, ExtraReward, \
+    RoyaltyEarned
 
 
 class MLMTreeResource(resources.ModelResource):
@@ -48,6 +49,13 @@ class CommissionResource(resources.ModelResource):
 class P2PMBRoyaltyMasterResource(resources.ModelResource):
     class Meta:
         model = P2PMBRoyaltyMaster
+        import_id_fields = ('id',)
+        exclude = ('date_created', 'updated_by', 'date_updated', 'created_by')
+
+
+class RoyaltyEarnedResource(resources.ModelResource):
+    class Meta:
+        model = RoyaltyEarned
         import_id_fields = ('id',)
         exclude = ('date_created', 'updated_by', 'date_updated', 'created_by')
 

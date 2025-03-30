@@ -2,7 +2,7 @@ from import_export import resources
 
 from accounts.models import *
 
-EXCLUDE_FOR_API = ('date_created', 'updated_by', 'date_updated', 'created_by')
+EXCLUDE_FOR_API = ('updated_by', 'date_updated', 'created_by')
 
 
 class ProfileResource(resources.ModelResource):

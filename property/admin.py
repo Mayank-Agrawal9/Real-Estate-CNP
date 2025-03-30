@@ -2,8 +2,9 @@ from django.contrib import admin
 from import_export.admin import ImportExportModelAdmin
 
 from accounts.admin import CustomModelAdminMixin
-from property.models import Property, Media, PropertyEnquiry, PropertyBooking
-from property.resources import PropertyResource, MediaResource, PropertyEnquiryResource, BookingResource
+from property.models import Property, Media, PropertyEnquiry, PropertyBooking, PropertyBookmark
+from property.resources import PropertyResource, MediaResource, PropertyEnquiryResource, BookingResource, \
+    PropertyBookmarkResource
 
 
 # Register your models here.
@@ -34,4 +35,11 @@ class PropertyEnquiryAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
 class BookingAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
     resource_class = BookingResource
     raw_id_fields = ('created_by', 'updated_by', 'booked_by', 'property_id')
+    list_filter = ('status', )
+
+
+@admin.register(PropertyBookmark)
+class BookingAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
+    resource_class = PropertyBookmarkResource
+    raw_id_fields = ('created_by', 'updated_by', 'user', 'property')
     list_filter = ('status', )

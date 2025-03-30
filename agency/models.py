@@ -91,6 +91,17 @@ class Investment(ModelMixin):
         return f"Investment by {self.user.username} of {self.amount} ({self.investment_type})"
 
 
+class InvestmentInterest(ModelMixin):
+    investment = models.ForeignKey(Investment, on_delete=models.CASCADE, related_name="investment_interest")
+    interest_amount = models.DecimalField(max_digits=15, decimal_places=2)
+    interest_send_date = models.DateField()
+    is_sent = models.BooleanField(default=False)
+    end_date = models.DateField(null=True, blank=True)
+
+    def __str__(self):
+        return f"Interest for {self.investment.user.username} on {self.interest_send_date}: {self.interest_amount}"
+
+
 class Commission(ModelMixin):
     commission_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='commission_by')
     commission_to = models.ForeignKey(User, on_delete=models.CASCADE, related_name='commission_to')

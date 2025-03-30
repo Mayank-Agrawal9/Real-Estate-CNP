@@ -7,8 +7,18 @@ from real_estate.model_mixin import ModelMixin
 
 
 # Create your models here.
+
+class PropertyCategory(ModelMixin):
+    name = models.CharField(max_length=100, unique=True)
+    description = models.TextField(null=True, blank=True)
+
+    def __str__(self):
+        return self.name
+
+
 class Property(ModelMixin):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='property_user')
+    category = models.ForeignKey(PropertyCategory, on_delete=models.SET_NULL, null=True, related_name='properties')
     title = models.CharField(max_length=255)
     description = models.TextField(null=True, blank=True)
     price = models.DecimalField(max_digits=10, decimal_places=2)
@@ -23,6 +33,7 @@ class Property(ModelMixin):
     postal_code = models.CharField(max_length=20)
     street_address = models.TextField()
     is_sold = models.BooleanField(default=False)
+    is_featured = models.BooleanField(default=False)
 
     def __str__(self):
         return str(self.id)
@@ -57,3 +68,47 @@ class Media(ModelMixin):
 
     def __str__(self):
         return str(self.id)
+
+
+class PropertyBookmark(ModelMixin):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='bookmarked_properties')
+    property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name='bookmarks')
+
+    def __str__(self):
+        return f'Bookmark by {self.user} for {self.property}'
+
+
+class Feature(ModelMixin):
+    name = models.CharField(max_length=250, unique=True)
+
+    def __str__(self):
+        return self.name
+
+
+class PropertyFeature(ModelMixin):
+    property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name='features')
+    feature = models.ForeignKey(Feature, on_delete=models.CASCADE)
+    value = models.CharField(max_length=255)
+
+    def __str__(self):
+        return f'{self.property.title} - {self.feature.name}: {self.value}'
+
+
+class NearbyFacility(ModelMixin):
+    property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name='nearby_facilities')
+    name = models.CharField(max_length=150)
+    distance = models.FloatField(help_text="Distance in km")
+
+    def __str__(self):
+        return f'{self.name} ({self.distance} km)'
+
+
+class PropertyReview(ModelMixin):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reviews')
+    property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name='property_reviews')
+    rating = models.PositiveSmallIntegerField(choices=[(i, str(i)) for i in range(1, 6)])
+    comment = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f'Review by {self.user} for {self.property}'

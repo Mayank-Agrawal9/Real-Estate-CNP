@@ -3,9 +3,10 @@ from import_export.admin import ImportExportModelAdmin
 
 from accounts.admin import CustomModelAdminMixin
 from p2pmb.models import MLMTree, Package, ScheduledCommission, RoyaltyClub, Reward, Commission, P2PMBRoyaltyMaster, \
-    ExtraReward, CoreIncomeEarned
+    ExtraReward, CoreIncomeEarned, RoyaltyEarned
 from p2pmb.resources import MLMTreeResource, PackageResource, RoyaltyClubResource, ScheduledCommissionResource, \
-    RewardResource, CommissionResource, P2PMBRoyaltyMasterResource, ExtraRewardResource, CoreIncomeEarnedResource
+    RewardResource, CommissionResource, P2PMBRoyaltyMasterResource, ExtraRewardResource, CoreIncomeEarnedResource, \
+    RoyaltyEarnedResource
 
 
 # Register your models here.
@@ -58,6 +59,13 @@ class P2PMBRoyaltyMasterAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
     list_filter = ('status', )
 
 
+@admin.register(RoyaltyEarned)
+class RoyaltyEarnedAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
+    resource_class = RoyaltyEarnedResource
+    raw_id_fields = ('created_by', 'updated_by', 'user', 'royalty')
+    list_filter = ('status', )
+
+
 @admin.register(ExtraReward)
 class ExtraRewardAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
     resource_class = ExtraRewardResource
@@ -69,4 +77,4 @@ class ExtraRewardAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
 class CoreIncomeEarnedAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
     resource_class = CoreIncomeEarnedResource
     raw_id_fields = ('created_by', 'updated_by', 'user', 'state', 'core_income')
-    list_filter = ('status', )
+    list_filter = ('status', 'date_created')

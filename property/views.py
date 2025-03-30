@@ -5,10 +5,10 @@ from rest_framework.filters import SearchFilter
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from property.models import Media, Property, PropertyEnquiry, PropertyBooking
+from property.models import Media, Property, PropertyEnquiry, PropertyBooking, PropertyBookmark
 from property.serializers import CreatePropertySerializer, PropertySerializer, PropertyListSerializer, MediaSerializer, \
     EditPropertySerializer, GetPropertyEnquirySerializer, CreatePropertyEnquirySerializer, GetPropertyBookingSerializer, \
-    CreatePropertyBookingSerializer
+    CreatePropertyBookingSerializer, PropertyBookmarkSerializer, GetPropertyBookmarkSerializer
 
 
 # Create your views here.
@@ -157,3 +157,21 @@ class PropertyBookingViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return PropertyBooking.objects.filter(booked_by=self.request.user, status='active')
+
+
+class PropertyBookmarkViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_fields = ['user', 'property']
+    serializer_classes = {
+        'list': GetPropertyBookmarkSerializer,
+        'create': PropertyBookmarkSerializer,
+        'retrieve': GetPropertyBookmarkSerializer,
+    }
+    default_serializer_class = PropertyBookmarkSerializer
+
+    def get_serializer_class(self):
+        return self.serializer_classes.get(self.action, self.default_serializer_class)
+
+    def get_queryset(self):
+        return PropertyBookmark.objects.filter(user=self.request.user, status='active')

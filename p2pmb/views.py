@@ -11,10 +11,11 @@ from agency.models import Investment
 from p2pmb.calculation import (RoyaltyClubDistribute, DistributeDirectCommission, DistributeLevelIncome,
                                LifeTimeRewardIncome, ProcessMonthlyInterestP2PMB)
 from p2pmb.cron import distribute_level_income
-from p2pmb.models import MLMTree, Package, Commission, ExtraReward, CoreIncomeEarned
+from p2pmb.models import MLMTree, Package, Commission, ExtraReward, CoreIncomeEarned, P2PMBRoyaltyMaster, RoyaltyEarned
 from p2pmb.serializers import MLMTreeSerializer, MLMTreeNodeSerializer, PackageSerializer, CommissionSerializer, \
     ShowInvestmentDetail, GetP2PMBLevelData, GetMyApplyingData, MLMTreeNodeSerializerV2, MLMTreeParentNodeSerializerV2, \
-    ExtraRewardSerializer, CoreIncomeEarnedSerializer
+    ExtraRewardSerializer, CoreIncomeEarnedSerializer, RoyaltyEarnedSerializer, P2PMBRoyaltyMasterSerializer, \
+    CreateRoyaltyEarnedSerializer
 
 
 # Create your views here.
@@ -267,8 +268,29 @@ class CoreIncomeEarnedViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = CoreIncomeEarnedSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter]
-    queryset = CoreIncomeEarned.objects.filter(status='active')
+    queryset = CoreIncomeEarned.objects.active()
     filterset_fields = ['income_type',]
+
+
+class P2PMBRoyaltyMasterViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    serializer_class = P2PMBRoyaltyMasterSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    queryset = P2PMBRoyaltyMaster.objects.active()
+    filterset_fields = ['is_distributed',]
+
+
+class RoyaltyEarnedViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    serializer_classes = {
+        'list': RoyaltyEarnedSerializer,
+        'retrieve': RoyaltyEarnedSerializer,
+    }
+    default_serializer_class = CreateRoyaltyEarnedSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    queryset = RoyaltyEarned.objects.active()
+    filterset_fields = ['club_type', 'is_paid']
+    search_fields = ['user__username', 'user__first_name', 'user__last_name']
 
 
 class DistributeLevelIncomeAPIView(APIView):
@@ -357,7 +379,7 @@ class RoyaltyIncome(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        RoyaltyClubDistribute.check_royalty_club_membership()
+        RoyaltyClubDistribute.distribute_royalty()
         return Response({"message": "Royalty income distribute successfully."})
 
 
@@ -368,7 +390,7 @@ class SendMonthlyInterestIncome(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        ProcessMonthlyInterestP2PMB.process_p2pmb_monthly_interest()
+        ProcessMonthlyInterestP2PMB.generate_interest_for_all_investments()
         return Response({"message": "Monthly Interest distribute successfully."})
 
 

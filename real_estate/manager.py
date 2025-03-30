@@ -8,6 +8,9 @@ class ModelMixinManager(models.Manager):
     def publish(self):
         return super().get_queryset().filter(status='publish')
 
+    def active(self):
+        return super().get_queryset().filter(status='active')
+
     def inactive(self):
         return super().get_queryset().filter(status='inactive')
 

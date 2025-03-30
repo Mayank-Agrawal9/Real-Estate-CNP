@@ -6,7 +6,7 @@ from payment_app.choices import PAYMENT_METHOD
 from payment_app.models import Transaction, UserWallet
 from .choices import INVESTMENT_GUARANTEED_TYPE
 from .models import User, Investment, Commission, RefundPolicy, FundWithdrawal, SuperAgency, Agency, \
-    FieldAgent, RewardEarned, PPDAccount
+    FieldAgent, RewardEarned, PPDAccount, InvestmentInterest
 
 
 class SuperAgencySerializer(serializers.ModelSerializer):
@@ -127,6 +127,23 @@ class RefundPolicySerializer(serializers.ModelSerializer):
 class FundWithdrawalSerializer(serializers.ModelSerializer):
     class Meta:
         model = FundWithdrawal
+        fields = '__all__'
+
+
+class InvestmentInterestSerializer(serializers.ModelSerializer):
+    investment = serializers.SerializerMethodField()
+
+    def get_investment(self, obj):
+        return {
+            'id': obj.investment.id,
+            'amount': obj.investment.amount,
+            'user': {'id': obj.investment.user.id, 'username': obj.investment.user.username,
+                     'full_name': obj.investment.user.get_full_name()},
+            'investment_type': obj.investment.investment_guaranteed_type
+        }
+
+    class Meta:
+        model = InvestmentInterest
         fields = '__all__'
 
 

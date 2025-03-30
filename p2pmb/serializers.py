@@ -5,7 +5,7 @@ from rest_framework import serializers
 
 from accounts.models import Profile
 from agency.models import Investment
-from .models import MLMTree, User, Package, Commission, ExtraReward, CoreIncomeEarned
+from .models import MLMTree, User, Package, Commission, ExtraReward, CoreIncomeEarned, P2PMBRoyaltyMaster, RoyaltyEarned
 
 
 class MLMTreeSerializer(serializers.ModelSerializer):
@@ -317,4 +317,47 @@ class CoreIncomeEarnedSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CoreIncomeEarned
+        fields = '__all__'
+
+
+class P2PMBRoyaltyMasterSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = P2PMBRoyaltyMaster
+        fields = '__all__'
+
+
+class RoyaltyEarnedSerializer(serializers.ModelSerializer):
+    user = serializers.SerializerMethodField()
+    royalty = serializers.SerializerMethodField()
+
+    def get_user(self, obj):
+        return{
+            'id': obj.user.id,
+            'name': obj.user.get_full_name(),
+            'username': obj.user.username,
+        }
+
+    def get_royalty(self, obj):
+
+        if not obj.royalty:
+            return None
+
+        return {
+            'id': obj.royalty.id,
+            'date': obj.royalty.month,
+            'is_distributed': obj.royalty.is_distributed,
+            'total_turnover': obj.royalty.total_turnover,
+            'calculated_amount_turnover': obj.royalty.calculated_amount_turnover
+        }
+
+    class Meta:
+        model = RoyaltyEarned
+        fields = '__all__'
+
+
+class CreateRoyaltyEarnedSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = RoyaltyEarned
         fields = '__all__'
