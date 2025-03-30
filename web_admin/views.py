@@ -271,7 +271,8 @@ class ManualFundViewSet(viewsets.ModelViewSet):
     queryset = ManualFund.objects.filter(status='active').order_by('-date_created')
     serializer_class = ManualFundSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter]
-    filterset_fields = ['amount', ]
+    filterset_fields = ['amount', 'added_to']
+    search_fields = ['added_to__username', 'added_to__first_name', 'added_to__email']
 
 
 class DashboardCountAPIView(APIView):
