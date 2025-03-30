@@ -5,7 +5,50 @@ from rest_framework import serializers
 from master.models import Country, State, City
 from payment_app.models import UserWallet
 from property.choices import MEDIA_TYPE_CHOICES, PROPERTY_TYPE, PROPERTY_STATUS
-from property.models import Property, Media, PropertyEnquiry, PropertyBooking, PropertyBookmark
+from property.models import Property, Media, PropertyEnquiry, PropertyBooking, PropertyBookmark, NearbyFacility, \
+    PropertyFeature, Feature, PropertyCategory
+
+
+class CreateNearbyFacilitySerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = NearbyFacility
+        fields = '__all__'
+
+
+class NearbyFacilitySerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = NearbyFacility
+        exclude = ('property', )
+
+
+class FeatureSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Feature
+        fields = ('name', )
+
+
+class PropertyCategorySerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = PropertyCategory
+        fields = ('name', 'id')
+
+
+class CreatePropertyFeatureSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = PropertyFeature
+        fields = '__all__'
+
+
+class PropertyFeatureSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = PropertyFeature
+        exclude = ('property', )
 
 
 class CreatePropertySerializer(serializers.Serializer):
@@ -26,6 +69,8 @@ class CreatePropertySerializer(serializers.Serializer):
         child=serializers.FileField(),
         required=False
     )
+    features = PropertyFeatureSerializer(many=True, required=False)
+    nearby_facilities = NearbyFacilitySerializer(many=True, required=False)
     media_type = serializers.ChoiceField(choices=['photo', 'video'], required=False)
 
     def validate(self, data):
@@ -59,10 +104,32 @@ class GetMediaDataSerializer(serializers.ModelSerializer):
         fields = ('id', 'date_created', 'file', 'media_type')
 
 
+class GetNearbyFacilitySerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = NearbyFacility
+        fields = ('name', 'distance')
+
+
+class GetPropertyFeatureSerializer(serializers.ModelSerializer):
+    feature = serializers.SerializerMethodField()
+
+    def get_feature(self, obj):
+        return {
+            'id': obj.feature.id,
+            'name': obj.feature.name
+        }
+
+    class Meta:
+        model = PropertyFeature
+        fields = ('value', 'feature')
+
+
 class PropertyListSerializer(serializers.ModelSerializer):
     media = GetMediaDataSerializer(many=True, read_only=True)
     country = serializers.SerializerMethodField()
     state = serializers.SerializerMethodField()
+    category = serializers.SerializerMethodField()
     city = serializers.SerializerMethodField()
 
     def get_country(self, obj):
@@ -77,11 +144,59 @@ class PropertyListSerializer(serializers.ModelSerializer):
         if obj.city:
             return {'id': obj.city.id, 'name': obj.city.name}
 
+    def get_category(self, obj):
+        if obj.category:
+            return {'id': obj.category.id, 'name': obj.category.name}
+
     class Meta:
         model = Property
         fields = ('id', 'date_created', 'status', 'title', 'description', 'price', 'area_size',
                   'area_size_postfix', 'property_type', 'property_status', 'owner_contact_number',
-                  'postal_code', 'street_address', 'is_sold', 'created_by', 'user', 'country', 'state', 'city', 'media')
+                  'postal_code', 'street_address', 'is_sold', 'created_by', 'user', 'country', 'state', 'city',
+                  'media', 'category')
+
+
+class PropertyRetrieveSerializer(serializers.ModelSerializer):
+    media = GetMediaDataSerializer(many=True, read_only=True)
+    country = serializers.SerializerMethodField()
+    state = serializers.SerializerMethodField()
+    city = serializers.SerializerMethodField()
+    featured = serializers.SerializerMethodField()
+    nearby_facility = serializers.SerializerMethodField()
+    category = serializers.SerializerMethodField()
+
+    def get_country(self, obj):
+        if obj.country:
+            return {'id': obj.country.id, 'name': obj.country.name}
+
+    def get_state(self, obj):
+        if obj.state:
+            return {'id': obj.state.id, 'name': obj.state.name}
+
+    def get_city(self, obj):
+        if obj.city:
+            return {'id': obj.city.id, 'name': obj.city.name}
+
+    def get_category(self, obj):
+        if obj.category:
+            return {'id': obj.category.id, 'name': obj.category.name}
+
+    def get_featured(self, obj):
+        """ Return property features or an empty list if none exist. """
+        features = obj.features.all()
+        return GetPropertyFeatureSerializer(features, many=True).data if features else []
+
+    def get_nearby_facility(self, obj):
+        """ Return nearby facilities or an empty list if none exist. """
+        facilities = obj.nearby_facilities.all()
+        return GetNearbyFacilitySerializer(facilities, many=True).data if facilities else []
+
+    class Meta:
+        model = Property
+        fields = ('id', 'date_created', 'status', 'title', 'description', 'price', 'area_size',
+                  'area_size_postfix', 'property_type', 'property_status', 'owner_contact_number',
+                  'postal_code', 'street_address', 'is_sold', 'created_by', 'user', 'country', 'state', 'city',
+                  'media', 'featured', 'nearby_facility', 'category')
 
 
 class EditPropertySerializer(serializers.Serializer):
@@ -101,9 +216,9 @@ class EditPropertySerializer(serializers.Serializer):
     street_address = serializers.CharField(required=False)
     video_url = serializers.URLField(required=False)
     country_code = serializers.CharField(required=False)
-    media_files = serializers.ListField(
-        child=serializers.FileField(), required=False
-    )
+    media_files = serializers.ListField(child=serializers.FileField(), required=False)
+    features = serializers.ListField(child=serializers.FileField(), required=False)
+    nearby_facilities = serializers.ListField(child=serializers.FileField(), required=False)
     media_type = serializers.ChoiceField(choices=MEDIA_TYPE_CHOICES, required=False)
 
 
@@ -248,11 +363,11 @@ class GetPropertyBookmarkSerializer(serializers.ModelSerializer):
             return {'id': obj.user.id, 'name': obj.user.get_full_name(), 'username': obj.user.username}
 
     class Meta:
-        model = PropertyBooking
+        model = PropertyBookmark
         fields = '__all__'
 
-
 class PropertyBookmarkSerializer(serializers.ModelSerializer):
+    user = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
         model = PropertyBookmark

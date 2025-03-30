@@ -2,9 +2,11 @@ from django.contrib import admin
 from import_export.admin import ImportExportModelAdmin
 
 from accounts.admin import CustomModelAdminMixin
-from property.models import Property, Media, PropertyEnquiry, PropertyBooking, PropertyBookmark
+from property.models import Property, Media, PropertyEnquiry, PropertyBooking, PropertyBookmark, PropertyFeature, \
+    NearbyFacility, PropertyReview, Feature, PropertyCategory
 from property.resources import PropertyResource, MediaResource, PropertyEnquiryResource, BookingResource, \
-    PropertyBookmarkResource
+    PropertyBookmarkResource, PropertyFeatureResource, NearbyFacilityResource, PropertyReviewResource, FeatureResource, \
+    PropertyCategoryResource
 
 
 # Register your models here.
@@ -42,4 +44,39 @@ class BookingAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
 class BookingAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
     resource_class = PropertyBookmarkResource
     raw_id_fields = ('created_by', 'updated_by', 'user', 'property')
+    list_filter = ('status', )
+
+
+@admin.register(PropertyFeature)
+class PropertyFeatureAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
+    resource_class = PropertyFeatureResource
+    raw_id_fields = ('created_by', 'updated_by', 'feature', 'property')
+    list_filter = ('status', )
+
+
+@admin.register(PropertyCategory)
+class PropertyCategoryAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
+    resource_class = PropertyCategoryResource
+    raw_id_fields = ('created_by', 'updated_by')
+    list_filter = ('status', )
+
+
+@admin.register(NearbyFacility)
+class NearbyFacilityAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
+    resource_class = NearbyFacilityResource
+    raw_id_fields = ('created_by', 'updated_by', 'property')
+    list_filter = ('status', )
+
+
+@admin.register(PropertyReview)
+class PropertyReviewAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
+    resource_class = PropertyReviewResource
+    raw_id_fields = ('created_by', 'updated_by', 'user', 'property')
+    list_filter = ('status', )
+
+
+@admin.register(Feature)
+class FeatureAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
+    resource_class = FeatureResource
+    raw_id_fields = ('created_by', 'updated_by')
     list_filter = ('status', )

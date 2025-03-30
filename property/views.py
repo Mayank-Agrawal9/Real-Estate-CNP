@@ -5,10 +5,13 @@ from rest_framework.filters import SearchFilter
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from property.models import Media, Property, PropertyEnquiry, PropertyBooking, PropertyBookmark
+from property.models import Media, Property, PropertyEnquiry, PropertyBooking, PropertyBookmark, PropertyFeature, \
+    NearbyFacility, Feature, PropertyCategory
 from property.serializers import CreatePropertySerializer, PropertySerializer, PropertyListSerializer, MediaSerializer, \
     EditPropertySerializer, GetPropertyEnquirySerializer, CreatePropertyEnquirySerializer, GetPropertyBookingSerializer, \
-    CreatePropertyBookingSerializer, PropertyBookmarkSerializer, GetPropertyBookmarkSerializer
+    CreatePropertyBookingSerializer, PropertyBookmarkSerializer, GetPropertyBookmarkSerializer, \
+    CreateNearbyFacilitySerializer, GetNearbyFacilitySerializer, GetPropertyFeatureSerializer, \
+    CreatePropertyFeatureSerializer, FeatureSerializer, PropertyRetrieveSerializer, PropertyCategorySerializer
 
 
 # Create your views here.
@@ -21,7 +24,7 @@ class PropertyViewSet(viewsets.ModelViewSet):
     search_fields = ['title', 'postal_code']
     serializer_classes = {
         'list': PropertyListSerializer,
-        'retrieve': PropertyListSerializer,
+        'retrieve': PropertyRetrieveSerializer,
     }
     default_serializer_class = PropertySerializer
 
@@ -33,11 +36,6 @@ class PropertyViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], url_path='get-all-property')
     def get_all_property(self, request):
-        # if not (request.user.profile.is_kyc and request.user.profile.is_kyc_verified):
-        #     return Response(
-        #         {"error": "KYC not completed or verified."},
-        #         status=status.HTTP_403_FORBIDDEN,
-        #     )
         properties = Property.objects.filter(status='active').order_by('-id')
         page = self.paginate_queryset(properties)
         if page is not None:
@@ -79,7 +77,28 @@ class PropertyViewSet(viewsets.ModelViewSet):
             media_files = validated_data.get('media_files', [])
             media_type = validated_data.get('media_type')
             for file in media_files:
-                Media.objects.create(created_by=request.user, property=property_instance, file=file, media_type=media_type)
+                Media.objects.create(created_by=request.user, property=property_instance, file=file,
+                                     media_type=media_type)
+
+            features_data = validated_data.get('features', [])
+            for feature in features_data:
+                PropertyFeature.objects.create(
+                    created_by=request.user,
+                    property=property_instance,
+                    feature_id=feature['feature'].id,
+                    value=feature['value']
+                )
+
+            nearby_facilities_data = validated_data.get('nearby_facilities', [])
+            if nearby_facilities_data:
+                for facility in nearby_facilities_data:
+                    NearbyFacility.objects.create(
+                        created_by=request.user,
+                        property=property_instance,
+                        name=facility['name'],
+                        distance=facility['distance']
+                    )
+
             return Response({"message": "Property created successfully."}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -158,6 +177,9 @@ class PropertyBookingViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return PropertyBooking.objects.filter(booked_by=self.request.user, status='active')
 
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
 
 class PropertyBookmarkViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
@@ -175,3 +197,68 @@ class PropertyBookmarkViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return PropertyBookmark.objects.filter(user=self.request.user, status='active')
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user, user=self.request.user)
+
+
+class NearbyFacilityViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    search_fields = ['created_by__username', 'created_by__first_name']
+    serializer_classes = {
+        'list': GetNearbyFacilitySerializer,
+        'create': CreateNearbyFacilitySerializer,
+        'retrieve': GetNearbyFacilitySerializer,
+    }
+    default_serializer_class = CreateNearbyFacilitySerializer
+
+    def get_serializer_class(self):
+        return self.serializer_classes.get(self.action, self.default_serializer_class)
+
+    def get_queryset(self):
+        return NearbyFacility.objects.active()
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+
+class PropertyFeatureViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    search_fields = ['created_by__username', 'created_by__first_name']
+    serializer_classes = {
+        'list': GetPropertyFeatureSerializer,
+        'create': CreatePropertyFeatureSerializer,
+        'retrieve': GetPropertyFeatureSerializer,
+    }
+    default_serializer_class = CreateNearbyFacilitySerializer
+    serializer_class = GetPropertyFeatureSerializer
+
+    def get_queryset(self):
+        return PropertyFeature.objects.active()
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+
+class FeatureViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    queryset = Feature.objects.active()
+    serializer_class = FeatureSerializer
+    search_fields = ['name', ]
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+
+class PropertyCategoryViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    queryset = PropertyCategory.objects.active()
+    serializer_class = PropertyCategorySerializer
+    search_fields = ['name', ]
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
