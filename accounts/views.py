@@ -357,17 +357,18 @@ class GetUserFriendReferralCodeDetails(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        profile = Profile.objects.filter(referral_code=friend_referral_code, is_kyc=True, is_kyc_verified=True).first()
-
-        if not profile:
-            return Response({'status_code': 400, 'message': 'Invalid referral code or the user has not completed KYC.'
-                }, status=status.HTTP_400_BAD_REQUEST)
+        profile = Profile.objects.filter(referral_code=friend_referral_code).first()
+        #
+        # if not profile:
+        #     return Response({'status_code': 400, 'message': 'Invalid referral code or the user has not completed KYC.'
+        #         }, status=status.HTTP_400_BAD_REQUEST)
 
         role_to_user_for = {
             'super_agency': 'agent',
-            'agent': 'field_agent'
+            'agent': 'field_agent',
+            'customer': 'customer'
         }
-        user_for = role_to_user_for.get(profile.role, 'customer')
+        user_for = role_to_user_for.get(profile.role, 'p2pmb')
 
         data = {
             'cnp_id': profile.user.username,
