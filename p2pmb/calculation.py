@@ -725,16 +725,16 @@ class ProcessMonthlyInterestP2PMB:
 
         base_interest_rate = Decimal('0.01') if investment_type == 'full_payment' else Decimal('0.02')
 
-        if referral_count >= 10 and team_count >= 5:
-            eligible_team_count = sum(1 for team in team_members.order_by('level')[:5]
-                                      if MLMTree.objects.filter(referral_by=team.user, status='active').count() >= 10)
-            if eligible_team_count == 5:
-                return Decimal('0.05') if investment_type == 'full_payment' else Decimal('0.10')  # 5x Return
-
-        elif referral_count >= 10:
-            return Decimal('0.03') if investment_type == 'full_payment' else Decimal('0.05')  # 3% or 5%
-
-        elif referral_count >= 5:
-            return Decimal('0.015') if investment_type == 'full_payment' else Decimal('0.025')  # 1.5% or 2.5%
+        # if referral_count >= 10 and team_count >= 5:
+        #     eligible_team_count = sum(1 for team in team_members.order_by('level')[:5]
+        #                               if MLMTree.objects.filter(referral_by=team.user, status='active').count() >= 10)
+        #     if eligible_team_count == 5:
+        #         return Decimal('0.05') if investment_type == 'full_payment' else Decimal('0.10')  # 5x Return
+        #
+        # elif referral_count >= 10:
+        #     return Decimal('0.03') if investment_type == 'full_payment' else Decimal('0.05')  # 3% or 5%
+        #
+        # elif referral_count >= 5:
+        #     return Decimal('0.015') if investment_type == 'full_payment' else Decimal('0.025')  # 1.5% or 2.5%
 
         return base_interest_rate
