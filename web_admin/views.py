@@ -10,16 +10,19 @@ from django.db.models import Count, Q, Sum
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status, permissions, viewsets
 from rest_framework.authtoken.models import Token
+from rest_framework.exceptions import ValidationError
 from rest_framework.filters import SearchFilter
 from rest_framework.generics import ListAPIView
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.models import Profile
+from accounts.models import Profile, BankDetails, UserPersonalDocument
 from web_admin.models import ManualFund
-from web_admin.serializers import ProfileSerializer, InvestmentSerializer, ManualFundSerializer
-from agency.models import Investment, FundWithdrawal
+from web_admin.serializers import ProfileSerializer, InvestmentSerializer, ManualFundSerializer, BankDetailSerializer, \
+    UserDocumentSerializer, SuperAgencyCompanyDetailSerializer, AgencyCompanyDetailSerializer, \
+    FieldAgentCompanyDetailSerializer
+from agency.models import Investment, FundWithdrawal, SuperAgency, Agency, FieldAgent
 from payment_app.models import UserWallet, Transaction
 
 
@@ -264,6 +267,98 @@ class GetUserAPIView(ListAPIView):
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_fields = ['is_kyc', 'is_kyc_verified', 'is_p2pmb']
     search_fields = ['user__username', 'referral_code', 'user__first_name']
+
+
+class UserDocumentAPIView(ListAPIView):
+    permission_classes = [IsStaffUser]
+    serializer_class = UserDocumentSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_fields = ['created_by', ]
+
+    def get_queryset(self):
+        user_id = self.request.query_params.get('user_id')
+
+        if not user_id:
+            raise ValidationError({"error": "user_id is a required query parameter."})
+
+        return UserPersonalDocument.objects.filter(
+            created_by=user_id, status='active'
+        ).order_by('-id')
+
+
+class UserBankDetailAPIView(ListAPIView):
+    permission_classes = [IsStaffUser]
+    serializer_class = BankDetailSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_fields = ['user']
+    search_fields = ['account_number']
+
+    def get_queryset(self):
+        user_id = self.request.query_params.get('user_id')
+
+        if not user_id:
+            raise ValidationError({"error": "user_id is a required query parameter."})
+
+        return BankDetails.objects.filter(
+            user=user_id, status='active'
+        ).order_by('-id')
+
+
+class UserCompanyDetailAPIView(ListAPIView):
+    permission_classes = [IsStaffUser]
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+
+    def get_queryset(self):
+        user_id = self.request.query_params.get('user_id')
+
+        if not user_id:
+            raise ValidationError({"error": "user_id is a required query parameter."})
+
+        user = User.objects.filter(id=user_id).last()
+
+        if not user:
+            raise ValidationError({"error": "User does not exist."})
+
+        user_profile = user.profile
+
+        if user_profile.is_super_agency:
+            self.queryset = SuperAgency.objects.filter(profile__user=user, status='active')
+            self.serializer_class = SuperAgencyCompanyDetailSerializer
+        elif user_profile.is_agency:
+            self.queryset = Agency.objects.filter(created_by=user, status='active')
+            self.serializer_class = AgencyCompanyDetailSerializer
+        elif user_profile.is_field_agent:
+            self.queryset = FieldAgent.objects.filter(profile__user=user, status='active')
+            self.serializer_class = FieldAgentCompanyDetailSerializer
+        else:
+            raise ValidationError({"error": "User does not have a valid role."})
+
+        return self.queryset
+
+    def get_serializer_class(self):
+        """
+        Dynamically returns the serializer class based on the queryset selection.
+        """
+        return self.serializer_class
+
+
+class RejectKYCStatusAPIView(APIView):
+    permission_classes = [IsStaffUser]
+
+    def post(self, request):
+        user_id = request.query_params.get('user_id')
+
+        if not user_id:
+            return Response({'error': 'user_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        Profile.objects.filter(user=user_id).update(is_kyc=False, is_kyc_verified=False, is_super_agency=False,
+                                                    is_agency=False, is_field_agent=False)
+        SuperAgency.objects.filter(profile__user=user_id).update(status='inactive')
+        Agency.objects.filter(created_by=user_id).update(status='inactive')
+        FieldAgent.objects.filter(profile__user=user_id).update(status='inactive')
+        UserPersonalDocument.objects.filter(created_by=user_id).update(status='inactive')
+        BankDetails.objects.filter(user=user_id).update(status='inactive')
+        return Response({'message': 'User KYC and status updated successfully'}, status=status.HTTP_200_OK)
 
 
 class ManualFundViewSet(viewsets.ModelViewSet):
