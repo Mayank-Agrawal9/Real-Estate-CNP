@@ -64,7 +64,6 @@ class PropertyViewSet(viewsets.ModelViewSet):
                 price=validated_data['price'],
                 area_size=validated_data['area_size'],
                 area_size_postfix=validated_data['area_size_postfix'],
-                property_type=validated_data['property_type'],
                 property_status=validated_data['property_status'],
                 owner_contact_number=validated_data['owner_contact_number'],
                 country=validated_data['country'],

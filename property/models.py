@@ -24,7 +24,7 @@ class Property(ModelMixin):
     price = models.DecimalField(max_digits=10, decimal_places=2)
     area_size = models.FloatField()
     area_size_postfix = models.CharField(max_length=50, null=True, blank=True)
-    property_type = models.CharField(max_length=100, choices=PROPERTY_TYPE)
+    property_type = models.CharField(max_length=100, choices=PROPERTY_TYPE, null=True, blank=True)
     property_status = models.CharField(max_length=100)
     owner_contact_number = models.CharField(max_length=15)
     country = models.ForeignKey(Country, on_delete=models.CASCADE, related_name='property_country')

@@ -27,7 +27,7 @@ class FeatureSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Feature
-        fields = ('name', )
+        fields = ('id', 'name')
 
 
 class PropertyCategorySerializer(serializers.ModelSerializer):
@@ -57,7 +57,7 @@ class CreatePropertySerializer(serializers.Serializer):
     price = serializers.DecimalField(max_digits=10, decimal_places=2)
     area_size = serializers.FloatField()
     area_size_postfix = serializers.CharField(max_length=50, allow_blank=True, required=False)
-    property_type = serializers.ChoiceField(PROPERTY_TYPE)
+    # property_type = serializers.ChoiceField(PROPERTY_TYPE)
     property_status = serializers.CharField(max_length=100)
     owner_contact_number = serializers.CharField(max_length=15)
     country = serializers.PrimaryKeyRelatedField(queryset=Country.objects.all())
