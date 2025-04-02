@@ -156,6 +156,42 @@ class PropertyListSerializer(serializers.ModelSerializer):
                   'media', 'category')
 
 
+class PropertyBookmarkListSerializer(serializers.ModelSerializer):
+    media = GetMediaDataSerializer(many=True, read_only=True)
+    country = serializers.SerializerMethodField()
+    state = serializers.SerializerMethodField()
+    category = serializers.SerializerMethodField()
+    city = serializers.SerializerMethodField()
+    is_bookmarked = serializers.SerializerMethodField()
+
+    def get_country(self, obj):
+        if obj.country:
+            return {'id': obj.country.id, 'name': obj.country.name}
+
+    def get_state(self, obj):
+        if obj.state:
+            return {'id': obj.state.id, 'name': obj.state.name}
+
+    def get_city(self, obj):
+        if obj.city:
+            return {'id': obj.city.id, 'name': obj.city.name}
+
+    def get_category(self, obj):
+        if obj.category:
+            return {'id': obj.category.id, 'name': obj.category.name}
+
+    def get_is_bookmarked(self, obj):
+        request = self.context.get('request')
+        return PropertyBookmark.objects.filter(user=request.user, property=obj).exists()
+
+    class Meta:
+        model = Property
+        fields = ('id', 'date_created', 'status', 'title', 'description', 'price', 'area_size',
+                  'area_size_postfix', 'property_type', 'property_status', 'owner_contact_number',
+                  'postal_code', 'street_address', 'is_sold', 'created_by', 'user', 'country', 'state', 'city',
+                  'media', 'category', 'is_bookmarked')
+
+
 class PropertyRetrieveSerializer(serializers.ModelSerializer):
     media = GetMediaDataSerializer(many=True, read_only=True)
     country = serializers.SerializerMethodField()
@@ -354,9 +390,36 @@ class CreatePropertyBookingSerializer(serializers.ModelSerializer):
     #         pass
 
 
+class PropertyBookmarkHelperSerializer(serializers.ModelSerializer):
+    media = GetMediaDataSerializer(many=True, read_only=True)
+    state = serializers.SerializerMethodField()
+    city = serializers.SerializerMethodField()
+    category = serializers.SerializerMethodField()
+
+    def get_country(self, obj):
+        if obj.country:
+            return {'id': obj.country.id, 'name': obj.country.name}
+
+    def get_state(self, obj):
+        if obj.state:
+            return {'id': obj.state.id, 'name': obj.state.name}
+
+    def get_city(self, obj):
+        if obj.city:
+            return {'id': obj.city.id, 'name': obj.city.name}
+
+    def get_category(self, obj):
+        if obj.category:
+            return {'id': obj.category.id, 'name': obj.category.name}
+
+    class Meta:
+        model = Property
+        fields = '__all__'
+
+
 class GetPropertyBookmarkSerializer(serializers.ModelSerializer):
     user = serializers.SerializerMethodField()
-    property = PropertySerializer(read_only=True)
+    property = PropertyBookmarkHelperSerializer(read_only=True)
 
     def get_user(self, obj):
         if obj.user:
@@ -365,6 +428,7 @@ class GetPropertyBookmarkSerializer(serializers.ModelSerializer):
     class Meta:
         model = PropertyBookmark
         fields = '__all__'
+
 
 class PropertyBookmarkSerializer(serializers.ModelSerializer):
     user = serializers.PrimaryKeyRelatedField(read_only=True)

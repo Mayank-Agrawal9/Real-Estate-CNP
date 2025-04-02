@@ -11,7 +11,8 @@ from property.serializers import CreatePropertySerializer, PropertySerializer, P
     EditPropertySerializer, GetPropertyEnquirySerializer, CreatePropertyEnquirySerializer, GetPropertyBookingSerializer, \
     CreatePropertyBookingSerializer, PropertyBookmarkSerializer, GetPropertyBookmarkSerializer, \
     CreateNearbyFacilitySerializer, GetNearbyFacilitySerializer, GetPropertyFeatureSerializer, \
-    CreatePropertyFeatureSerializer, FeatureSerializer, PropertyRetrieveSerializer, PropertyCategorySerializer
+    CreatePropertyFeatureSerializer, FeatureSerializer, PropertyRetrieveSerializer, PropertyCategorySerializer, \
+    PropertyBookmarkListSerializer
 
 
 # Create your views here.
@@ -39,9 +40,9 @@ class PropertyViewSet(viewsets.ModelViewSet):
         properties = Property.objects.filter(status='active').order_by('-id')
         page = self.paginate_queryset(properties)
         if page is not None:
-            serializer = PropertyListSerializer(page, many=True)
+            serializer = PropertyBookmarkListSerializer(page, many=True, context={'request': request})
             return self.get_paginated_response(serializer.data)
-        serializer = PropertyListSerializer(properties, many=True)
+        serializer = PropertyBookmarkListSerializer(properties, many=True, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=['post'], url_path='create-property')

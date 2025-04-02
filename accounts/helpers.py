@@ -64,8 +64,19 @@ def update_field_agent_profile(user, data, role):
     update_user_documents(user, data.get("documents_for_kyc", []))
 
 
+def validate_referral_code_for_p2pmb(user):
+    request_user_profile = Profile.objects.filter(user=user).last()
+    if not request_user_profile:
+        raise ValidationError("Invalid user.")
+
+    get_mlm_referral = MLMTree.objects.filter(child=request_user_profile.user).last()
+    if not get_mlm_referral or not get_mlm_referral.referral_by:
+        return None
+    return request_user_profile
+
+
 def update_p2pmb_profile(user, data, role):
-    id, referral_by = validate_referral_code(data["basic_details"], role)
+    referral_by = validate_referral_code_for_p2pmb(user)
     update_profile(user, data["basic_details"], role, referral_by)
     update_bank_details(user, data["bank_details"])
     update_user_documents(user, data.get("documents_for_kyc", []))
@@ -114,6 +125,9 @@ def validate_referral_code(basic_details, role):
             raise ValidationError("Referral code should be your upper-level user.")
         return agent_, referral_by
 
+    elif referral_by.role == 'p2pmb':
+        return
+
     else:
         raise ValidationError(f"You cannot use the referral code of {referral_by.role}.")
 
@@ -142,6 +156,16 @@ def update_profile(user, basic_details, role, referral_by=None):
     profile.pin_code = basic_details.get("pin_code", profile.pin_code)
 
     profile.referral_by = referral_by.user if hasattr(referral_by, "user") else None
+
+    if role == 'super_agency':
+        profile.is_super_agency = True
+    elif role == 'agency':
+        profile.is_agency = True
+    elif role == 'field_agent':
+        profile.is_field_agent = True
+    elif role == 'p2pmb':
+        profile.is_p2pmb = True
+
     profile.role = role
     profile.is_kyc = True
 

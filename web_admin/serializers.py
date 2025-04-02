@@ -55,7 +55,7 @@ class AgencyCompanyDetailSerializer(serializers.ModelSerializer):
             return None
         return {
             'id': obj.company.id,
-            'name': obj.company.id,
+            'name': obj.company.name,
             'type': obj.company.type,
             'phone_number': obj.company.phone_number,
             'pan_number': obj.company.pan_number,
