@@ -97,7 +97,7 @@ class PropertyFeature(ModelMixin):
 class NearbyFacility(ModelMixin):
     property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name='nearby_facilities')
     name = models.CharField(max_length=150)
-    distance = models.FloatField(help_text="Distance in km")
+    distance = models.CharField(max_length=150)
 
     def __str__(self):
         return f'{self.name} ({self.distance} km)'
