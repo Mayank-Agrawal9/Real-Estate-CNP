@@ -45,6 +45,17 @@ class PropertyViewSet(viewsets.ModelViewSet):
         serializer = PropertyBookmarkListSerializer(properties, many=True, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    @action(detail=False, methods=['get'], url_path='retrieve')
+    def get_retrieve_property(self, request):
+        property_id = request.query_params.get('property_id')
+        if not property_id:
+            return Response({"error": "property_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+        properties = Property.objects.filter(status='active', id=property_id).last()
+        if not properties:
+            return Response({"error": "Property not found"}, status=status.HTTP_404_NOT_FOUND)
+        serializer = PropertyRetrieveSerializer(properties)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
     @action(detail=False, methods=['post'], url_path='create-property')
     def create_property(self, request):
         if not (request.user.profile.is_kyc or not request.user.profile.is_kyc_verified):
