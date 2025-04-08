@@ -52,7 +52,7 @@ class Profile(ModelMixin):
     is_agency = models.BooleanField(default=False)
     is_field_agent = models.BooleanField(default=False)
     is_p2pmb = models.BooleanField(default=False)
-    verified_by = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True, related_name="kyc_verified_by")
+    verified_by = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name="kyc_verified_by")
     verified_on = models.DateTimeField(null=True, blank=True)
     referral_code = models.CharField(max_length=50, null=True, blank=True)
     pin_code = models.CharField(max_length=7, null=True, blank=True)
