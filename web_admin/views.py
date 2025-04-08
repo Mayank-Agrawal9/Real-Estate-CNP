@@ -73,17 +73,18 @@ class VerifyKycAPIView(APIView):
 
     def post(self, request):
         user_id = request.data.get('user_id')
-        with transaction.atomic():
-            profile = Profile.objects.filter(user=user_id).last()
-            if profile.is_kyc and profile.is_kyc_verified:
-                return Response({"message": "KYC is already verified for this user."},
-                                status=status.HTTP_400_BAD_REQUEST)
-            profile.is_kyc = True
-            profile.is_kyc_verified = True
-            profile.verified_by = request.user
-            profile.verified_on = datetime.datetime.now()
-            profile.save()
-            return Response({'message': "User KYC verified successfully."}, status=status.HTTP_200_OK)
+        profile = Profile.objects.filter(user=user_id).last()
+        if not profile:
+            return Response({"message": "User does not have profile."}, status=status.HTTP_400_BAD_REQUEST)
+        if profile.is_kyc and profile.is_kyc_verified:
+            return Response({"message": "KYC is already verified for this user."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        profile.is_kyc = True
+        profile.is_kyc_verified = True
+        profile.verified_by = request.user
+        profile.verified_on = datetime.datetime.now()
+        profile.save()
+        return Response({'message': "User KYC verified successfully."}, status=status.HTTP_200_OK)
 
 
 class InvestmentAPIView(APIView):
@@ -347,6 +348,7 @@ class RejectKYCStatusAPIView(APIView):
 
     def post(self, request):
         user_id = request.query_params.get('user_id')
+        remarks = request.data.get('remarks', None)
 
         if not user_id:
             return Response({'error': 'user_id is required'}, status=status.HTTP_400_BAD_REQUEST)
@@ -358,6 +360,8 @@ class RejectKYCStatusAPIView(APIView):
         FieldAgent.objects.filter(profile__user=user_id).update(status='inactive')
         UserPersonalDocument.objects.filter(created_by=user_id).update(status='inactive')
         BankDetails.objects.filter(user=user_id).update(status='inactive')
+        if remarks:
+            Profile.objects.filter(user=user_id).update(kyc_remarks=remarks)
         return Response({'message': 'User KYC and status updated successfully'}, status=status.HTTP_200_OK)
 
 

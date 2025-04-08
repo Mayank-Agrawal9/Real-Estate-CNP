@@ -59,6 +59,7 @@ class Profile(ModelMixin):
     referral_by = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name="referral_by")
     kyc_video = models.FileField(null=True, blank=True)
     payment_password = models.CharField(max_length=128, blank=True, null=True)
+    remarks = models.TextField(null=True, blank=True)
 
 
 class BankDetails(ModelMixin):
@@ -73,6 +74,7 @@ class BankDetails(ModelMixin):
 class UserPersonalDocument(ModelMixin):
     attachment = models.ImageField(upload_to='document', blank=True, null=True)
     type = models.CharField(max_length=25, choices=DOCUMENT_TYPE, null=True, blank=True)
+    remarks = models.TextField(null=True, blank=True)
 
 
 class SoftwarePolicy(models.Model):
