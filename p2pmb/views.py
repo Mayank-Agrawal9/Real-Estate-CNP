@@ -232,33 +232,40 @@ class CommissionViewSet(viewsets.ModelViewSet):
 
     def get_level_difference(self, from_user_id, to_user_id):
         """Find level difference between from_user and to_user. Tries downline first, then upline."""
-        # 1. Try Downline Traversal
-        level = 0
-        current_user_id = from_user_id
-        visited = set()
-        while current_user_id and current_user_id not in visited:
-            visited.add(current_user_id)
-            mlm_entry = MLMTree.objects.filter(parent=current_user_id, status='active', is_show=True).first()
-            if not mlm_entry:
-                break
-            level += 1
-            if mlm_entry.child.id == to_user_id:
-                return level
-            current_user_id = mlm_entry.child.id
 
-        # 2. Try Upline Traversal
-        level = 0
-        current_user_id = from_user_id
+        # 1. Try Downline Traversal (BFS)
         visited = set()
-        while current_user_id and current_user_id not in visited:
+        queue = deque([(from_user_id, 0)])  # (user_id, level)
+
+        while queue:
+            current_user_id, level = queue.popleft()
+            if current_user_id in visited:
+                continue
             visited.add(current_user_id)
-            mlm_entry = MLMTree.objects.filter(child=current_user_id, status='active', is_show=True).first()
-            if not mlm_entry:
-                break
-            level += 1
-            if mlm_entry.parent.id == to_user_id:
-                return level
-            current_user_id = mlm_entry.parent.id
+
+            children = MLMTree.objects.filter(parent=current_user_id, status='active', is_show=True)
+            for entry in children:
+                child_id = entry.child.id
+                if child_id == to_user_id:
+                    return level + 1
+                queue.append((child_id, level + 1))
+
+        # 2. Try Upline Traversal (BFS)
+        visited = set()
+        queue = deque([(from_user_id, 0)])
+
+        while queue:
+            current_user_id, level = queue.popleft()
+            if current_user_id in visited:
+                continue
+            visited.add(current_user_id)
+
+            parents = MLMTree.objects.filter(child=current_user_id, status='active', is_show=True)
+            for entry in parents:
+                parent_id = entry.parent.id
+                if parent_id == to_user_id:
+                    return level + 1
+                queue.append((parent_id, level + 1))
 
         return None
 
