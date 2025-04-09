@@ -80,3 +80,12 @@ def process_p2pmb_monthly_interest():
     print("🚀 Starting Interest Income Distribution...")
     ProcessMonthlyInterestP2PMB.generate_interest_for_all_investments()
     print("🔄 Interest Income Distribution Successfully")
+
+
+def process_direct_monthly_interest():
+    """
+    Process monthly interest for all eligible investments.
+    """
+    print("🚀 Starting Direct Income Distribution...")
+    DistributeDirectCommission.cron_send_monthly_payment_direct_income()
+    print("🔄 Monthly commission Distribution Successfully")

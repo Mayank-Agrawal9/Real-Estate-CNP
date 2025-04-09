@@ -181,11 +181,11 @@ class DistributeDirectCommission:
 
             DistributeDirectCommission.create_commission_entry(
                 income.user, income.send_by, 'direct', income.amount,
-                f'Direct Commission Monthly Installment Added while adding {income.send_by.username}')
+                f'Direct Income Monthly Installment Added while adding {income.send_by.username}')
 
             DistributeDirectCommission.create_transaction_entry(
                 income.user, income.user, income.amount, 'commission', 'approved',
-                f'Direct Commission Monthly Installment Added while adding {income.send_by.username}')
+                f'Direct Income Monthly Installment Added while adding {income.send_by.username}')
 
             income.is_paid = True
             income.save()

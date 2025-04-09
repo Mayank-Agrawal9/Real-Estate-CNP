@@ -5,6 +5,7 @@ from rest_framework import serializers
 
 from accounts.models import Profile
 from agency.models import Investment
+from payment_app.models import Transaction
 from .models import MLMTree, User, Package, Commission, ExtraReward, CoreIncomeEarned, P2PMBRoyaltyMaster, RoyaltyEarned
 
 
@@ -361,3 +362,11 @@ class CreateRoyaltyEarnedSerializer(serializers.ModelSerializer):
     class Meta:
         model = RoyaltyEarned
         fields = '__all__'
+
+
+class TransactionSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Transaction
+        fields = ('transaction_id', 'amount', 'transaction_type', 'transaction_status',
+                  'remarks', 'date_created')

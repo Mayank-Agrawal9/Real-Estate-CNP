@@ -1,8 +1,11 @@
 import datetime
+from collections import deque
 
+from django.utils.dateparse import parse_date
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import serializers, status, viewsets
 from rest_framework.filters import SearchFilter
+from rest_framework.generics import ListAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -15,7 +18,8 @@ from p2pmb.models import MLMTree, Package, Commission, ExtraReward, CoreIncomeEa
 from p2pmb.serializers import MLMTreeSerializer, MLMTreeNodeSerializer, PackageSerializer, CommissionSerializer, \
     ShowInvestmentDetail, GetP2PMBLevelData, GetMyApplyingData, MLMTreeNodeSerializerV2, MLMTreeParentNodeSerializerV2, \
     ExtraRewardSerializer, CoreIncomeEarnedSerializer, RoyaltyEarnedSerializer, P2PMBRoyaltyMasterSerializer, \
-    CreateRoyaltyEarnedSerializer
+    CreateRoyaltyEarnedSerializer, TransactionSerializer
+from payment_app.models import Transaction
 
 
 # Create your views here.
@@ -226,29 +230,57 @@ class CommissionViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return Commission.objects.filter(status='active', commission_to=self.request.user).order_by('-date_created')
 
+    def get_level_difference(self, from_user_id, to_user_id):
+        """Find level difference between from_user and to_user. Tries downline first, then upline."""
+        # 1. Try Downline Traversal
+        level = 0
+        current_user_id = from_user_id
+        visited = set()
+        while current_user_id and current_user_id not in visited:
+            visited.add(current_user_id)
+            mlm_entry = MLMTree.objects.filter(parent_id=current_user_id, status='active', is_show=True).first()
+            if not mlm_entry:
+                break
+            level += 1
+            if mlm_entry.child_id == to_user_id:
+                return level
+            current_user_id = mlm_entry.child_id
+
+        # 2. Try Upline Traversal
+        level = 0
+        current_user_id = from_user_id
+        visited = set()
+        while current_user_id and current_user_id not in visited:
+            visited.add(current_user_id)
+            mlm_entry = MLMTree.objects.filter(child_id=current_user_id, status='active', is_show=True).first()
+            if not mlm_entry:
+                break
+            level += 1
+            if mlm_entry.parent_id == to_user_id:
+                return level
+            current_user_id = mlm_entry.parent_id
+
+        return None
+
     def list(self, request, *args, **kwargs):
         """ Add MLM levels only if `commission_type` is 'level'. """
         queryset = self.filter_queryset(self.get_queryset())
 
         page = self.paginate_queryset(queryset)
-        if page is not None:
-            serialized_data = self.get_serializer(page, many=True).data
-        else:
-            serialized_data = self.get_serializer(queryset, many=True).data
+        serialized_data = self.get_serializer(page, many=True).data if page is not None else self.get_serializer(
+            queryset, many=True).data
 
         for item in serialized_data:
             if item["commission_type"] == "level":
                 commission_by_user = item["commission_by"]
-                mlm_entry = MLMTree.objects.filter(child=commission_by_user, status='active', is_show=True).first()
-
-                if mlm_entry:
-                    item["show_level"] = mlm_entry.show_level
+                if commission_by_user == request.user.id:
+                    item["show_level"] = 0
                 else:
-                    item["show_level"] = None
+                    level = self.get_level_difference(request.user.id, commission_by_user)
+                    item["show_level"] = level
 
         if page is not None:
             return self.get_paginated_response(serialized_data)
-
         return Response(serialized_data)
 
 
@@ -375,6 +407,17 @@ class LifeTimeRewardIncomeAPIView(APIView):
         return Response({"message": "successful earned life time Income"})
 
 
+class MonthlyDistributeDirectIncome(APIView):
+    """
+    API to distribute level income.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        DistributeDirectCommission.cron_send_monthly_payment_direct_income()
+        return Response({"message": "successful send Income"})
+
+
 class RoyaltyIncome(APIView):
     """
     API to distribute level income.
@@ -395,6 +438,31 @@ class SendMonthlyInterestIncome(APIView):
     def post(self, request):
         ProcessMonthlyInterestP2PMB.generate_interest_for_all_investments()
         return Response({"message": "Monthly Interest distribute successfully."})
+
+
+class GetAllPayout(ListAPIView):
+    '''
+    This API is used to get all the payout which we send to user.
+    '''
+    serializer_class = TransactionSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        queryset = Transaction.objects.filter(
+            receiver=user,
+            transaction_type__in=('reward', 'commission', 'rent', 'interest')
+        ).order_by('-created_at')
+
+        start_date = self.request.query_params.get('start_date')
+        end_date = self.request.query_params.get('end_date')
+
+        if start_date:
+            queryset = queryset.filter(created_at__date__gte=parse_date(start_date))
+        if end_date:
+            queryset = queryset.filter(created_at__date__lte=parse_date(end_date))
+
+        return queryset
 
 
 class GetParentLevelCountView(APIView):

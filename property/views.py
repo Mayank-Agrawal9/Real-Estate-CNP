@@ -37,12 +37,49 @@ class PropertyViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], url_path='get-all-property')
     def get_all_property(self, request):
-        properties = Property.objects.filter(status='active').order_by('-id')
-        page = self.paginate_queryset(properties)
+        queryset = Property.objects.filter(status='active').order_by('-id')
+
+        min_price = request.query_params.get('min_price')
+        max_price = request.query_params.get('max_price')
+        country = request.query_params.get('country')
+        state = request.query_params.get('state')
+        city = request.query_params.get('city')
+        category = request.query_params.get('category')
+        property_type = request.query_params.get('property_type')
+        is_featured = request.query_params.get('is_featured')
+        features = request.query_params.getlist('features')
+
+        if min_price:
+            queryset = queryset.filter(price__gte=min_price)
+        if max_price:
+            queryset = queryset.filter(price__lte=max_price)
+        if country:
+            queryset = queryset.filter(country_id=country)
+        if state:
+            queryset = queryset.filter(state_id=state)
+        if city:
+            queryset = queryset.filter(city_id=city)
+        if category:
+            queryset = queryset.filter(category_id=category)
+        if property_type:
+            queryset = queryset.filter(property_type__iexact=property_type)
+        if is_featured in ['true', 'false']:
+            queryset = queryset.filter(is_featured=is_featured.lower() == 'true')
+
+        if features:
+            for feature_name in features:
+                queryset = queryset.filter(
+                    features__feature__name__iexact=feature_name.strip()
+                )
+
+        queryset = queryset.distinct().order_by('-id')
+
+        page = self.paginate_queryset(queryset)
         if page is not None:
             serializer = PropertyBookmarkListSerializer(page, many=True, context={'request': request})
             return self.get_paginated_response(serializer.data)
-        serializer = PropertyBookmarkListSerializer(properties, many=True, context={'request': request})
+
+        serializer = PropertyBookmarkListSerializer(queryset, many=True, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=['get'], url_path='retrieve')

@@ -260,6 +260,7 @@ CRONJOBS = [
     ('*/5 * * * *', 'p2pmb.cron.distribute_direct_income'),
     ('*/7 * * * *', 'p2pmb.cron.distribute_level_income'),
     ('0 0 1 * *', 'p2pmb.cron.process_p2pmb_monthly_interest'),
+    ('0 0 * * *', 'p2pmb.cron.process_direct_monthly_interest')
 ]
 
 CORS_ALLOWED_ORIGINS = [
