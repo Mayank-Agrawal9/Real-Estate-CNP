@@ -169,7 +169,7 @@ class DistributeDirectCommission:
 
     @staticmethod
     def cron_send_monthly_payment_direct_income():
-        schedule_commission_instance = ScheduledCommission.objects.filter(scheduled_date__date=datetime.datetime.today(),
+        schedule_commission_instance = ScheduledCommission.objects.filter(scheduled_date__date__lte=datetime.datetime.today(),
                                                                           is_paid=False)
         for income in schedule_commission_instance:
             user_wallet = UserWallet.objects.filter(user=income.user, status='active').last()
