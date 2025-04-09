@@ -238,13 +238,13 @@ class CommissionViewSet(viewsets.ModelViewSet):
         visited = set()
         while current_user_id and current_user_id not in visited:
             visited.add(current_user_id)
-            mlm_entry = MLMTree.objects.filter(parent_id=current_user_id, status='active', is_show=True).first()
+            mlm_entry = MLMTree.objects.filter(parent=current_user_id, status='active', is_show=True).first()
             if not mlm_entry:
                 break
             level += 1
-            if mlm_entry.child_id == to_user_id:
+            if mlm_entry.child.id == to_user_id:
                 return level
-            current_user_id = mlm_entry.child_id
+            current_user_id = mlm_entry.child.id
 
         # 2. Try Upline Traversal
         level = 0
@@ -252,13 +252,13 @@ class CommissionViewSet(viewsets.ModelViewSet):
         visited = set()
         while current_user_id and current_user_id not in visited:
             visited.add(current_user_id)
-            mlm_entry = MLMTree.objects.filter(child_id=current_user_id, status='active', is_show=True).first()
+            mlm_entry = MLMTree.objects.filter(child=current_user_id, status='active', is_show=True).first()
             if not mlm_entry:
                 break
             level += 1
-            if mlm_entry.parent_id == to_user_id:
+            if mlm_entry.parent.id == to_user_id:
                 return level
-            current_user_id = mlm_entry.parent_id
+            current_user_id = mlm_entry.parent.id
 
         return None
 
