@@ -60,6 +60,7 @@ class Profile(ModelMixin):
     kyc_video = models.FileField(null=True, blank=True)
     payment_password = models.CharField(max_length=128, blank=True, null=True)
     remarks = models.TextField(null=True, blank=True)
+    is_kyc_reprocess = models.BooleanField(default=False)
 
 
 class BankDetails(ModelMixin):
@@ -75,6 +76,12 @@ class UserPersonalDocument(ModelMixin):
     attachment = models.ImageField(upload_to='document', blank=True, null=True)
     type = models.CharField(max_length=25, choices=DOCUMENT_TYPE, null=True, blank=True)
     remarks = models.TextField(null=True, blank=True)
+    approval_status = models.CharField(
+        max_length=10,
+        choices=[('pending', 'Pending'), ('approved', 'Approved'), ('rejected', 'Rejected')],
+        default='pending'
+    )
+    rejection_reason = models.TextField(null=True, blank=True)
 
 
 class SoftwarePolicy(models.Model):

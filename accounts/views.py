@@ -7,10 +7,12 @@ from django.contrib.auth.models import User
 from django.core.mail import send_mail
 from django.db import transaction
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import status, viewsets
+from rest_framework import status, viewsets, parsers
 from rest_framework.authtoken.models import Token
+from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.filters import SearchFilter
+from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -20,7 +22,8 @@ from accounts.helpers import generate_unique_referral_code, update_super_agency_
 from accounts.models import OTP, Profile, BankDetails, UserPersonalDocument, SoftwarePolicy, FAQ, ChangeRequest
 from accounts.serializers import RequestOTPSerializer, VerifyOTPSerializer, ResendOTPSerializer, ProfileSerializer, \
     SuperAgencyKycSerializer, BasicDetailsSerializer, CompanyDetailsSerializer, BankDetailsSerializer, \
-    DocumentSerializer, FAQSerializer, ChangeRequestSerializer
+    DocumentSerializer, FAQSerializer, ChangeRequestSerializer, CreateBasicDetailsSerializer, \
+    UserPersonalDocumentSerializer, UpdateUserProfileSerializer, BankDetailsSerializerV2
 from agency.models import SuperAgency, FieldAgent, Agency, Investment
 from p2pmb.models import MLMTree
 from payment_app.models import UserWallet, Transaction
@@ -240,6 +243,80 @@ class UserKycAPIView(APIView):
         except ValidationError as e:
             error_message = e.detail if isinstance(e.detail, str) else e.detail[0]
             return Response({"error": error_message}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({"error": "Something went wrong", "details": str(e)},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+
+class UpdateUserBasicDetailAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def get(self, request):
+        try:
+            profile = Profile.objects.filter(user=request.user).last()
+
+            if not profile:
+                return Response(
+                    {"message": "You are not mapped with profile, Please contact with admin."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            serializer = UpdateUserProfileSerializer(profile)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response(
+                {"error": "Something went wrong", "details": str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    def post(self, request):
+        try:
+            profile = Profile.objects.filter(user=request.user).last()
+
+            if not profile:
+                return Response(
+                    {"message": "You are not mapped with profile, Please contact with admin."},
+                    status=status.HTTP_200_OK
+                )
+
+            full_name = request.data.get("full_name")
+            if full_name:
+                parts = full_name.strip().split(" ", 1)
+                request.user.first_name = parts[0]
+                request.user.last_name = parts[1] if len(parts) > 1 else ""
+                request.user.save()
+
+            serializer = UpdateUserProfileSerializer(profile, data=request.data, partial=True)
+            if not serializer.is_valid():
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+            serializer.save()
+            return Response({"message": "Basic Detail updated successfully!"}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({"error": "Something went wrong", "details": str(e)},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+
+class UserCompanyDetailAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            pass
+        except Exception as e:
+            return Response({"error": "Something went wrong", "details": str(e)},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+
+class UserDocumentAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            pass
         except Exception as e:
             return Response({"error": "Something went wrong", "details": str(e)},
                             status=status.HTTP_400_BAD_REQUEST)
@@ -707,6 +784,71 @@ class ChangeRequestViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
+
+
+class UserBankDetailsViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    queryset = BankDetails.objects.filter(status='active')
+    serializer_class = BankDetailsSerializerV2
+    pagination_class = None
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_fields = ['account_number', 'user__username']
+
+    def get_queryset(self):
+        return BankDetails.objects.filter(user=self.request.user, status='active')
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user, user=self.request.user)
+
+    def perform_update(self, serializer):
+        serializer.save(updated_by=self.request.user)
+
+
+class UserPersonalDocumentViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    queryset = UserPersonalDocument.objects.filter(status='active')
+    serializer_class = UserPersonalDocumentSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_fields = ['created_by', 'type', 'approval_status']
+    pagination_class = None
+
+    def get_queryset(self):
+        return UserPersonalDocument.objects.filter(created_by=self.request.user, status='active')
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+    def perform_update(self, serializer):
+        serializer.save(updated_by=self.request.user)
+
+    @action(detail=False, methods=['post'], url_path='bulk-create', parser_classes=[parsers.MultiPartParser])
+    def bulk_create(self, request):
+        attachment = request.FILES.getlist('attachment[]')
+        types = request.data.getlist('type[]')
+
+        if len(attachment) != len(types):
+            return Response({'detail': 'Number of files and types must match.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        created = []
+        errors = []
+
+        for i, (file, doc_type) in enumerate(zip(attachment, types)):
+            data = {
+                'attachment': file,
+                'type': doc_type,
+            }
+
+            serializer = self.get_serializer(data=data)
+            if serializer.is_valid():
+                serializer.save(created_by=request.user)
+                created.append(serializer.data)
+            else:
+                errors.append({f'document_{i}': serializer.errors})
+
+        if errors:
+            return Response({'created': created, 'errors': errors}, status=status.HTTP_207_MULTI_STATUS)
+
+        return Response({'message': 'File Uploaded Successfully.'}, status=status.HTTP_201_CREATED)
 
 
 class ShowUserDetail(APIView):

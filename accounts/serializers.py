@@ -4,7 +4,7 @@ import uuid
 from django.core.files.base import ContentFile
 from rest_framework import serializers
 
-from accounts.models import Profile, FAQ, ChangeRequest
+from accounts.models import Profile, FAQ, ChangeRequest, UserPersonalDocument, BankDetails
 from master.models import City
 
 
@@ -93,6 +93,33 @@ class CreateBasicDetailsSerializer(serializers.Serializer):
     role = serializers.ChoiceField(choices=["super_agency", "agency", "field_agent", "p2pmb"], required=True)
 
 
+class UpdateUserProfileSerializer(serializers.ModelSerializer):
+    full_name = serializers.SerializerMethodField()
+    father_name = serializers.CharField(required=True)
+    mobile_number1 = serializers.CharField(required=False)
+    mobile_number2 = serializers.CharField(required=False)
+    other_email = serializers.EmailField(allow_null=True, allow_blank=True, required=False)
+    pan_remarks = serializers.CharField(required=False)
+    voter_number = serializers.CharField(required=False)
+    mobile_number = serializers.CharField(required=True)
+    kyc_video = serializers.FileField(required=True)
+    pan_number = serializers.CharField(required=False)
+    aadhar_number = serializers.CharField(required=False)
+    referral_code = serializers.CharField(required=False)
+    pin_code = serializers.CharField(required=False)
+    role = serializers.ChoiceField(choices=["super_agency", "agency", "field_agent", "p2pmb", "customer"], required=True)
+
+    def get_full_name(self, obj):
+        user = obj.user
+        return f"{user.first_name} {user.last_name}".strip()
+
+    class Meta:
+        model = Profile
+        fields = ('father_name', 'mobile_number1', 'other_email', 'mobile_number2', 'pan_remarks',
+                  'voter_number', 'mobile_number', 'kyc_video', 'pan_number', 'aadhar_number', 'referral_code',
+                  'pin_code', 'role', 'full_name')
+
+
 class CompanyDetailsSerializer(serializers.Serializer):
     name = serializers.CharField(required=True)
     type = serializers.CharField(required=True)
@@ -164,4 +191,16 @@ class FAQSerializer(serializers.ModelSerializer):
 class ChangeRequestSerializer(serializers.ModelSerializer):
     class Meta:
         model = ChangeRequest
+        fields = '__all__'
+
+
+class BankDetailsSerializerV2(serializers.ModelSerializer):
+    class Meta:
+        model = BankDetails
+        fields = '__all__'
+
+
+class UserPersonalDocumentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserPersonalDocument
         fields = '__all__'
