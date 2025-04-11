@@ -4,7 +4,7 @@ from rest_framework.routers import DefaultRouter
 from .views import ResendOTPView, VerifyOTPView, RequestOTPView, LogoutView, ProfileView, UserKycAPIView, \
     GetUserFriendReferralCodeDetails, VerifyBankIFSCCodeView, VerifyAndUpdateProfile, FAQAPIView, SoftwarePolicyAPIView, \
     DeleteUser, GetReferralCode, ChangeRequestViewSet, GetPPDReferralCode, ShowUserDetail, UpdateUserBasicDetailAPIView, \
-    UserBankDetailsViewSet, UserPersonalDocumentViewSet
+    UserBankDetailsViewSet, UserPersonalDocumentViewSet, GenerateUniqueNumber, GeneratePreviousUniqueCode
 
 router = DefaultRouter()
 router.register(r'change-request', ChangeRequestViewSet)
@@ -30,4 +30,6 @@ urlpatterns = [
     path('software-policy/', SoftwarePolicyAPIView.as_view(), name='software-policy'),
     path('faqs/', FAQAPIView.as_view(), name='faqs'),
     path('deactivate-user/', DeleteUser.as_view(), name='delete-user'),
+    path('generate-unique-number/', GenerateUniqueNumber.as_view(), name='unique-code'),
+    path('generate-previous-unique-number/', GeneratePreviousUniqueCode.as_view(), name='previous-unique-code'),
 ]

@@ -14,6 +14,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.filters import SearchFilter
 from rest_framework.generics import ListAPIView
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -542,3 +543,23 @@ class UpdatePasswordView(APIView):
 
         return Response({"message": "Password updated successfully."}, status=status.HTTP_200_OK)
 
+
+class ApproveRejectDocumentsAPIView(APIView):
+    permission_classes = [IsAuthenticated,]
+
+    def post(self, request, *args, **kwargs):
+        document_ids = request.data.get("document_ids", [])
+        action = request.data.get("action")
+        rejection_reason = request.data.get("rejection_reason", "")
+
+        if not document_ids or action not in ["approve", "reject"]:
+            return Response({"detail": "Invalid input."}, status=status.HTTP_400_BAD_REQUEST)
+
+        documents = UserPersonalDocument.objects.filter(id__in=document_ids)
+
+        if action == "approve":
+            documents.update(approval_status="approved", rejection_reason=None)
+        elif action == "reject":
+            documents.update(approval_status="rejected", rejection_reason=rejection_reason)
+
+        return Response({"detail": f"Documents {action}d successfully."})

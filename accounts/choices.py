@@ -37,4 +37,5 @@ DOCUMENT_TYPE = (
     ('company_registration', 'Company Registration'),
     ('shop_image', 'Shop Image'),
     ('shop_agreement', 'Shop Agreement'),
+    ('kyc_photo', 'KYC Photo'),
 )

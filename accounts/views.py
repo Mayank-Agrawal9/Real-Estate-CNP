@@ -1,5 +1,6 @@
 import datetime
 import random
+import string
 from decimal import Decimal
 import requests
 
@@ -18,7 +19,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.helpers import generate_unique_referral_code, update_super_agency_profile, generate_qr_code_with_email, \
-    update_agency_profile, update_field_agent_profile, update_p2pmb_profile
+    update_agency_profile, update_field_agent_profile, update_p2pmb_profile, generate_unique_image_code
 from accounts.models import OTP, Profile, BankDetails, UserPersonalDocument, SoftwarePolicy, FAQ, ChangeRequest
 from accounts.serializers import RequestOTPSerializer, VerifyOTPSerializer, ResendOTPSerializer, ProfileSerializer, \
     SuperAgencyKycSerializer, BasicDetailsSerializer, CompanyDetailsSerializer, BankDetailsSerializer, \
@@ -79,12 +80,14 @@ class VerifyOTPView(APIView):
             otp_entry.delete()
             user, created = User.objects.get_or_create(username=email, defaults={"email": email})
             referral_code = generate_unique_referral_code()
+            image_code = generate_unique_image_code()
             qr_code_file = generate_qr_code_with_email(email, user.id)
 
             profile, created = Profile.objects.get_or_create(user=user, defaults={
                 "created_by": user,
                 "referral_code": referral_code,
                 "qr_code": qr_code_file,
+                "image_code": image_code,
             })
 
             if not created:
@@ -206,7 +209,7 @@ class UserKycAPIView(APIView):
         bank_details = BankDetailsSerializer(
             BankDetails.objects.filter(user=user).first()
         ).data
-        documents = DocumentSerializer(
+        documents = UserPersonalDocumentSerializer(
             UserPersonalDocument.objects.filter(created_by=user), many=True
         ).data
 
@@ -770,6 +773,29 @@ class DeleteUser(APIView):
             )
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class GenerateUniqueNumber(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        profile = Profile.objects.filter(user=request.user).only('image_code').last()
+        if not profile:
+            return Response({'message': "You don't have profile, Please connect to admin"},
+                            status=status.HTTP_400_BAD_REQUEST)
+        return Response({"image_code": profile.image_code})
+
+
+class GeneratePreviousUniqueCode(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        profiles = Profile.objects.filter(image_code__isnull=True)
+        for profile in profiles:
+            image_code = generate_unique_image_code()
+            profile.image_code = image_code
+            profile.save()
+        return Response({"image_code": "Updated code for previous, Person."})
 
 
 class ChangeRequestViewSet(viewsets.ModelViewSet):

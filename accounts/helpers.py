@@ -22,6 +22,13 @@ def generate_unique_referral_code():
             return referral_code
 
 
+def generate_unique_image_code():
+    while True:
+        image_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
+        if not Profile.objects.filter(image_code=image_code).exists():
+            return image_code
+
+
 def generate_qr_code_with_email(email, user_id):
     """
     Generates a QR code containing the user's email and returns it as an in-memory file.
