@@ -1,6 +1,7 @@
 from import_export import resources
 from accounts.resources import EXCLUDE_FOR_API
-from web_admin.models import ManualFund, FunctionalityAccessPermissions, UserFunctionalityAccessPermission
+from web_admin.models import ManualFund, FunctionalityAccessPermissions, UserFunctionalityAccessPermission, \
+    CompanyInvestment
 
 
 class ManualFundResource(resources.ModelResource):
@@ -20,5 +21,12 @@ class FunctionalityAccessPermissionsResource(resources.ModelResource):
 class UserFunctionalityAccessPermissionResource(resources.ModelResource):
     class Meta:
         model = UserFunctionalityAccessPermission
+        import_id_fields = ('id',)
+        exclude = EXCLUDE_FOR_API
+
+
+class CompanyInvestmentResource(resources.ModelResource):
+    class Meta:
+        model = CompanyInvestment
         import_id_fields = ('id',)
         exclude = EXCLUDE_FOR_API

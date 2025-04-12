@@ -40,3 +40,17 @@ class UserFunctionalityAccessPermission(ModelMixin):
     class Meta:
         verbose_name = 'User Permission'
         verbose_name_plural = 'Functionality access permission of User'
+
+
+class CompanyInvestment(ModelMixin):
+    applicable_for = models.CharField(max_length=20, choices=USER_TYPE, default='p2pmb')
+    investment_type = models.CharField(max_length=20, choices=INVESTMENT_TYPE, null=True, blank=True)
+    amount = models.DecimalField(default=0, decimal_places=2, max_digits=25)
+    initiated_date = models.DateField()
+
+    def __str__(self):
+        return str(self.id)
+
+    class Meta:
+        verbose_name = 'Company Investment'
+        verbose_name_plural = 'Company Investment Distribution'

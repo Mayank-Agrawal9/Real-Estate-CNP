@@ -19,7 +19,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.models import Profile, BankDetails, UserPersonalDocument
-from web_admin.models import ManualFund
+from p2pmb.models import Commission
+from web_admin.models import ManualFund, CompanyInvestment
 from web_admin.serializers import ProfileSerializer, InvestmentSerializer, ManualFundSerializer, BankDetailSerializer, \
     UserDocumentSerializer, SuperAgencyCompanyDetailSerializer, AgencyCompanyDetailSerializer, \
     FieldAgentCompanyDetailSerializer
@@ -485,38 +486,185 @@ class ManualFundDistributionAPIView(APIView):
         year = int(year) if year else None
 
         filters = {}
+        investment_filter = {'applicable_for': 'p2pmb'}
+        commission_filter = {}
+
         if month:
             filters['date_created__month'] = month
+            investment_filter['initiated_date__month'] = month
+            commission_filter['date_created__month'] = month
         if year:
             filters['date_created__year'] = year
+            investment_filter['initiated_date__year'] = year
+            commission_filter['date_created__year'] = year
 
-        total_fund = ManualFund.objects.filter(**filters).aggregate(total_amount=Sum('amount'))['total_amount'] or Decimal(0)
+        total_fund = Investment.objects.filter(**filters, investment_type='p2pmb', package__isnull=False,
+                                               is_approved=True, pay_method='main_wallet').aggregate(
+            total_amount=Sum('amount'))['total_amount'] or Decimal(0)
+
+        fund_initiated = CompanyInvestment.objects.filter(**investment_filter)
+        commissions = Commission.objects.filter(**commission_filter)
+
+        key_to_investment_type = {
+            "direct_income": "direct",
+            "level": "level",
+            "reward": "reward",
+            "royalty": "royalty",
+            "core_team": "core_team",
+            "company_extra_expenses": "company_expense",
+            "diwali_gift": "diwali_gift",
+            "donate": "donation",
+            "interest": "interest",
+            "properties": "property",
+            "crypto": "crypto",
+        }
 
         distribution = {
-            "direct_income": Decimal("4.5"),
-            "level": Decimal("4.5"),
-            "reward": Decimal("2"),
-            "royalty": Decimal("1"),
-            "extra_reward": Decimal("2"),
-            "core_team": Decimal("1"),
-            "diwali_gift": Decimal("2"),
-            "donate": Decimal("1"),
-            "company_extra_expenses": Decimal("2"),
-            "properties": Decimal("50"),
-            "crypto": Decimal("10"),
-            "interest": Decimal("20"),
-        }
-        distribution_data = {
-            category: (total_fund * (percent / Decimal(100))).quantize(Decimal("0.01"))
-            for category, percent in distribution.items()
+            "direct_income": {"name": "Direct Income", "expected_spending": Decimal("4.5")},
+            "level": {"name": "Level Income", "expected_spending": Decimal("4.5")},
+            "reward": {"name": "Reward", "expected_spending": Decimal("2")},
+            "royalty": {"name": "Royalty", "expected_spending": Decimal("1")},
+            "core_team": {"name": "Core Team", "expected_spending": Decimal("1")},
+            "company_extra_expenses": {"name": "Company Extra Expenses", "expected_spending": Decimal("3")},
+            "diwali_gift": {"name": "Diwali Gift", "expected_spending": Decimal("3")},
+            "donate": {"name": "Donation", "expected_spending": Decimal("1")},
+            "interest": {"name": "Interest", "expected_spending": Decimal("20")},
+            "properties": {"name": "Property Investment", "expected_spending": Decimal("50")},
+            "crypto": {"name": "Crypto", "expected_spending": Decimal("10")},
         }
 
-        return Response({
-            "month": month if month else "All",
-            "year": year if year else "All",
-            "total_fund": total_fund.quantize(Decimal("0.01")),
-            "distribution": distribution_data
-        })
+        response_data = []
+
+        for key, config in distribution.items():
+            investment_type = key_to_investment_type.get(key)
+            expected_spending = (total_fund * config["expected_spending"] / Decimal(100)).quantize(Decimal("0.01"))
+
+            investment_amount = fund_initiated.filter(
+                investment_type=investment_type
+            ).aggregate(total=Sum('amount'))['total'] or Decimal(0)
+
+            commission_amount = Decimal(0)
+            if key in ['direct_income', 'level', 'reward', 'royalty']:
+                commission_amount = commissions.filter(
+                    commission_type=investment_type
+                ).aggregate(total=Sum('amount'))['total'] or Decimal(0)
+
+            total_spend_amount = (investment_amount + commission_amount).quantize(Decimal("0.01"))
+            total_spend_per = ((total_spend_amount / total_fund) * 100).quantize(Decimal("0.01")) if (
+                total_fund) else Decimal("0.00")
+            left_in_bank = (expected_spending - total_spend_amount).quantize(Decimal("0.01"))
+
+            response_data.append({
+                "name": config["name"],
+                "total_spend_amount": float(total_spend_amount),
+                "left_in_bank": float(left_in_bank),
+                "total_spend_per": float(total_spend_per),
+                "expected_spending_per": float(config["expected_spending"]),
+                "expected_spending_amount": float(expected_spending),
+            })
+
+        return Response(response_data)
+
+
+class ManualFundDistributionAgencyAPIView(APIView):
+    permission_classes = [IsStaffUser]
+
+    def get(self, request):
+        month = request.GET.get('month')
+        year = request.GET.get('year')
+        applicable_for = request.GET.get('applicable_for')
+
+        month = int(month) if month else None
+        year = int(year) if year else None
+
+        filters = {}
+        if applicable_for == 'super_agency':
+            investment_filter = {'applicable_for': 'super_agency'}
+        elif applicable_for == 'agency':
+            investment_filter = {'applicable_for': 'agency'}
+        elif applicable_for == 'field_agent':
+            investment_filter = {'applicable_for': 'field_agent'}
+        else:
+            return Response({'message': 'Invalid Filter'}, status=status.HTTP_400_BAD_REQUEST)
+        commission_filter = {}
+
+        if month:
+            filters['date_created__month'] = month
+            investment_filter['initiated_date__month'] = month
+            commission_filter['date_created__month'] = month
+        if year:
+            filters['date_created__year'] = year
+            investment_filter['initiated_date__year'] = year
+            commission_filter['date_created__year'] = year
+
+        if applicable_for == 'super_agency':
+            total_fund = Investment.objects.filter(**filters, investment_type='super_agency', package__isnull=False,
+                                                   is_approved=True, pay_method='main_wallet').aggregate(
+                total_amount=Sum('amount'))['total_amount'] or Decimal(0)
+        elif applicable_for == 'agency':
+            total_fund = Investment.objects.filter(**filters, investment_type='agency', package__isnull=False,
+                                                   is_approved=True, pay_method='main_wallet').aggregate(
+                total_amount=Sum('amount'))['total_amount'] or Decimal(0)
+        elif applicable_for == 'field_agent':
+            total_fund = Investment.objects.filter(**filters, investment_type='field_agent', package__isnull=False,
+                                                   is_approved=True, pay_method='main_wallet').aggregate(
+                total_amount=Sum('amount'))['total_amount'] or Decimal(0)
+
+        fund_initiated = CompanyInvestment.objects.filter(**investment_filter)
+        commissions = Commission.objects.filter(**commission_filter)
+
+        key_to_investment_type = {
+            "direct_income": "direct",
+            "interest": "interest",
+            "crypto": "crypto",
+            "properties": "property",
+            "core_team": "core_team",
+            "company_extra_expenses": "company_expense",
+            "diwali_gift": "diwali_gift",
+            "donate": "donation"
+        }
+        distribution = {
+            "direct_income": {"name": "Trading + P2PMB", "expected_spending": Decimal("12")},
+            "interest": {"name": "Interest", "expected_spending": Decimal("38")},
+            "crypto": {"name": "Crypto", "expected_spending": Decimal("20")},
+            "properties": {"name": "Property Investment", "expected_spending": Decimal("20")},
+            "core_team": {"name": "Core Team", "expected_spending": Decimal("1")},
+            "company_extra_expenses": {"name": "Company Extra Expenses", "expected_spending": Decimal("5")},
+            "diwali_gift": {"name": "Diwali Gift", "expected_spending": Decimal("3")},
+            "donate": {"name": "Donation", "expected_spending": Decimal("1")},
+        }
+
+        response_data = []
+
+        for key, config in distribution.items():
+            investment_type = key_to_investment_type.get(key)
+            expected_spending = (total_fund * config["expected_spending"] / Decimal(100)).quantize(Decimal("0.01"))
+
+            investment_amount = fund_initiated.filter(
+                investment_type=investment_type
+            ).aggregate(total=Sum('amount'))['total'] or Decimal(0)
+
+            commission_amount = Decimal(0)
+            if key in ['direct_income', 'level', 'reward', 'royalty']:
+                commission_amount = commissions.filter(
+                    commission_type=investment_type
+                ).aggregate(total=Sum('amount'))['total'] or Decimal(0)
+
+            total_spend_amount = (investment_amount + commission_amount).quantize(Decimal("0.01"))
+            total_spend_per = ((total_spend_amount / total_fund) * 100).quantize(Decimal("0.01")) if (
+                total_fund) else Decimal("0.00")
+            left_in_bank = (expected_spending - total_spend_amount).quantize(Decimal("0.01"))
+
+            response_data.append({
+                "name": config["name"],
+                "total_spend_amount": float(total_spend_amount),
+                "left_in_bank": float(left_in_bank),
+                "total_spend_per": float(total_spend_per),
+                "expected_spending_per": float(config["expected_spending"]),
+                "expected_spending_amount": float(expected_spending),
+            })
+
+        return Response(response_data)
 
 
 class UpdatePasswordView(APIView):

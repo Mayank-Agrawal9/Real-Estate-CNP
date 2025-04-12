@@ -4,7 +4,8 @@ from rest_framework.routers import DefaultRouter
 from web_admin.views import StaffLoginAPIView, VerifyKycAPIView, InvestmentAPIView, CreateManualInvestmentAPIView, \
     GetUserAPIView, ManualFundViewSet, DeductManualInvestmentAPIView, UpdatePasswordView, DashboardCountAPIView, \
     ManualFundGraphAPIView, ManualFundDistributionAPIView, UserBankDetailAPIView, UserDocumentAPIView, \
-    UserCompanyDetailAPIView, RejectKYCStatusAPIView, ApproveRejectDocumentsAPIView
+    UserCompanyDetailAPIView, RejectKYCStatusAPIView, ApproveRejectDocumentsAPIView, \
+    ManualFundDistributionAgencyAPIView
 
 router = DefaultRouter()
 router.register(r'manual-fund', ManualFundViewSet)
@@ -25,6 +26,7 @@ urlpatterns = [
     path('reject-user-kyc/', RejectKYCStatusAPIView.as_view(), name='reject-user-kyc'),
     path('dashboard-count/', DashboardCountAPIView.as_view(), name='dashboard-count'),
     path('dashboard-manual-fund-count/', ManualFundGraphAPIView.as_view(), name='graph-api'),
-    path('fund-distribution/', ManualFundDistributionAPIView.as_view(), name='fund-distribution'),
+    path('fund-distribution-p2pmb/', ManualFundDistributionAPIView.as_view(), name='fund-distribution'),
+    path('fund-distribution-agency/', ManualFundDistributionAgencyAPIView.as_view(), name='fund-distribution-agency'),
     path('', include(router.urls)),
 ]
