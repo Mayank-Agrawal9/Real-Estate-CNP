@@ -85,6 +85,14 @@ class VerifyKycAPIView(APIView):
         profile.is_kyc_verified = True
         profile.verified_by = request.user
         profile.verified_on = datetime.datetime.now()
+        if profile.role == 'p2pmb':
+            profile.is_p2pmb = True
+        elif profile.role == 'field_agent':
+            profile.is_field_agent = True
+        elif profile.role == 'agency':
+            profile.is_agency = True
+        elif profile.role == 'super_agency':
+            profile.is_super_agency = True
         profile.save()
         return Response({'message': "User KYC verified successfully."}, status=status.HTTP_200_OK)
 
@@ -356,11 +364,11 @@ class RejectKYCStatusAPIView(APIView):
             return Response({'error': 'user_id is required'}, status=status.HTTP_400_BAD_REQUEST)
 
         Profile.objects.filter(user=user_id).update(is_kyc=False, is_kyc_verified=False, is_super_agency=False,
-                                                    is_agency=False, is_field_agent=False)
+                                                    is_agency=False, is_field_agent=False, is_p2pmb=False)
         SuperAgency.objects.filter(profile__user=user_id).update(status='inactive')
         Agency.objects.filter(created_by=user_id).update(status='inactive')
         FieldAgent.objects.filter(profile__user=user_id).update(status='inactive')
-        UserPersonalDocument.objects.filter(created_by=user_id).update(status='inactive')
+        UserPersonalDocument.objects.filter(created_by=user_id).update(status='inactive', approval_status='rejected')
         BankDetails.objects.filter(user=user_id).update(status='inactive')
         if remarks:
             Profile.objects.filter(user=user_id).update(kyc_remarks=remarks)

@@ -98,7 +98,7 @@ class UserDocumentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = UserPersonalDocument
-        fields = ('attachment', 'type', 'date_created')
+        fields = ('attachment', 'type', 'date_created', 'id')
 
 
 class PackageSerializer(serializers.ModelSerializer):
