@@ -5,10 +5,12 @@ from web_admin.views import StaffLoginAPIView, VerifyKycAPIView, InvestmentAPIVi
     GetUserAPIView, ManualFundViewSet, DeductManualInvestmentAPIView, UpdatePasswordView, DashboardCountAPIView, \
     ManualFundGraphAPIView, ManualFundDistributionAPIView, UserBankDetailAPIView, UserDocumentAPIView, \
     UserCompanyDetailAPIView, RejectKYCStatusAPIView, ApproveRejectDocumentsAPIView, \
-    ManualFundDistributionAgencyAPIView
+    ManualFundDistributionAgencyAPIView, ContactUsEnquiryViewSet, PropertyInterestEnquiryViewSet, GetAllPropertyAPIView
 
 router = DefaultRouter()
 router.register(r'manual-fund', ManualFundViewSet)
+router.register(r'contact-enquiry', ContactUsEnquiryViewSet)
+router.register(r'property-enquiry', PropertyInterestEnquiryViewSet)
 
 
 urlpatterns = [
@@ -28,5 +30,8 @@ urlpatterns = [
     path('dashboard-manual-fund-count/', ManualFundGraphAPIView.as_view(), name='graph-api'),
     path('fund-distribution-p2pmb/', ManualFundDistributionAPIView.as_view(), name='fund-distribution'),
     path('fund-distribution-agency/', ManualFundDistributionAgencyAPIView.as_view(), name='fund-distribution-agency'),
+    path('get-all-property/', GetAllPropertyAPIView.as_view(), name='get-all-property'),
+    path('property-detail/<int:id>/', ManualFundDistributionAgencyAPIView.as_view(), name='fund-distribution-agency'),
+    path('detail-property/', ManualFundDistributionAgencyAPIView.as_view(), name='fund-distribution-agency'),
     path('', include(router.urls)),
 ]

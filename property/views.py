@@ -6,13 +6,13 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from property.models import Media, Property, PropertyEnquiry, PropertyBooking, PropertyBookmark, PropertyFeature, \
-    NearbyFacility, Feature, PropertyCategory
+    NearbyFacility, Feature, PropertyCategory, PropertyType
 from property.serializers import CreatePropertySerializer, PropertySerializer, PropertyListSerializer, MediaSerializer, \
     EditPropertySerializer, GetPropertyEnquirySerializer, CreatePropertyEnquirySerializer, GetPropertyBookingSerializer, \
     CreatePropertyBookingSerializer, PropertyBookmarkSerializer, GetPropertyBookmarkSerializer, \
     CreateNearbyFacilitySerializer, GetNearbyFacilitySerializer, GetPropertyFeatureSerializer, \
     CreatePropertyFeatureSerializer, FeatureSerializer, PropertyRetrieveSerializer, PropertyCategorySerializer, \
-    PropertyBookmarkListSerializer
+    PropertyBookmarkListSerializer, PropertyTypeSerializer, FeaturedPropertyListSerializer
 
 
 # Create your views here.
@@ -62,7 +62,7 @@ class PropertyViewSet(viewsets.ModelViewSet):
         if category:
             queryset = queryset.filter(category_id=category)
         if property_type:
-            queryset = queryset.filter(property_type__iexact=property_type)
+            queryset = queryset.filter(property_type_id=property_type)
         if is_featured in ['true', 'false']:
             queryset = queryset.filter(is_featured=is_featured.lower() == 'true')
 
@@ -80,6 +80,17 @@ class PropertyViewSet(viewsets.ModelViewSet):
             return self.get_paginated_response(serializer.data)
 
         serializer = PropertyBookmarkListSerializer(queryset, many=True, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['get'], url_path='get-all-property')
+    def get_featured_property(self, request):
+        queryset = Property.objects.filter(status='active', is_featured=True).order_by('-id')
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = FeaturedPropertyListSerializer(page, many=True, context={'request': request})
+            return self.get_paginated_response(serializer.data)
+
+        serializer = FeaturedPropertyListSerializer(queryset, many=True, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=['get'], url_path='retrieve')
@@ -307,6 +318,18 @@ class PropertyCategoryViewSet(viewsets.ModelViewSet):
     queryset = PropertyCategory.objects.active()
     serializer_class = PropertyCategorySerializer
     search_fields = ['name', ]
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+
+class PropertyTypeViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    queryset = PropertyType.objects.active()
+    serializer_class = PropertyTypeSerializer
+    search_fields = ['name', ]
+    filterset_fields = ['id', 'name']
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)

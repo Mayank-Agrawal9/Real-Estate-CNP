@@ -164,10 +164,19 @@ LANGUAGES = [
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-EMAIL_HOST = 'smtp-relay.sendinblue.com'
-EMAIL_HOST_USER = 'clicknpaydigital@gmail.com'
-DEFAULT_FROM_EMAIL = 'clicknpaydigital@gmail.com'
-EMAIL_HOST_PASSWORD = 'WHkxQ8J6KZhE2rTv'
+# EMAIL_HOST = 'smtp-relay.sendinblue.com'
+# EMAIL_HOST_USER = 'clicknpaydigital@gmail.com'
+# DEFAULT_FROM_EMAIL = 'clicknpaydigital@gmail.com'
+# EMAIL_HOST_PASSWORD = 'WHkxQ8J6KZhE2rTv'
+# EMAIL_PORT = 587
+# EMAIL_USE_TLS = True
+# EMAIL_USE_SSL = False
+
+EMAIL_HOST = 'smtp.zoho.in'
+EMAIL_HOST_USER = 'noreply@clicknpaydigital.com'
+DEFAULT_FROM_EMAIL = 'noreply@clicknpaydigital.com'
+# EMAIL_HOST_PASSWORD = 'WHkxQ8J6KZhE2rTv'
+EMAIL_HOST_PASSWORD = 'FhWkxC1yDdna'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_USE_SSL = False

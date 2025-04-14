@@ -3,10 +3,10 @@ from import_export.admin import ImportExportModelAdmin
 
 from accounts.admin import CustomModelAdminMixin
 from property.models import Property, Media, PropertyEnquiry, PropertyBooking, PropertyBookmark, PropertyFeature, \
-    NearbyFacility, PropertyReview, Feature, PropertyCategory
+    NearbyFacility, PropertyReview, Feature, PropertyCategory, PropertyType
 from property.resources import PropertyResource, MediaResource, PropertyEnquiryResource, BookingResource, \
     PropertyBookmarkResource, PropertyFeatureResource, NearbyFacilityResource, PropertyReviewResource, FeatureResource, \
-    PropertyCategoryResource
+    PropertyCategoryResource, PropertyTypeResource
 
 
 # Register your models here.
@@ -78,5 +78,12 @@ class PropertyReviewAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
 @admin.register(Feature)
 class FeatureAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
     resource_class = FeatureResource
+    raw_id_fields = ('created_by', 'updated_by')
+    list_filter = ('status', )
+
+
+@admin.register(PropertyType)
+class PropertyTypeAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
+    resource_class = PropertyTypeResource
     raw_id_fields = ('created_by', 'updated_by')
     list_filter = ('status', )

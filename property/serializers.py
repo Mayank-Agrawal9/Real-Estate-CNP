@@ -6,7 +6,7 @@ from master.models import Country, State, City
 from payment_app.models import UserWallet
 from property.choices import MEDIA_TYPE_CHOICES, PROPERTY_TYPE, PROPERTY_STATUS
 from property.models import Property, Media, PropertyEnquiry, PropertyBooking, PropertyBookmark, NearbyFacility, \
-    PropertyFeature, Feature, PropertyCategory
+    PropertyFeature, Feature, PropertyCategory, PropertyType
 
 
 class CreateNearbyFacilitySerializer(serializers.ModelSerializer):
@@ -163,6 +163,7 @@ class PropertyBookmarkListSerializer(serializers.ModelSerializer):
     category = serializers.SerializerMethodField()
     city = serializers.SerializerMethodField()
     is_bookmarked = serializers.SerializerMethodField()
+    property_type = serializers.SerializerMethodField()
 
     def get_country(self, obj):
         if obj.country:
@@ -180,6 +181,10 @@ class PropertyBookmarkListSerializer(serializers.ModelSerializer):
         if obj.category:
             return {'id': obj.category.id, 'name': obj.category.name}
 
+    def get_property_type(self, obj):
+        if obj.property_type:
+            return {'id': obj.property_type.id, 'name': obj.property_type.name}
+
     def get_is_bookmarked(self, obj):
         request = self.context.get('request')
         return PropertyBookmark.objects.filter(user=request.user, property=obj).exists()
@@ -190,6 +195,14 @@ class PropertyBookmarkListSerializer(serializers.ModelSerializer):
                   'area_size_postfix', 'property_type', 'property_status', 'owner_contact_number',
                   'postal_code', 'street_address', 'is_sold', 'created_by', 'user', 'country', 'state', 'city',
                   'media', 'category', 'is_bookmarked')
+
+
+class FeaturedPropertyListSerializer(serializers.ModelSerializer):
+    media = GetMediaDataSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Property
+        fields = ('id', 'date_created', 'status', 'title', 'description', 'media')
 
 
 class PropertyRetrieveSerializer(serializers.ModelSerializer):
@@ -437,3 +450,9 @@ class PropertyBookmarkSerializer(serializers.ModelSerializer):
         model = PropertyBookmark
         fields = '__all__'
 
+
+class PropertyTypeSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = PropertyType
+        fields = '__all__'

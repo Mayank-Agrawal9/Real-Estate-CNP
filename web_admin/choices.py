@@ -35,3 +35,12 @@ INVESTMENT_TYPE = [
     ('crypto', 'Crypto'),
     ('trading', 'Trading')
 ]
+
+
+CONTACT_US_ENQUIRY = [
+    ('general_enquiry', 'General Enquiry'),
+    ('buying', 'Buying'),
+    ('selling', 'Selling'),
+    ('renting', 'Renting'),
+    ('other', 'Other'),
+]

@@ -3,7 +3,9 @@ from rest_framework import serializers
 from accounts.models import Profile, BankDetails, UserPersonalDocument
 from agency.models import Investment, SuperAgency, Agency, FieldAgent
 from p2pmb.models import Package
-from web_admin.models import ManualFund
+from property.models import Property
+from property.serializers import GetMediaDataSerializer
+from web_admin.models import ManualFund, ContactUsEnquiry, PropertyInterestEnquiry
 
 
 class ProfileSerializer(serializers.ModelSerializer):
@@ -140,3 +142,47 @@ class ManualFundSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class ContactUsEnquirySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ContactUsEnquiry
+        fields = '__all__'
+
+
+class PropertyInterestEnquirySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PropertyInterestEnquiry
+        fields = '__all__'
+
+
+class GetPropertySerializer(serializers.ModelSerializer):
+    media = GetMediaDataSerializer(many=True, read_only=True)
+    country = serializers.SerializerMethodField()
+    state = serializers.SerializerMethodField()
+    category = serializers.SerializerMethodField()
+    city = serializers.SerializerMethodField()
+    property_type = serializers.SerializerMethodField()
+
+    def get_country(self, obj):
+        if obj.country:
+            return {'id': obj.country.id, 'name': obj.country.name}
+
+    def get_state(self, obj):
+        if obj.state:
+            return {'id': obj.state.id, 'name': obj.state.name}
+
+    def get_city(self, obj):
+        if obj.city:
+            return {'id': obj.city.id, 'name': obj.city.name}
+
+    def get_category(self, obj):
+        if obj.category:
+            return {'id': obj.category.id, 'name': obj.category.name}
+
+    def get_property_type(self, obj):
+        if obj.property_type:
+            return {'id': obj.property_type.id, 'name': obj.property_type.name}
+
+    class Meta:
+        model = Property
+        fields = ('id', 'category', 'title', 'price', 'area_size', 'area_size_postfix', 'property_type', 'country',
+                  'state', 'city', 'postal_code', 'street_address', 'media', 'is_sold', 'is_featured')

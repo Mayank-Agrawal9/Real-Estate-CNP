@@ -2,6 +2,7 @@ from django.contrib.auth.models import User
 from django.db import models
 from multiselectfield import MultiSelectField
 
+from property.models import Property
 from real_estate.model_mixin import ModelMixin
 from .choices import *
 
@@ -54,3 +55,38 @@ class CompanyInvestment(ModelMixin):
     class Meta:
         verbose_name = 'Company Investment'
         verbose_name_plural = 'Company Investment Distribution'
+
+
+class ContactUsEnquiry(ModelMixin):
+    created_by = None
+    updated_by = None
+    first_name = models.CharField(max_length=150)
+    last_name = models.CharField(max_length=150)
+    email = models.EmailField(max_length=150)
+    phone = models.CharField(max_length=15)
+    subject = models.CharField(max_length=30, choices=CONTACT_US_ENQUIRY, default='general_enquiry')
+    message = models.TextField(null=True, blank=True)
+
+    def __str__(self):
+        return str(self.id)
+
+    class Meta:
+        verbose_name = 'Contact Us Enquiry'
+        verbose_name_plural = 'Contact Us Enquiries'
+
+
+class PropertyInterestEnquiry(ModelMixin):
+    created_by = None
+    updated_by = None
+    property = models.ForeignKey(Property, on_delete=models.CASCADE)
+    name = models.CharField(max_length=150)
+    email = models.EmailField(max_length=150)
+    phone = models.CharField(max_length=15)
+    message = models.TextField(null=True, blank=True)
+
+    def __str__(self):
+        return str(self.id)
+
+    class Meta:
+        verbose_name = 'Property Enquiry'
+        verbose_name_plural = 'Property Interested Enquiries'

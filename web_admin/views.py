@@ -5,25 +5,26 @@ from decimal import Decimal
 from django.contrib.auth import authenticate
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import User
-from django.db import transaction
 from django.db.models import Count, Q, Sum
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status, permissions, viewsets
 from rest_framework.authtoken.models import Token
 from rest_framework.exceptions import ValidationError
 from rest_framework.filters import SearchFilter
-from rest_framework.generics import ListAPIView
+from rest_framework.generics import ListAPIView, GenericAPIView
 from rest_framework.pagination import PageNumberPagination
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.models import Profile, BankDetails, UserPersonalDocument
 from p2pmb.models import Commission
-from web_admin.models import ManualFund, CompanyInvestment
+from property.models import Property
+from web_admin.models import ManualFund, CompanyInvestment, ContactUsEnquiry, PropertyInterestEnquiry
 from web_admin.serializers import ProfileSerializer, InvestmentSerializer, ManualFundSerializer, BankDetailSerializer, \
     UserDocumentSerializer, SuperAgencyCompanyDetailSerializer, AgencyCompanyDetailSerializer, \
-    FieldAgentCompanyDetailSerializer
+    FieldAgentCompanyDetailSerializer, PropertyInterestEnquirySerializer, ContactUsEnquirySerializer, \
+    GetPropertySerializer
 from agency.models import Investment, FundWithdrawal, SuperAgency, Agency, FieldAgent
 from payment_app.models import UserWallet, Transaction
 
@@ -384,6 +385,34 @@ class ManualFundViewSet(viewsets.ModelViewSet):
     search_fields = ['added_to__username', 'added_to__first_name', 'added_to__email']
 
 
+class ContactUsEnquiryViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsStaffUser]
+    queryset = ContactUsEnquiry.objects.all().order_by('-date_created')
+    serializer_class = ContactUsEnquirySerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_fields = ['first_name', 'last_name', 'email', 'phone', 'subject']
+    search_fields = ['first_name', 'last_name', 'email', 'phone']
+
+    def get_permissions(self):
+        if self.action == 'create':
+            return [AllowAny()]
+        return [IsStaffUser()]
+
+
+class PropertyInterestEnquiryViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsStaffUser]
+    queryset = PropertyInterestEnquiry.objects.all().order_by('-date_created')
+    serializer_class = PropertyInterestEnquirySerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_fields = ['name', 'email', 'phone', 'property']
+    search_fields = ['name', 'email', 'phone']
+
+    def get_permissions(self):
+        if self.action == 'create':
+            return [AllowAny()]
+        return [IsStaffUser()]
+
+
 class DashboardCountAPIView(APIView):
     permission_classes = [IsStaffUser]
 
@@ -719,3 +748,55 @@ class ApproveRejectDocumentsAPIView(APIView):
             documents.update(approval_status="rejected", rejection_reason=rejection_reason)
 
         return Response({"detail": f"Documents {action}d successfully."})
+
+
+class GetAllPropertyAPIView(GenericAPIView):
+    serializer_class = GetPropertySerializer
+
+    def get_queryset(self):
+        queryset = Property.objects.filter(status='active').order_by('-id')
+        request = self.request
+        min_price = request.query_params.get('min_price')
+        max_price = request.query_params.get('max_price')
+        country = request.query_params.get('country')
+        state = request.query_params.get('state')
+        city = request.query_params.get('city')
+        category = request.query_params.get('category')
+        property_type = request.query_params.get('property_type')
+        is_featured = request.query_params.get('is_featured')
+        features = request.query_params.getlist('features')
+
+        if min_price:
+            queryset = queryset.filter(price__gte=min_price)
+        if max_price:
+            queryset = queryset.filter(price__lte=max_price)
+        if country:
+            queryset = queryset.filter(country_id=country)
+        if state:
+            queryset = queryset.filter(state_id=state)
+        if city:
+            queryset = queryset.filter(city_id=city)
+        if category:
+            queryset = queryset.filter(category_id=category)
+        if property_type:
+            queryset = queryset.filter(property_type_id=property_type)
+        if is_featured in ['true', 'false']:
+            queryset = queryset.filter(is_featured=is_featured.lower() == 'true')
+
+        if features:
+            for feature_name in features:
+                queryset = queryset.filter(
+                    features__feature__name__iexact=feature_name.strip()
+                )
+
+        return queryset.distinct().order_by('-id')
+
+    def get(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True, context={'request': request})
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)

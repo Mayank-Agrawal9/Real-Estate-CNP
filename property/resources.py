@@ -1,7 +1,7 @@
 from import_export import resources
 
 from property.models import Property, Media, PropertyEnquiry, PropertyBooking, PropertyBookmark, PropertyFeature, \
-    NearbyFacility, PropertyReview, Feature, PropertyCategory
+    NearbyFacility, PropertyReview, Feature, PropertyCategory, PropertyType
 
 EXCLUDE_FOR_API = ('updated_by', 'date_updated', 'created_by')
 
@@ -72,5 +72,12 @@ class PropertyReviewResource(resources.ModelResource):
 class FeatureResource(resources.ModelResource):
     class Meta:
         model = Feature
+        import_id_fields = ('id',)
+        exclude = EXCLUDE_FOR_API
+
+
+class PropertyTypeResource(resources.ModelResource):
+    class Meta:
+        model = PropertyType
         import_id_fields = ('id',)
         exclude = EXCLUDE_FOR_API
