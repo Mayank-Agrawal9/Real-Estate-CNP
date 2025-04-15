@@ -122,7 +122,7 @@ class GetPropertyFeatureSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PropertyFeature
-        fields = ('value', 'feature')
+        fields = ('value', 'feature', 'id')
 
 
 class PropertyListSerializer(serializers.ModelSerializer):

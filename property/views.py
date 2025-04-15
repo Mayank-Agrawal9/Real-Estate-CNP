@@ -66,11 +66,8 @@ class PropertyViewSet(viewsets.ModelViewSet):
         if is_featured in ['true', 'false']:
             queryset = queryset.filter(is_featured=is_featured.lower() == 'true')
 
-        if features:
-            for feature_name in features:
-                queryset = queryset.filter(
-                    features__feature__name__iexact=feature_name.strip()
-                )
+        if len(features) > 0:
+            queryset = queryset.filter(features__in=features)
 
         queryset = queryset.distinct().order_by('-id')
 

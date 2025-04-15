@@ -24,7 +24,7 @@ from web_admin.models import ManualFund, CompanyInvestment, ContactUsEnquiry, Pr
 from web_admin.serializers import ProfileSerializer, InvestmentSerializer, ManualFundSerializer, BankDetailSerializer, \
     UserDocumentSerializer, SuperAgencyCompanyDetailSerializer, AgencyCompanyDetailSerializer, \
     FieldAgentCompanyDetailSerializer, PropertyInterestEnquirySerializer, ContactUsEnquirySerializer, \
-    GetPropertySerializer
+    GetPropertySerializer, PropertyDetailSerializer
 from agency.models import Investment, FundWithdrawal, SuperAgency, Agency, FieldAgent
 from payment_app.models import UserWallet, Transaction
 
@@ -799,4 +799,14 @@ class GetAllPropertyAPIView(GenericAPIView):
             return self.get_paginated_response(serializer.data)
 
         serializer = self.get_serializer(queryset, many=True, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class PropertyDetailAPIView(APIView):
+
+    def get(self, request, id):
+        property_instance = Property.objects.filter(id=id, status='active').last()
+        if not property_instance:
+            return Response({'message': 'Invalid property Id'}, status=status.HTTP_400_BAD_REQUEST)
+        serializer = PropertyDetailSerializer(property_instance)
         return Response(serializer.data, status=status.HTTP_200_OK)

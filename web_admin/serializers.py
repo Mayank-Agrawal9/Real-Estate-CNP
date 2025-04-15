@@ -4,7 +4,7 @@ from accounts.models import Profile, BankDetails, UserPersonalDocument
 from agency.models import Investment, SuperAgency, Agency, FieldAgent
 from p2pmb.models import Package
 from property.models import Property
-from property.serializers import GetMediaDataSerializer
+from property.serializers import GetMediaDataSerializer, GetNearbyFacilitySerializer, GetPropertyFeatureSerializer
 from web_admin.models import ManualFund, ContactUsEnquiry, PropertyInterestEnquiry
 
 
@@ -186,3 +186,53 @@ class GetPropertySerializer(serializers.ModelSerializer):
         model = Property
         fields = ('id', 'category', 'title', 'price', 'area_size', 'area_size_postfix', 'property_type', 'country',
                   'state', 'city', 'postal_code', 'street_address', 'media', 'is_sold', 'is_featured')
+
+
+class PropertyDetailSerializer(serializers.ModelSerializer):
+    media = GetMediaDataSerializer(many=True, read_only=True)
+    country = serializers.SerializerMethodField()
+    state = serializers.SerializerMethodField()
+    city = serializers.SerializerMethodField()
+    featured = serializers.SerializerMethodField()
+    nearby_facility = serializers.SerializerMethodField()
+    category = serializers.SerializerMethodField()
+    property_type = serializers.SerializerMethodField()
+    user = serializers.SerializerMethodField()
+
+    def get_country(self, obj):
+        if obj.country:
+            return {'id': obj.country.id, 'name': obj.country.name}
+
+    def get_state(self, obj):
+        if obj.state:
+            return {'id': obj.state.id, 'name': obj.state.name}
+
+    def get_city(self, obj):
+        if obj.city:
+            return {'id': obj.city.id, 'name': obj.city.name}
+
+    def get_user(self, obj):
+        if obj.user:
+            return {'id': obj.user.id, 'name': obj.user.get_full_name(), 'username': obj.user.username}
+
+    def get_category(self, obj):
+        if obj.category:
+            return {'id': obj.category.id, 'name': obj.category.name}
+
+    def get_featured(self, obj):
+        """ Return property features or an empty list if none exist. """
+        features = obj.features.all()
+        return GetPropertyFeatureSerializer(features, many=True).data if features else []
+
+    def get_nearby_facility(self, obj):
+        """ Return nearby facilities or an empty list if none exist. """
+        facilities = obj.nearby_facilities.all()
+        return GetNearbyFacilitySerializer(facilities, many=True).data if facilities else []
+
+    def get_property_type(self, obj):
+        if obj.property_type:
+            return {'id': obj.property_type.id, 'name': obj.property_type.name}
+
+    class Meta:
+        model = Property
+        fields = '__all__'
