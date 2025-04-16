@@ -79,7 +79,7 @@ class PropertyViewSet(viewsets.ModelViewSet):
         serializer = PropertyBookmarkListSerializer(queryset, many=True, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    @action(detail=False, methods=['get'], url_path='get-all-property')
+    @action(detail=False, methods=['get'], url_path='get-featured-property')
     def get_featured_property(self, request):
         queryset = Property.objects.filter(status='active', is_featured=True).order_by('-id')
         page = self.paginate_queryset(queryset)
@@ -127,7 +127,9 @@ class PropertyViewSet(viewsets.ModelViewSet):
                 state=validated_data['state'],
                 city=validated_data['city'],
                 postal_code=validated_data['postal_code'],
-                street_address=validated_data['street_address']
+                street_address=validated_data['street_address'],
+                category=validated_data['category'],
+                property_type=validated_data['property_type'],
             )
 
             media_files = validated_data.get('media_files', [])
