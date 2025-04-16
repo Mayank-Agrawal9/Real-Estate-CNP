@@ -7,7 +7,7 @@ from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import User
 from django.db.models import Count, Q, Sum
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import status, permissions, viewsets
+from rest_framework import status, permissions, viewsets, generics
 from rest_framework.authtoken.models import Token
 from rest_framework.exceptions import ValidationError
 from rest_framework.filters import SearchFilter
@@ -20,14 +20,16 @@ from rest_framework.views import APIView
 from accounts.models import Profile, BankDetails, UserPersonalDocument
 from p2pmb.models import Commission
 from property.models import Property
-from web_admin.models import ManualFund, CompanyInvestment, ContactUsEnquiry, PropertyInterestEnquiry
+from web_admin.models import ManualFund, CompanyInvestment, ContactUsEnquiry, PropertyInterestEnquiry, \
+    UserFunctionalityAccessPermission
 from web_admin.serializers import ProfileSerializer, InvestmentSerializer, ManualFundSerializer, BankDetailSerializer, \
     UserDocumentSerializer, SuperAgencyCompanyDetailSerializer, AgencyCompanyDetailSerializer, \
     FieldAgentCompanyDetailSerializer, PropertyInterestEnquirySerializer, ContactUsEnquirySerializer, \
-    GetPropertySerializer, PropertyDetailSerializer
+    GetPropertySerializer, PropertyDetailSerializer, UserCreateSerializer, LoginSerializer, \
+    UserPermissionProfileSerializer
 from agency.models import Investment, FundWithdrawal, SuperAgency, Agency, FieldAgent
 from payment_app.models import UserWallet, Transaction
-
+from web_admin.choices import main_dashboard
 
 # Create your views here.
 
@@ -36,32 +38,92 @@ class IsStaffUser(permissions.BasePermission):
         return bool(request.user and request.user.is_authenticated and request.user.is_staff)
 
 
-class StaffLoginAPIView(APIView):
-    def post(self, request):
-        username = request.data.get('email')
-        password = request.data.get('password')
+# class StaffLoginAPIView(APIView):
+#     def post(self, request):
+#         username = request.data.get('email')
+#         password = request.data.get('password')
+#
+#         if not username or not password:
+#             return Response({'error': 'Username and password are required'}, status=status.HTTP_400_BAD_REQUEST)
+#
+#         user = authenticate(username=username, password=password)
+#
+#         if user is None:
+#             return Response({'error': 'Invalid credentials'}, status=status.HTTP_400_BAD_REQUEST)
+#
+#         if not user.is_staff:
+#             return Response({'error': 'Access denied. Only staff users can log in.'},
+#                             status=status.HTTP_400_BAD_REQUEST)
+#
+#         token, created = Token.objects.get_or_create(user=user)
+#         user_data = {
+#             'first_name': user.first_name,
+#             'last_name': user.last_name,
+#             'email': user.email,
+#             'token': token.key,
+#         }
+#
+#         return Response({'profile': user_data}, status=status.HTTP_200_OK)
 
-        if not username or not password:
-            return Response({'error': 'Username and password are required'}, status=status.HTTP_400_BAD_REQUEST)
 
-        user = authenticate(username=username, password=password)
+class StaffLoginAPIView(generics.CreateAPIView):
+    """This API is used to login via phone_number or email and returns permissions."""
+    permission_classes = (permissions.AllowAny,)
+    serializer_class = LoginSerializer
 
-        if user is None:
-            return Response({'error': 'Invalid credentials'}, status=status.HTTP_400_BAD_REQUEST)
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
-        if not user.is_staff:
-            return Response({'error': 'Access denied. Only staff users can log in.'},
-                            status=status.HTTP_400_BAD_REQUEST)
+        user = serializer.validated_data['user']
+        token, _ = Token.objects.get_or_create(user=user)
+        profile = user.profile
 
-        token, created = Token.objects.get_or_create(user=user)
-        user_data = {
+        perm = UserFunctionalityAccessPermission.objects.select_related('permission') \
+            .filter(user=user).only('permission').last()
+
+        if not perm:
+            return Response(
+                {'detail': 'User does not have permissions yet, Please connect to admin.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        permissions_data = []
+        if perm and perm.permission:
+            for module_name, actions in main_dashboard:
+                sub_modules = []
+                has_permission = False
+                module_permissions = list(getattr(perm.permission, "main_dashboard", []))
+
+                for action_name, action_label in actions:
+                    has_access = action_name in module_permissions
+
+                    if has_access:
+                        has_permission = True
+                    sub_modules.append({
+                        'name': action_label,
+                        'is_allowed': has_access
+                    })
+
+                if has_permission:
+                    permissions_data.append({
+                        'module_name': module_name,
+                        'sub_modules': sub_modules
+                    })
+
+        res = {
             'first_name': user.first_name,
             'last_name': user.last_name,
             'email': user.email,
+            'profile_id': profile.id,
+            'user_id': user.id,
+            'picture': profile.picture.url if profile.picture else None,
+            'mobile_number': profile.mobile_number,
             'token': token.key,
+            'permissions': permissions_data
         }
 
-        return Response({'profile': user_data}, status=status.HTTP_200_OK)
+        return Response(res, status=status.HTTP_200_OK)
 
 
 class VerifyKycAPIView(APIView):
@@ -278,7 +340,51 @@ class GetUserAPIView(ListAPIView):
     serializer_class = ProfileSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_fields = ['is_kyc', 'is_kyc_verified', 'is_p2pmb']
-    search_fields = ['user__username', 'referral_code', 'user__first_name']
+    search_fields = ['user__username', 'referral_code', 'user__first_name', 'user__email']
+
+
+class GetUserWithPermissionAPIView(ListAPIView):
+    permission_classes = [IsStaffUser]
+    queryset = Profile.objects.filter(status='active', user__is_staff=False).order_by('-date_created')
+    serializer_class = UserPermissionProfileSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_fields = ['is_kyc', 'is_kyc_verified', 'is_p2pmb']
+    search_fields = ['user__username', 'referral_code', 'user__first_name', 'user__email']
+
+
+class CreateUserWithPermissionAPIView(generics.CreateAPIView):
+    """API to create a new user with a profile and assign permissions."""
+    permission_classes = [IsStaffUser]
+    serializer_class = UserCreateSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        validated_data = serializer.validated_data
+
+        user = User.objects.create_user(
+            first_name=validated_data['first_name'],
+            last_name=validated_data['last_name'],
+            username=validated_data['username'],
+            email=validated_data['email'],
+            password=validated_data['password'],
+            is_staff=True
+        )
+
+        permission = validated_data.get('permission')
+        UserFunctionalityAccessPermission.objects.create(user=user, permission=permission)
+        Profile.objects.create(
+            user=user,
+            mobile_number=validated_data['mobile_number'],
+            city=validated_data['city'],
+            state=validated_data['state'],
+            pin_code=validated_data['pin_code'],
+            gender=validated_data['gender'],
+            date_of_birth=validated_data['date_of_birth'],
+            picture=validated_data.get('picture'),
+        )
+        return Response({"message": "User created successfully!"}, status=status.HTTP_201_CREATED)
 
 
 class UserDocumentAPIView(ListAPIView):

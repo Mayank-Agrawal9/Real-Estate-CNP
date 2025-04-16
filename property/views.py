@@ -12,7 +12,7 @@ from property.serializers import CreatePropertySerializer, PropertySerializer, P
     CreatePropertyBookingSerializer, PropertyBookmarkSerializer, GetPropertyBookmarkSerializer, \
     CreateNearbyFacilitySerializer, GetNearbyFacilitySerializer, GetPropertyFeatureSerializer, \
     CreatePropertyFeatureSerializer, FeatureSerializer, PropertyRetrieveSerializer, PropertyCategorySerializer, \
-    PropertyBookmarkListSerializer, PropertyTypeSerializer, FeaturedPropertyListSerializer
+    PropertyBookmarkListSerializer, PropertyTypeSerializer, FeaturedPropertyListSerializer, TopPropertyListSerializer
 
 
 # Create your views here.
@@ -88,6 +88,12 @@ class PropertyViewSet(viewsets.ModelViewSet):
             return self.get_paginated_response(serializer.data)
 
         serializer = FeaturedPropertyListSerializer(queryset, many=True, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['get'], url_path='top-property')
+    def get_top_property(self, request):
+        queryset = Property.objects.filter(status='active', media__isnull=False).order_by('-id').distinct()[:5]
+        serializer = TopPropertyListSerializer(queryset, many=True, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=['get'], url_path='retrieve')

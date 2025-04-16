@@ -57,6 +57,7 @@ class BasicDetailsSerializer(serializers.Serializer):
     father_name = serializers.CharField(required=True)
     mobile_number1 = serializers.CharField(required=False)
     mobile_number2 = serializers.CharField(required=False)
+    email = serializers.SerializerMethodField()
     other_email = serializers.CharField(required=False)
     pan_remarks = serializers.CharField(required=False)
     voter_number = serializers.CharField(required=False)
@@ -65,15 +66,33 @@ class BasicDetailsSerializer(serializers.Serializer):
     pan_number = serializers.CharField(required=False)
     aadhar_number = serializers.CharField(required=False)
     referral_code = serializers.CharField(required=False)
-    city = serializers.PrimaryKeyRelatedField(
-        queryset=City.objects.filter(status='active'), many=False, required=False
-    )
+    city = serializers.SerializerMethodField()
+    state = serializers.SerializerMethodField()
+    country = serializers.SerializerMethodField()
     pin_code = serializers.CharField(required=False)
     role = serializers.ChoiceField(choices=["super_agency", "agency", "field_agent"], required=True)
 
     def get_full_name(self, obj):
         """Dynamically generate full_name from first_name and last_name."""
         return f"{obj.user.first_name} {obj.user.last_name}".strip()
+
+    def get_email(self, obj):
+        return obj.user.email if obj.user else None
+
+    def get_city(self, obj):
+        if obj.city:
+            return {'id':  obj.city.id, 'name': obj.city.name}
+        return None
+
+    def get_state(self, obj):
+        if obj.city and obj.city.state:
+            return {'id':  obj.city.state.id, 'name': obj.city.state.name}
+        return None
+
+    def get_country(self, obj):
+        if obj.city and obj.city.state and obj.city.state.country:
+            return {'id':  obj.city.state.country.id, 'name': obj.city.state.country.name}
+        return None
 
 
 class CreateBasicDetailsSerializer(serializers.Serializer):

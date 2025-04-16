@@ -1,11 +1,15 @@
-from rest_framework import serializers
+from django.contrib.auth.models import User
+from django.db.models import Q
+from rest_framework import serializers, exceptions
 
 from accounts.models import Profile, BankDetails, UserPersonalDocument
 from agency.models import Investment, SuperAgency, Agency, FieldAgent
+from master.models import City, State
 from p2pmb.models import Package
 from property.models import Property
 from property.serializers import GetMediaDataSerializer, GetNearbyFacilitySerializer, GetPropertyFeatureSerializer
-from web_admin.models import ManualFund, ContactUsEnquiry, PropertyInterestEnquiry
+from web_admin.models import ManualFund, ContactUsEnquiry, PropertyInterestEnquiry, FunctionalityAccessPermissions, \
+    UserFunctionalityAccessPermission
 
 
 class ProfileSerializer(serializers.ModelSerializer):
@@ -236,3 +240,80 @@ class PropertyDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Property
         fields = '__all__'
+
+
+class UserCreateSerializer(serializers.Serializer):
+    username = serializers.CharField(required=True)
+    email = serializers.EmailField(required=True)
+    password = serializers.CharField(write_only=True, required=True)
+    permission = serializers.PrimaryKeyRelatedField(
+        queryset=FunctionalityAccessPermissions.objects.active(), required=True
+    )
+    first_name = serializers.CharField(required=True)
+    last_name = serializers.CharField(required=True)
+    mobile_number = serializers.CharField(required=True)
+    city = serializers.PrimaryKeyRelatedField(
+        queryset=City.objects.active(), required=True
+    )
+    state = serializers.PrimaryKeyRelatedField(
+        queryset=State.objects.active(), required=True
+    )
+    pin_code = serializers.CharField(required=True)
+    gender = serializers.ChoiceField(choices=[("Male", "Male"), ("Female", "Female")], required=True)
+    date_of_birth = serializers.DateField(required=True)
+    picture = serializers.ImageField(required=False)
+
+    def validate_username(self, value):
+        """Ensure the username is unique."""
+        if User.objects.filter(username=value).exists():
+            raise serializers.ValidationError("A user with this username already exists.")
+        return value
+
+    def validate_email(self, value):
+        """Ensure the email is unique."""
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("A user with this email already exists.")
+        return value
+
+
+class LoginSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+    password = serializers.CharField(write_only=True, required=True)
+
+    def validate(self, attrs):
+        username = attrs.get('email')
+
+        user = User.objects.filter(Q(username__exact=username) | Q(email__exact=username), is_active=True,
+                                   is_staff=True).last()
+        if not user:
+            raise exceptions.AuthenticationFailed({'detail': 'No user registered with this credentials.'})
+
+        password = attrs.get('password')
+        if not user.check_password(password):
+            raise exceptions.AuthenticationFailed({'detail': 'Incorrect password.'}, code='invalid')
+
+        attrs['user'] = user
+        return attrs
+
+
+class UserPermissionProfileSerializer(serializers.ModelSerializer):
+    permission = serializers.SerializerMethodField()
+    city = serializers.SerializerMethodField()
+    user = serializers.SerializerMethodField()
+
+    def get_permission(self, obj):
+        permission = UserFunctionalityAccessPermission.objects.filter(user=obj.user).select_related('permission').last()
+        if permission:
+            return {'id': permission.id, 'permission_id': permission.permission.id, 'name': permission.permission.name}
+        return None
+
+    def get_city(self, obj):
+        if obj.city:
+            return {'id': obj.city.id, 'name': obj.city.name}
+
+    def get_user(self, obj):
+        return {'id': obj.user.id, 'name': obj.user.get_full_name(), 'email': obj.user.email}
+
+    class Meta:
+        model = Profile
+        fields = ('id', 'permission', 'city', 'user', 'date_of_birth', 'gender', 'mobile_number')

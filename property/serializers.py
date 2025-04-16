@@ -1,3 +1,4 @@
+import random
 from decimal import Decimal
 
 from rest_framework import serializers
@@ -200,6 +201,21 @@ class PropertyBookmarkListSerializer(serializers.ModelSerializer):
 
 class FeaturedPropertyListSerializer(serializers.ModelSerializer):
     media = GetMediaDataSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Property
+        fields = ('id', 'date_created', 'status', 'title', 'description', 'media')
+
+
+class TopPropertyListSerializer(serializers.ModelSerializer):
+    media = serializers.SerializerMethodField()
+
+    def get_media(self, obj):
+        media_items = obj.media.all()
+        if media_items:
+            random_media = random.choice(media_items)
+            return random_media.file.url
+        return None
 
     class Meta:
         model = Property

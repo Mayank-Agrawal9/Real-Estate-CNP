@@ -6,7 +6,7 @@ from web_admin.views import StaffLoginAPIView, VerifyKycAPIView, InvestmentAPIVi
     ManualFundGraphAPIView, ManualFundDistributionAPIView, UserBankDetailAPIView, UserDocumentAPIView, \
     UserCompanyDetailAPIView, RejectKYCStatusAPIView, ApproveRejectDocumentsAPIView, \
     ManualFundDistributionAgencyAPIView, ContactUsEnquiryViewSet, PropertyInterestEnquiryViewSet, GetAllPropertyAPIView, \
-    PropertyDetailAPIView
+    PropertyDetailAPIView, CreateUserWithPermissionAPIView, GetUserWithPermissionAPIView
 
 router = DefaultRouter()
 router.register(r'manual-fund', ManualFundViewSet)
@@ -23,6 +23,8 @@ urlpatterns = [
     path('create-manual-investment/', CreateManualInvestmentAPIView.as_view(), name='manual-fund-add'),
     path('deduct-investment/', DeductManualInvestmentAPIView.as_view(), name='manual-fund-add'),
     path('get-user/', GetUserAPIView.as_view(), name='get-all-user'),
+    path('get-user-permission/', GetUserWithPermissionAPIView.as_view(), name='user-permission'),
+    path('create-user/', CreateUserWithPermissionAPIView.as_view(), name='create-user'),
     path('user-document/', UserDocumentAPIView.as_view(), name='user-document'),
     path('user-bank-detail/', UserBankDetailAPIView.as_view(), name='user-bank-detail'),
     path('user-company-detail/', UserCompanyDetailAPIView.as_view(), name='user-company-detail'),
