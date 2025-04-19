@@ -48,7 +48,7 @@ class PropertyViewSet(viewsets.ModelViewSet):
         property_type = request.query_params.get('property_type')
         is_featured = request.query_params.get('is_featured')
         features = request.query_params.getlist('features')
-        post_created = request.query_params.getlist('post_created')
+        post_created = request.query_params.get('post_created')
 
         if min_price:
             queryset = queryset.filter(price__gte=min_price)
