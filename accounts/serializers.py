@@ -109,6 +109,9 @@ class CreateBasicDetailsSerializer(serializers.Serializer):
     aadhar_number = serializers.CharField(required=False)
     referral_code = serializers.CharField(required=False)
     pin_code = serializers.CharField(required=False)
+    city = serializers.PrimaryKeyRelatedField(
+        queryset=City.objects.filter(status='active'), many=False, required=False, allow_null=True
+    )
     role = serializers.ChoiceField(choices=["super_agency", "agency", "field_agent", "p2pmb"], required=True)
 
 
@@ -146,9 +149,10 @@ class CompanyDetailsSerializer(serializers.Serializer):
     pan_number = serializers.CharField(required=False, allow_blank=True)
     email = serializers.EmailField(required=True)
     office_address = serializers.CharField(required=False, allow_blank=True)
-    # city = serializers.PrimaryKeyRelatedField(
-    #     queryset=City.objects.filter(status='active'), many=False, required=True
-    # )
+    gst_number = serializers.CharField(required=False, allow_blank=True)
+    city = serializers.PrimaryKeyRelatedField(
+        queryset=City.objects.filter(status='active'), many=False, required=False, allow_null=True
+    )
     office_area = serializers.DecimalField(required=False, max_digits=10, decimal_places=2, default=0.0)
 
 
