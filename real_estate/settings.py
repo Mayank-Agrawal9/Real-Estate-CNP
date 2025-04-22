@@ -278,6 +278,7 @@ CORS_ALLOWED_ORIGINS = [
     'http://localhost:3000',
     # 'http://64.225.84.50',
     'http://139.59.71.1',
-    'https://admin.clicknpayrealestate.com'
+    'https://admin.clicknpayrealestate.com',
+    'https://clicknpayrealestate.com'
 ]
 
