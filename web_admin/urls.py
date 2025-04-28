@@ -1,12 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
-from web_admin.views import StaffLoginAPIView, VerifyKycAPIView, InvestmentAPIView, CreateManualInvestmentAPIView, \
-    GetUserAPIView, ManualFundViewSet, DeductManualInvestmentAPIView, UpdatePasswordView, DashboardCountAPIView, \
-    ManualFundGraphAPIView, ManualFundDistributionAPIView, UserBankDetailAPIView, UserDocumentAPIView, \
-    UserCompanyDetailAPIView, RejectKYCStatusAPIView, ApproveRejectDocumentsAPIView, \
-    ManualFundDistributionAgencyAPIView, ContactUsEnquiryViewSet, PropertyInterestEnquiryViewSet, GetAllPropertyAPIView, \
-    PropertyDetailAPIView, CreateUserWithPermissionAPIView, GetUserWithPermissionAPIView
+from web_admin.views import *
 
 router = DefaultRouter()
 router.register(r'manual-fund', ManualFundViewSet)
@@ -15,6 +10,7 @@ router.register(r'property-enquiry', PropertyInterestEnquiryViewSet)
 
 
 urlpatterns = [
+    path('', include(router.urls)),
     path('login/', StaffLoginAPIView.as_view(), name='login'),
     path('verify-kyc/', VerifyKycAPIView.as_view(), name='kyc-verify'),
     path('document-verification-update/', ApproveRejectDocumentsAPIView.as_view(), name='document-update'),
@@ -35,5 +31,8 @@ urlpatterns = [
     path('fund-distribution-agency/', ManualFundDistributionAgencyAPIView.as_view(), name='fund-distribution-agency'),
     path('get-all-property/', GetAllPropertyAPIView.as_view(), name='get-all-property'),
     path('property-detail/<int:id>/', PropertyDetailAPIView.as_view(), name='property-detail'),
-    path('', include(router.urls)),
+    path('user-fund-distribution/<int:id>/', UserWiseFundDistributionAPIView.as_view(), name='user-fund-distribution'),
+    path('company-liability', CompanyLiabilityStatsAPIView.as_view(), name='company-liability'),
+    path('withdraw-request', WithDrawRequest.as_view(), name='withdraw-request'),
+    path('working-id', UserWithWorkingIDListView.as_view(), name='working-id'),
 ]

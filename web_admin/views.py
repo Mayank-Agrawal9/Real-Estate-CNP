@@ -18,7 +18,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.models import Profile, BankDetails, UserPersonalDocument
-from p2pmb.models import Commission
+from p2pmb.models import Commission, MLMTree
 from property.models import Property
 from web_admin.models import ManualFund, CompanyInvestment, ContactUsEnquiry, PropertyInterestEnquiry, \
     UserFunctionalityAccessPermission
@@ -26,7 +26,7 @@ from web_admin.serializers import ProfileSerializer, InvestmentSerializer, Manua
     UserDocumentSerializer, SuperAgencyCompanyDetailSerializer, AgencyCompanyDetailSerializer, \
     FieldAgentCompanyDetailSerializer, PropertyInterestEnquirySerializer, ContactUsEnquirySerializer, \
     GetPropertySerializer, PropertyDetailSerializer, UserCreateSerializer, LoginSerializer, \
-    UserPermissionProfileSerializer
+    UserPermissionProfileSerializer, ListWithDrawRequest, UserWithWorkingIDSerializer
 from agency.models import Investment, FundWithdrawal, SuperAgency, Agency, FieldAgent
 from payment_app.models import UserWallet, Transaction
 from web_admin.choices import main_dashboard
@@ -916,3 +916,106 @@ class PropertyDetailAPIView(APIView):
             return Response({'message': 'Invalid property Id'}, status=status.HTTP_400_BAD_REQUEST)
         serializer = PropertyDetailSerializer(property_instance)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class UserWiseFundDistributionAPIView(APIView):
+    permission_classes = [IsStaffUser]
+
+    def get(self, request, id):
+        user_account = MLMTree.objects.filter(status='active', child__id=id).last()
+        if not user_account:
+            return Response({'message': 'User not enrolled in P2PMB Model.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        total_fund = Investment.objects.filter(
+            user__id=id, investment_type='p2pmb', package__isnull=False,
+            is_approved=True, pay_method='main_wallet'
+        ).aggregate(total_amount=Sum('amount'))['total_amount'] or Decimal(0)
+
+        total_fund = Decimal(total_fund)
+
+        commissions = Commission.objects.filter(commission_to__id=id)
+
+        key_to_investment_type = {
+            "direct_income": "direct",
+            "level": "level",
+            "reward": "reward",
+            "royalty": "royalty",
+            "core_team": "core_team",
+            "company_extra_expenses": "company_expense",
+            "diwali_gift": "diwali_gift",
+            "donate": "donation",
+            "interest": "interest",
+            "properties": "property",
+            "crypto": "crypto",
+        }
+
+        distribution = {
+            "direct_income": {"name": "Direct Income", "expected_spending": Decimal("4.5")},
+            "level": {"name": "Level Income", "expected_spending": Decimal("4.5")},
+            "reward": {"name": "Reward", "expected_spending": Decimal("2")},
+            "royalty": {"name": "Royalty", "expected_spending": Decimal("1")},
+            "core_team": {"name": "Core Team", "expected_spending": Decimal("1")},
+            "company_extra_expenses": {"name": "Company Extra Expenses", "expected_spending": Decimal("3")},
+            "diwali_gift": {"name": "Diwali Gift", "expected_spending": Decimal("3")},
+            "donate": {"name": "Donation", "expected_spending": Decimal("1")},
+            "interest": {"name": "Interest", "expected_spending": Decimal("20")},
+            "properties": {"name": "Property Investment", "expected_spending": Decimal("50")},
+            "crypto": {"name": "Crypto", "expected_spending": Decimal("10")},
+        }
+
+        response_data = []
+
+        for key, config in distribution.items():
+            investment_type = key_to_investment_type.get(key)
+            expected_spending = (total_fund * config["expected_spending"] / Decimal(100)).quantize(Decimal("0.01"))
+
+            investment_amount = Decimal(0)
+
+            commission_amount = Decimal(0)
+            if key in ['direct_income', 'level', 'reward', 'royalty']:
+                commission_amount = commissions.filter(
+                    commission_type=investment_type
+                ).aggregate(total=Sum('amount'))['total'] or Decimal(0)
+
+            total_spend_amount = (investment_amount + commission_amount).quantize(Decimal("0.01"))
+            total_spend_per = ((total_spend_amount / total_fund) * Decimal(100)).quantize(
+                Decimal("0.01")) if total_fund else Decimal("0.00")
+            left_in_bank = (expected_spending - total_spend_amount).quantize(Decimal("0.01"))
+
+            response_data.append({
+                "name": config["name"],
+                "total_spend_amount": float(total_spend_amount),
+                "left_in_bank": float(left_in_bank),
+                "total_spend_per": float(total_spend_per),
+                "expected_spending_per": float(config["expected_spending"]),
+                "expected_spending_amount": float(expected_spending),
+            })
+
+        return Response(response_data)
+
+
+class CompanyLiabilityStatsAPIView(APIView):
+    permission_classes = [IsStaffUser]
+
+    def get(self, request):
+        total_investment = ManualFund.objects.filter(status='active').aggregate(
+            total_amount=Sum('amount'))['total_amount'] or Decimal(0)
+        total_liability = FundWithdrawal.objects.filter(status='active', is_paid=False).aggregate(
+            total_withdrawal_amount=Sum('withdrawal_amount'))['total_withdrawal_amount'] or Decimal(0)
+        result = {
+            'total_investment': total_investment,
+            'total_withdraw_pending': total_liability
+        }
+        return Response(result, status=status.HTTP_200_OK)
+
+
+class WithDrawRequest(ListAPIView):
+    permission_classes = [IsStaffUser]
+    serializer_class = ListWithDrawRequest
+    queryset = FundWithdrawal.objects.filter(status='active').order_by('-id')
+
+
+class UserWithWorkingIDListView(ListAPIView):
+    permission_classes = [IsStaffUser]
+    queryset = MLMTree.objects.prefetch_related('child', 'parent').all()
+    serializer_class = UserWithWorkingIDSerializer

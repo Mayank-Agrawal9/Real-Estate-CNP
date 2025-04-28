@@ -1,11 +1,13 @@
+from decimal import Decimal
+
 from django.contrib.auth.models import User
-from django.db.models import Q
+from django.db.models import Q, Sum
 from rest_framework import serializers, exceptions
 
 from accounts.models import Profile, BankDetails, UserPersonalDocument
-from agency.models import Investment, SuperAgency, Agency, FieldAgent
+from agency.models import Investment, SuperAgency, Agency, FieldAgent, FundWithdrawal
 from master.models import City, State
-from p2pmb.models import Package
+from p2pmb.models import Package, MLMTree
 from property.models import Property
 from property.serializers import GetMediaDataSerializer, GetNearbyFacilitySerializer, GetPropertyFeatureSerializer
 from web_admin.models import ManualFund, ContactUsEnquiry, PropertyInterestEnquiry, FunctionalityAccessPermissions, \
@@ -317,3 +319,81 @@ class UserPermissionProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Profile
         fields = ('id', 'permission', 'city', 'user', 'date_of_birth', 'gender', 'mobile_number')
+
+
+class ListWithDrawRequest(serializers.ModelSerializer):
+    user = serializers.SerializerMethodField()
+
+    def get_user(self, obj):
+        return {'id': obj.user.id, 'name': obj.user.get_full_name(), 'email': obj.user.email, 'username': obj.user.username}
+
+    class Meta:
+        model = FundWithdrawal
+        fields = ('id', 'user', 'withdrawal_amount', 'withdrawal_date', 'is_paid', 'date_created')
+
+
+class UserWithWorkingIDSerializer(serializers.ModelSerializer):
+    parent = serializers.SerializerMethodField()
+    child = serializers.SerializerMethodField()
+    is_working_id = serializers.SerializerMethodField()
+
+    class Meta:
+        model = MLMTree
+        fields = ['id', 'parent', 'child', 'is_working_id']
+
+    def get_parent(self, obj):
+        if not obj.parent:
+            return None
+        return {
+            'id': obj.parent.id,
+            'name': obj.parent.get_full_name(),
+            'username': obj.parent.username
+        }
+
+    def get_child(self, obj):
+        if not obj.child:
+            return None
+        return {
+            'id': obj.child.id,
+            'name': obj.child.get_full_name(),
+            'username': obj.child.username
+        }
+
+    def get_is_working_id(self, obj):
+        user = obj.child
+        if not user:
+            return False
+
+        # Cache investments and referrals if not already cached
+        if not hasattr(self, '_investment_map'):
+            self._load_investment_and_referral_data()
+
+        user_investment = self._investment_map.get(user.id, Decimal('0'))
+
+        if user_investment == 0:
+            return False
+
+        # Get all direct referrals of the user
+        referrals = self._referral_map.get(user.id, [])
+
+        eligible_referrals = [
+            referral_id
+            for referral_id in referrals
+            if self._investment_map.get(referral_id, Decimal('0')) >= user_investment
+        ]
+
+        return len(eligible_referrals) >= 2
+
+    def _load_investment_and_referral_data(self):
+        investments = Investment.objects.filter(
+            investment_type='p2pmb',
+            is_approved=True
+        ).values('user_id').annotate(total_amount=Sum('amount'))
+
+        self._investment_map = {item['user_id']: item['total_amount'] for item in investments}
+        referrals = MLMTree.objects.values_list('referral_by_id', 'child_id')
+        self._referral_map = {}
+        for referral_by_id, child_id in referrals:
+            if referral_by_id not in self._referral_map:
+                self._referral_map[referral_by_id] = []
+            self._referral_map[referral_by_id].append(child_id)
