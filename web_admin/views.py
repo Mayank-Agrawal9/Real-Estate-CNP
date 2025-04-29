@@ -1012,10 +1012,92 @@ class CompanyLiabilityStatsAPIView(APIView):
 class WithDrawRequest(ListAPIView):
     permission_classes = [IsStaffUser]
     serializer_class = ListWithDrawRequest
-    queryset = FundWithdrawal.objects.filter(status='active').order_by('-id')
+
+    def get_queryset(self):
+        queryset = FundWithdrawal.objects.filter(status='active').order_by('-id')
+        user_id = self.request.query_params.get('user')
+        if user_id:
+            queryset = queryset.filter(user__id=user_id)
+        return queryset
 
 
 class UserWithWorkingIDListView(ListAPIView):
     permission_classes = [IsStaffUser]
-    queryset = MLMTree.objects.prefetch_related('child', 'parent').all()
     serializer_class = UserWithWorkingIDSerializer
+
+    def get_queryset(self):
+        queryset = MLMTree.objects.select_related('child', 'parent').all()
+        is_working_id = self.request.query_params.get('is_working_id')
+        search = self.request.query_params.get('search', '').strip().lower()
+
+        if search:
+            queryset = queryset.filter(
+                Q(child__first_name__icontains=search) |
+                Q(child__last_name__icontains=search) |
+                Q(child__username__icontains=search) |
+                Q(parent__first_name__icontains=search) |
+                Q(parent__last_name__icontains=search) |
+                Q(parent__username__icontains=search)
+            )
+
+        if is_working_id in ['true', 'True', '1', 'false', 'False', '0']:
+            working_ids = self._get_working_ids()
+            if is_working_id.lower() in ['true', '1']:
+                queryset = queryset.filter(child_id__in=working_ids)
+            else:
+                queryset = queryset.exclude(child_id__in=working_ids)
+
+        return queryset
+
+    def _get_working_ids(self):
+        investments = Investment.objects.filter(
+            investment_type='p2pmb',
+            is_approved=True
+        ).values('user_id').annotate(total_amount=Sum('amount'))
+
+        investment_map = {item['user_id']: item['total_amount'] for item in investments}
+
+        referrals = MLMTree.objects.values_list('referral_by_id', 'child_id')
+        referral_map = {}
+        for referral_by_id, child_id in referrals:
+            referral_map.setdefault(referral_by_id, []).append(child_id)
+
+        working_ids = set()
+        for user_id, user_investment in investment_map.items():
+            if user_investment == 0:
+                continue
+            referral_ids = referral_map.get(user_id, [])
+            eligible_referrals = [
+                rid for rid in referral_ids
+                if investment_map.get(rid, Decimal('0')) >= user_investment
+            ]
+            if len(eligible_referrals) >= 2:
+                working_ids.add(user_id)
+
+        return working_ids
+
+
+class WithdrawDashboard(APIView):
+    permission_classes = [IsStaffUser]
+
+    def get(self, request):
+        user_id = request.query_params.get('user')
+        manual_funds = ManualFund.objects.filter(status='active')
+        withdraw_request = FundWithdrawal.objects.filter(status='active')
+
+        if user_id:
+            manual_funds = manual_funds.filter(added_to=user_id)
+            withdraw_request = withdraw_request.filter(user=user_id)
+
+        total_investment = manual_funds.aggregate(total_amount=Sum('amount'))['total_amount'] or Decimal(0)
+        credit_withdraw = withdraw_request.filter(is_paid=True).aggregate(
+            total_amount=Sum('withdrawal_amount'))['total_amount'] or Decimal(0)
+        pending_withdraw = withdraw_request.filter(is_paid=False).aggregate(
+            total_amount=Sum('withdrawal_amount'))['total_amount'] or Decimal(0)
+
+        response = {
+            'total_investment': total_investment,
+            'credit_withdraw': credit_withdraw,
+            'pending_withdraw': pending_withdraw,
+        }
+        return Response(response, status=status.HTTP_200_OK)

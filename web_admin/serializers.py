@@ -335,11 +335,12 @@ class ListWithDrawRequest(serializers.ModelSerializer):
 class UserWithWorkingIDSerializer(serializers.ModelSerializer):
     parent = serializers.SerializerMethodField()
     child = serializers.SerializerMethodField()
+    referral_by = serializers.SerializerMethodField()
     is_working_id = serializers.SerializerMethodField()
 
     class Meta:
         model = MLMTree
-        fields = ['id', 'parent', 'child', 'is_working_id']
+        fields = ['id', 'parent', 'child', 'is_working_id', 'referral_by']
 
     def get_parent(self, obj):
         if not obj.parent:
@@ -359,12 +360,20 @@ class UserWithWorkingIDSerializer(serializers.ModelSerializer):
             'username': obj.child.username
         }
 
+    def get_referral_by(self, obj):
+        if not obj.referral_by:
+            return None
+        return {
+            'id': obj.referral_by.id,
+            'name': obj.referral_by.get_full_name(),
+            'username': obj.referral_by.username
+        }
+
     def get_is_working_id(self, obj):
         user = obj.child
         if not user:
             return False
 
-        # Cache investments and referrals if not already cached
         if not hasattr(self, '_investment_map'):
             self._load_investment_and_referral_data()
 
@@ -373,9 +382,7 @@ class UserWithWorkingIDSerializer(serializers.ModelSerializer):
         if user_investment == 0:
             return False
 
-        # Get all direct referrals of the user
         referrals = self._referral_map.get(user.id, [])
-
         eligible_referrals = [
             referral_id
             for referral_id in referrals
@@ -386,14 +393,11 @@ class UserWithWorkingIDSerializer(serializers.ModelSerializer):
 
     def _load_investment_and_referral_data(self):
         investments = Investment.objects.filter(
-            investment_type='p2pmb',
-            is_approved=True
+            investment_type='p2pmb', is_approved=True
         ).values('user_id').annotate(total_amount=Sum('amount'))
 
         self._investment_map = {item['user_id']: item['total_amount'] for item in investments}
         referrals = MLMTree.objects.values_list('referral_by_id', 'child_id')
         self._referral_map = {}
         for referral_by_id, child_id in referrals:
-            if referral_by_id not in self._referral_map:
-                self._referral_map[referral_by_id] = []
-            self._referral_map[referral_by_id].append(child_id)
+            self._referral_map.setdefault(referral_by_id, []).append(child_id)
