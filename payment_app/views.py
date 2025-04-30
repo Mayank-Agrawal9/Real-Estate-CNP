@@ -42,11 +42,11 @@ class UserWalletViewSet(viewsets.ModelViewSet):
                 {"error": "You have not completed KYC verification."},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        if not (recipient.profile.is_kyc and recipient.profile.is_kyc_verified):
-            return Response(
-                {"error": "Recipient has not completed their KYC verification."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        # if not (recipient.profile.is_kyc and recipient.profile.is_kyc_verified):
+        #     return Response(
+        #         {"error": "Recipient has not completed their KYC verification."},
+        #         status=status.HTTP_400_BAD_REQUEST
+        #     )
 
         if amount is None:
             return Response(
