@@ -5,7 +5,8 @@ from p2pmb.views import MLMTreeCreateView, MLMTreeView, PackageViewSet, LifeTime
     RoyaltyIncome, DistributeDirectIncome, DistributeLevelIncomeAPIView, CommissionViewSet, PackageBuyView, \
     GetUserDetailsView, GetParentLevelsView, MyApplying, MLMTreeViewV2, CommissionMessageAPIView, \
     SendMonthlyInterestIncome, GetParentLevelCountView, ExtraRewardViewSet, CoreIncomeEarnedViewSet, \
-    P2PMBRoyaltyMasterViewSet, RoyaltyEarnedViewSet, GetAllPayout, MonthlyDistributeDirectIncome
+    P2PMBRoyaltyMasterViewSet, RoyaltyEarnedViewSet, GetAllPayout, MonthlyDistributeDirectIncome, MyIdValueAPIView, \
+    GetTopUpInvestment
 
 router = DefaultRouter()
 router.register(r'package', PackageViewSet)
@@ -33,4 +34,6 @@ urlpatterns = [
     path('royalty-income/', RoyaltyIncome.as_view()),
     path('monthly-interest/', SendMonthlyInterestIncome.as_view()),
     path('get-payout/', GetAllPayout.as_view()),
+    path('my-top-up/', GetTopUpInvestment.as_view()),
+    path('my-id-value/', MyIdValueAPIView.as_view()),
 ]

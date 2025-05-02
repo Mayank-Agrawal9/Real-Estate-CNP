@@ -431,13 +431,16 @@ class RoyaltyClubDistribute:
         persons = MLMTree.objects.filter(status='active', is_working_id=False)
         for person in persons:
             direct_ids_count = MLMTree.objects.filter(referral_by=person.child, status='active').count()
-            team_count_level_one = MLMTree.objects.filter(parent=person.child, status='active').count()
-            team_count_level_two = MLMTree.objects.filter(
-                parent__in=MLMTree.objects.filter(parent=person.child).values_list('child', flat=True)).count()
-
-            if (direct_ids_count >= 10) or (team_count_level_one >= 5 and team_count_level_two >= 25):
+            if direct_ids_count >= 2:
                 person.is_working_id = True
                 person.save()
+            # team_count_level_one = MLMTree.objects.filter(parent=person.child, status='active').count()
+            # team_count_level_two = MLMTree.objects.filter(
+            #     parent__in=MLMTree.objects.filter(parent=person.child).values_list('child', flat=True)).count()
+            #
+            # if (direct_ids_count >= 10) or (team_count_level_one >= 5 and team_count_level_two >= 25):
+            #     person.is_working_id = True
+            #     person.save()
 
     @staticmethod
     def calculate_royalty(user):
@@ -517,7 +520,7 @@ class RoyaltyClubDistribute:
 
             final_eligible_users.append(user)
 
-        default_user = User.objects.filter(id=42).first()
+        default_user = User.objects.filter(id=33).first()
         if default_user and default_user not in final_eligible_users:
             final_eligible_users.append(default_user)
 

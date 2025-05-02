@@ -1,6 +1,8 @@
 import datetime
 from collections import deque
+from decimal import Decimal
 
+from django.db.models import Sum
 from django.utils.dateparse import parse_date
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import serializers, status, viewsets
@@ -10,7 +12,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from agency.models import Investment
+from agency.models import Investment, RewardEarned
 from p2pmb.calculation import (RoyaltyClubDistribute, DistributeDirectCommission, DistributeLevelIncome,
                                LifeTimeRewardIncome, ProcessMonthlyInterestP2PMB)
 from p2pmb.cron import distribute_level_income
@@ -520,3 +522,59 @@ class GetParentLevelCountView(APIView):
             "upper_count": upper_count,
             "lower_count": lower_count
         }, status=status.HTTP_200_OK)
+
+
+class GetTopUpInvestment(APIView):
+    '''
+    This API is used to get all the payout which we send to user.
+    '''
+    serializer_class = TransactionSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        get_investment = Investment.objects.filter(status='active', user=self.request.user, package__isnull=False,
+                                                   investment_type='p2pmb')
+        total_top_up = get_investment.count()
+        if total_top_up < 2:
+            return Response({'message': 'No top-up found. You need at least two active investments to view top-up '
+                                        'details.'}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            response = ShowInvestmentDetail(get_investment, many=True).data
+            return Response(response, status=status.HTTP_200_OK)
+
+
+class MyIdValueAPIView(APIView):
+    serializer_class = TransactionSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        get_investment = Investment.objects.filter(status='active', user=self.request.user, package__isnull=False,
+                                                   investment_type='p2pmb').last()
+        check_working_id = MLMTree.objects.filter(referral_by=self.request.user).count()
+        if check_working_id and check_working_id >= 2:
+            is_working_id = True
+            total_return_amount = (get_investment.amount or 0) * 4
+        else:
+            is_working_id = False
+            total_return_amount = (get_investment.amount or 0) * 2
+
+        total_income_earned = Commission.objects.filter(commission_to=request.user).aggregate(
+            total_amount=Sum('amount'))['total_amount'] or Decimal(0)
+
+        current_due_value = total_return_amount - total_income_earned
+        twenty_percentage_of_value = total_return_amount * Decimal(0.20)
+
+        if current_due_value > twenty_percentage_of_value:
+            is_low_balance = False
+        else:
+            is_low_balance = True
+
+        response = {
+            'investment_amount': get_investment.amount,
+            'is_working_id': is_working_id,
+            'total_return_amount': total_return_amount,
+            'total_income_earned': total_income_earned,
+            'current_due_values': current_due_value,
+            'is_low_balance': is_low_balance,
+        }
+        return Response(response, status=status.HTTP_200_OK)
