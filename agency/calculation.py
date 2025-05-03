@@ -243,10 +243,7 @@ def get_reward_based_on_turnover(turnover, role):
 def calculate_super_agency_rewards():
     """Calculate and return the rewards for each SuperAgency."""
     super_agencies = SuperAgency.objects.prefetch_related(
-        'profile',
-        'profile__user',
-        'agencies',
-        'agencies__field_agents'
+        'profile', 'profile__user', 'agencies', 'agencies__field_agents'
     ).filter(
         profile__is_kyc=True, profile__is_kyc_verified=True, profile__user__is_active=True,
         status='active', agencies__status='active',

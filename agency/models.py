@@ -37,6 +37,7 @@ class SuperAgency(ModelMixin):
 
 
 class Agency(ModelMixin):
+    # user = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True, related_name="user_company")
     company = models.ForeignKey(SuperAgency, on_delete=models.CASCADE, related_name="agencies")
     name = models.CharField(max_length=250)
     type = models.CharField(max_length=250, choices=COMPANY_TYPE, default='enterprise')

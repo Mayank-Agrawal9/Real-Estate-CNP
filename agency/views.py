@@ -10,6 +10,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.models import Profile
+from master.models import RewardMaster
 from p2pmb.calculation import DistributeDirectCommission
 from p2pmb.models import MLMTree
 from payment_app.models import UserWallet, Transaction
@@ -20,7 +21,8 @@ from .models import Investment, Commission, RefundPolicy, FundWithdrawal, SuperA
 from .serializers import (InvestmentSerializer, CommissionSerializer,
                           RefundPolicySerializer, FundWithdrawalSerializer, SuperAgencySerializer, AgencySerializer,
                           FieldAgentSerializer, PPDModelSerializer, RewardEarnedSerializer, CreateInvestmentSerializer,
-                          GetAllEarnedReward, InvestmentInterestSerializer)
+                          GetAllEarnedReward, InvestmentInterestSerializer, GetSuperAgencySerializer,
+                          GetFieldAgentSerializer, GetAgencySerializer, GetRewardSerializer)
 
 
 class SuperAgencyViewSet(viewsets.ModelViewSet):
@@ -378,3 +380,113 @@ class InvestmentInterestViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return InvestmentInterest.objects.active()
+
+
+class UserSuperAgencyAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        queryset = SuperAgency.objects.filter(profile__user=request.user).last()
+        if not queryset:
+            return Response({'error': "You don't have any super agency yet."}, status=status.HTTP_400_BAD_REQUEST)
+        serializer = GetSuperAgencySerializer(queryset, many=False).data
+        return Response(serializer, status=status.HTTP_200_OK)
+
+
+class UserAgencyAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        queryset = Agency.objects.filter(created_by=request.user).last()
+        if not queryset:
+            return Response({'error': "You don't have any agency yet."}, status=status.HTTP_400_BAD_REQUEST)
+        serializer = GetAgencySerializer(queryset, many=False).data
+        return Response(serializer, status=status.HTTP_200_OK)
+
+
+class UserFieldAgentAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        queryset = FieldAgent.objects.filter(profile__user=request.user).last()
+        if not queryset:
+            return Response({'error': "You are not field agent yet."}, status=status.HTTP_400_BAD_REQUEST)
+        serializer = GetFieldAgentSerializer(queryset, many=False).data
+        return Response(serializer, status=status.HTTP_200_OK)
+
+
+class UserSuperAgencyIncomeDetailAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        queryset = SuperAgency.objects.filter(profile__user=request.user).last()
+        if not queryset:
+            return Response({'error': "You don't have any super agency yet."}, status=status.HTTP_400_BAD_REQUEST)
+        serializer = GetSuperAgencySerializer(queryset, many=False).data
+        return Response(serializer, status=status.HTTP_200_OK)
+
+
+class UserAgencyIncomeDetailAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        queryset = Agency.objects.filter(user=request.user).last()
+        if not queryset:
+            return Response({'error': "You don't have any agency yet."}, status=status.HTTP_400_BAD_REQUEST)
+        serializer = GetAgencySerializer(queryset, many=False).data
+        return Response(serializer, status=status.HTTP_200_OK)
+
+
+class UserFieldAgentIncomeDetailAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        queryset = FieldAgent.objects.filter(profile__user=request.user).last()
+        if not queryset:
+            return Response({'error': "You are not field agent yet."}, status=status.HTTP_400_BAD_REQUEST)
+        serializer = GetFieldAgentSerializer(queryset, many=False).data
+        return Response(serializer, status=status.HTTP_200_OK)
+
+
+class EarnedRewardAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        applicable_for = (
+            request.query_params.get('applicable_for')
+        )
+
+        if not applicable_for or applicable_for not in ['super_agency', 'agency', 'field_agent']:
+            return Response(
+                {"detail": "One applicable_for query parameter is required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        queryset = RewardEarned.objects.filter(status='active', user=self.request.user,
+                                               reward__applicable_for=applicable_for).select_related('reward')
+        if not queryset:
+            return Response({'error': "You are not earned any reward yet."}, status=status.HTTP_400_BAD_REQUEST)
+        serializer = GetAllEarnedReward(queryset, many=True).data
+        return Response(serializer, status=status.HTTP_200_OK)
+
+
+class RemainingRewardAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        applicable_for = (
+            request.query_params.get('applicable_for')
+        )
+
+        if not applicable_for or applicable_for not in ['super_agency', 'agency', 'field_agent']:
+            return Response(
+                {"detail": "One applicable_for query parameter is required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        earned_reward = RewardEarned.objects.filter(status='active', user=self.request.user,
+                                                    reward__applicable_for=applicable_for).values_list(
+            'reward__id', flat=True)
+
+        remaining_rewards = RewardMaster.objects.filter(status='active', applicable_for=applicable_for
+                                                        ).exclude(id__in=earned_reward).order_by('turnover_threshold')
+        serializer = GetRewardSerializer(remaining_rewards, many=True).data
+        return Response(serializer, status=status.HTTP_200_OK)

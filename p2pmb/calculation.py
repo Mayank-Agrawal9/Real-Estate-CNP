@@ -157,7 +157,7 @@ class DistributeDirectCommission:
     @staticmethod
     def schedule_payment(sender, user, amount, months_ahead):
         today = datetime.date.today()
-        first_of_next_month = (today.replace(day=1) + relativedelta(months=1))
+        first_of_next_month = (today.replace(day=1) + relativedelta(months=2))
         scheduled_date = first_of_next_month + relativedelta(months=months_ahead - 1)
         ScheduledCommission.objects.create(
             created_by=user,

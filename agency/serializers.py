@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
-
+from accounts.models import Profile
+from master.models import RewardMaster
 from p2pmb.models import Package
 from payment_app.choices import PAYMENT_METHOD
 from payment_app.models import Transaction, UserWallet
@@ -208,3 +209,60 @@ class RefundPolicyInitiateSerializer(serializers.ModelSerializer):
         validated_data['refund_process_date'] = serializers.DateField().to_representation(serializers.DateField().to_internal_value('today'))
 
         return super().create(validated_data)
+
+
+class GetSuperAgencySerializer(serializers.ModelSerializer):
+    referral_by = serializers.SerializerMethodField()
+
+    def get_referral_by(self, obj):
+        profile = Profile.objects.filter(id=42).last()
+        if not profile:
+            return None
+        return {'name': profile.user.get_full_name(), 'code': profile.referral_code,
+                'state': profile.state.name if profile.state else None,
+                'city': profile.city.name if profile.city else None}
+
+    class Meta:
+        model = SuperAgency
+        fields = '__all__'
+
+
+class GetAgencySerializer(serializers.ModelSerializer):
+    company = serializers.SerializerMethodField()
+
+    def get_company(self, obj):
+        if not obj.company:
+            return None
+        return {'id': obj.company.id, 'name': obj.company.name,
+                'code': obj.company.profile.referral_code,
+                'address': obj.company.office_address,
+                'contact_no': obj.company.phone_number}
+
+    class Meta:
+        model = Agency
+        fields = '__all__'
+
+
+class GetFieldAgentSerializer(serializers.ModelSerializer):
+    agency = serializers.SerializerMethodField()
+
+    def get_agency(self, obj):
+        if not obj.agency:
+            return None
+
+        return {'id': obj.agency.id,
+                'name': obj.agency.name,
+                'code': obj.agency.created_by.profile.referral_code,
+                'address': obj.agency.office_address,
+                'contact_no': obj.agency.phone_number, 'email': obj.agency.email}
+
+    class Meta:
+        model = FieldAgent
+        fields = '__all__'
+
+
+class GetRewardSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = RewardMaster
+        fields = '__all__'
