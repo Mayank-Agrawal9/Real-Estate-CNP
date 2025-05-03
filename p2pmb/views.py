@@ -533,13 +533,21 @@ class GetTopUpInvestment(APIView):
 
     def get(self, request):
         get_investment = Investment.objects.filter(status='active', user=self.request.user, package__isnull=False,
-                                                   investment_type='p2pmb')
+                                                   investment_type='p2pmb', pay_method='main_wallet',
+                                                   is_approved=True).distinct()
         total_top_up = get_investment.count()
         if total_top_up < 2:
             return Response({'message': 'No top-up found. You need at least two active investments to view top-up '
                                         'details.'}, status=status.HTTP_400_BAD_REQUEST)
         else:
-            response = ShowInvestmentDetail(get_investment, many=True).data
+            get_top_up_detail = get_investment.last()
+            packages = get_top_up_detail.package.all()
+            total_package_amount = packages.aggregate(total=Sum('amount'))['total'] or 0
+            response = {
+                'total_top_up': total_top_up,
+                'top_up_amount': total_package_amount,
+                'top_up_at': get_top_up_detail.date_created
+            }
             return Response(response, status=status.HTTP_200_OK)
 
 

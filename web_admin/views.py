@@ -642,7 +642,7 @@ class ManualFundDistributionAPIView(APIView):
             commission_filter['date_created__year'] = year
 
         total_fund = Investment.objects.filter(**filters, investment_type='p2pmb', package__isnull=False,
-                                               is_approved=True, pay_method='main_wallet').aggregate(
+                                               is_approved=True, pay_method='main_wallet').distinct().aggregate(
             total_amount=Sum('amount'))['total_amount'] or Decimal(0)
 
         fund_initiated = CompanyInvestment.objects.filter(**investment_filter)
@@ -742,15 +742,15 @@ class ManualFundDistributionAgencyAPIView(APIView):
 
         if applicable_for == 'super_agency':
             total_fund = Investment.objects.filter(**filters, investment_type='super_agency', package__isnull=False,
-                                                   is_approved=True, pay_method='main_wallet').aggregate(
+                                                   is_approved=True, pay_method='main_wallet').distinct().aggregate(
                 total_amount=Sum('amount'))['total_amount'] or Decimal(0)
         elif applicable_for == 'agency':
             total_fund = Investment.objects.filter(**filters, investment_type='agency', package__isnull=False,
-                                                   is_approved=True, pay_method='main_wallet').aggregate(
+                                                   is_approved=True, pay_method='main_wallet').distinct().aggregate(
                 total_amount=Sum('amount'))['total_amount'] or Decimal(0)
         elif applicable_for == 'field_agent':
             total_fund = Investment.objects.filter(**filters, investment_type='field_agent', package__isnull=False,
-                                                   is_approved=True, pay_method='main_wallet').aggregate(
+                                                   is_approved=True, pay_method='main_wallet').distinct().aggregate(
                 total_amount=Sum('amount'))['total_amount'] or Decimal(0)
 
         fund_initiated = CompanyInvestment.objects.filter(**investment_filter)
