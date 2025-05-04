@@ -245,6 +245,7 @@ class GetAgencySerializer(serializers.ModelSerializer):
 
 class GetFieldAgentSerializer(serializers.ModelSerializer):
     agency = serializers.SerializerMethodField()
+    profile = serializers.SerializerMethodField()
 
     def get_agency(self, obj):
         if not obj.agency:
@@ -255,6 +256,15 @@ class GetFieldAgentSerializer(serializers.ModelSerializer):
                 'code': obj.agency.created_by.profile.referral_code,
                 'address': obj.agency.office_address,
                 'contact_no': obj.agency.phone_number, 'email': obj.agency.email}
+
+    def get_profile(self, obj):
+        if not obj.profile:
+            return None
+        return {
+            'name': obj.profile.user.get_full_name(),
+            'state': obj.profile.state.name if obj.profile.state else None,
+            'city': obj.profile.city.name if obj.profile.city else None,
+        }
 
     class Meta:
         model = FieldAgent
