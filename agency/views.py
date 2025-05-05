@@ -505,7 +505,7 @@ class IncomeDetailsAPIView(APIView):
                 {"detail": "One applicable_for query parameter is required."},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        get_income_details = Commission.objects.filter(commission_to=1, applicable_for=applicable_for,
+        get_income_details = Commission.objects.filter(commission_to=self.request.user, applicable_for=applicable_for,
                                                        is_paid=True)
         serializer = IncomeCommissionSerializer(get_income_details, many=True).data
         return Response(serializer, status=status.HTTP_200_OK)
