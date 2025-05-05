@@ -22,7 +22,7 @@ from .serializers import (InvestmentSerializer, CommissionSerializer,
                           RefundPolicySerializer, FundWithdrawalSerializer, SuperAgencySerializer, AgencySerializer,
                           FieldAgentSerializer, PPDModelSerializer, RewardEarnedSerializer, CreateInvestmentSerializer,
                           GetAllEarnedReward, InvestmentInterestSerializer, GetSuperAgencySerializer,
-                          GetFieldAgentSerializer, GetAgencySerializer, GetRewardSerializer)
+                          GetFieldAgentSerializer, GetAgencySerializer, GetRewardSerializer, IncomeCommissionSerializer)
 
 
 class SuperAgencyViewSet(viewsets.ModelViewSet):
@@ -489,4 +489,23 @@ class RemainingRewardAPIView(APIView):
         remaining_rewards = RewardMaster.objects.filter(status='active', applicable_for=applicable_for
                                                         ).exclude(id__in=earned_reward).order_by('turnover_threshold')
         serializer = GetRewardSerializer(remaining_rewards, many=True).data
+        return Response(serializer, status=status.HTTP_200_OK)
+
+
+class IncomeDetailsAPIView(APIView):
+    # permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        applicable_for = (
+            request.query_params.get('applicable_for')
+        )
+
+        if not applicable_for or applicable_for not in ['super_agency', 'agency', 'field_agent']:
+            return Response(
+                {"detail": "One applicable_for query parameter is required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        get_income_details = Commission.objects.filter(commission_to=1, applicable_for=applicable_for,
+                                                       is_paid=True)
+        serializer = IncomeCommissionSerializer(get_income_details, many=True).data
         return Response(serializer, status=status.HTTP_200_OK)

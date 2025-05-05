@@ -104,14 +104,37 @@ class InvestmentInterest(ModelMixin):
 
 
 class Commission(ModelMixin):
+    COMMISSION_TYPE_CHOICES = [
+        ('direct', 'Direct Income'),
+        ('level', 'Level Income'),
+        ('reward', 'Reward Income'),
+        ('royalty', 'Royalty Company Turnover'),
+        ('rent', 'Rent'),
+        ('revenue_by_agency', 'Revenue By Agency'),
+        ('revenue_by_field_agent', 'Revenue By Field Agent'),
+        ('turnover_commission', 'Turnover Commission'),
+        ('sale_commission', 'Sale Commission'),
+        ('ppd_interest', 'PPD Interest'),
+    ]
+    APPLICABLE_FOR_CHOICES = [
+        ('super_agency', 'Super Agency'),
+        ('agency', 'Agency'),
+        ('field_agent', 'field_agent')
+    ]
     commission_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='commission_by')
     commission_to = models.ForeignKey(User, on_delete=models.CASCADE, related_name='commission_to')
     commission_amount = models.DecimalField(max_digits=15, decimal_places=2)
-    commission_type = models.CharField(max_length=255)
+    commission_type = models.CharField(max_length=30, choices=COMMISSION_TYPE_CHOICES)
+    description = models.TextField(blank=True, null=True)
+    applicable_for = models.CharField(max_length=15, choices=APPLICABLE_FOR_CHOICES, default='super_agency')
     is_paid = models.BooleanField(default=False)
 
     def __str__(self):
-        return f"Commission for {self.user.username} - {self.commission_amount}"
+        return f"Commission for {self.commission_to.username} - {self.commission_amount}"
+
+    class Meta:
+        verbose_name = "Agency Commission"
+        verbose_name_plural = "Agency Commission"
 
 
 class RefundPolicy(ModelMixin):

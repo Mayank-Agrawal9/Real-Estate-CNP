@@ -276,3 +276,20 @@ class GetRewardSerializer(serializers.ModelSerializer):
     class Meta:
         model = RewardMaster
         fields = '__all__'
+
+
+class IncomeCommissionSerializer(serializers.ModelSerializer):
+    commission_by = serializers.SerializerMethodField()
+
+    def get_commission_by(self, obj):
+        if not obj.commission_by:
+            return None
+        return {
+            'id': obj.commission_by.id,
+            'name': obj.commission_by.get_full_name(),
+            'username': obj.commission_by.username
+        }
+
+    class Meta:
+        model = Commission
+        fields = '__all__'
