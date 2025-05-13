@@ -1,14 +1,17 @@
+import datetime
 import random
 import string
 from io import BytesIO
 
 import qrcode
 from django.core.files.base import ContentFile
+from django.core.mail import send_mail
 from rest_framework.exceptions import ValidationError
 
-from accounts.models import Profile, BankDetails, UserPersonalDocument
+from accounts.models import Profile, BankDetails, UserPersonalDocument, OTP
 from agency.models import SuperAgency, Agency, FieldAgent
 from p2pmb.models import MLMTree
+from real_estate import settings
 
 
 def generate_unique_referral_code():
@@ -260,3 +263,17 @@ def update_user_documents(user, documents):
             attachment=doc["attachment"],
             defaults={"type": doc["type"]},
         )
+
+
+def generate_otp_and_send_email(email, user, type):
+    otp_code = str(random.randint(100000, 999999))
+    valid_until = datetime.datetime.now() + datetime.timedelta(minutes=10)
+    OTP.objects.create(otp=otp_code, valid_until=valid_until, type=type, created_by=user)
+    send_mail(
+        "Your OTP Code",
+        f"Your OTP code is {otp_code}. It is valid for 10 minutes.",
+        settings.DEFAULT_FROM_EMAIL,
+        [user.email],
+        fail_silently=False,
+    )
+    return otp_code

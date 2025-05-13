@@ -7,6 +7,7 @@ import requests
 from django.contrib.auth.models import User
 from django.core.mail import send_mail
 from django.db import transaction
+from django.db.models import Q
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status, viewsets, parsers
 from rest_framework.authtoken.models import Token
@@ -14,17 +15,19 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.filters import SearchFilter
 from rest_framework.parsers import MultiPartParser, FormParser
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.helpers import generate_unique_referral_code, update_super_agency_profile, generate_qr_code_with_email, \
-    update_agency_profile, update_field_agent_profile, update_p2pmb_profile, generate_unique_image_code
+    update_agency_profile, update_field_agent_profile, update_p2pmb_profile, generate_unique_image_code, \
+    generate_otp_and_send_email
 from accounts.models import OTP, Profile, BankDetails, UserPersonalDocument, SoftwarePolicy, FAQ, ChangeRequest
-from accounts.serializers import RequestOTPSerializer, VerifyOTPSerializer, ResendOTPSerializer, ProfileSerializer, \
-    SuperAgencyKycSerializer, BasicDetailsSerializer, CompanyDetailsSerializer, BankDetailsSerializer, \
-    DocumentSerializer, FAQSerializer, ChangeRequestSerializer, CreateBasicDetailsSerializer, \
-    UserPersonalDocumentSerializer, UpdateUserProfileSerializer, BankDetailsSerializerV2
+from accounts.serializers import (RequestOTPSerializer, VerifyOTPSerializer, ResendOTPSerializer, ProfileSerializer,
+                                  SuperAgencyKycSerializer, BasicDetailsSerializer, CompanyDetailsSerializer,
+                                  BankDetailsSerializer, FAQSerializer,
+                                  ChangeRequestSerializer, UserPersonalDocumentSerializer, UpdateUserProfileSerializer,
+                                  BankDetailsSerializerV2, LoginSerializer, OTPSerializer)
 from agency.models import SuperAgency, FieldAgent, Agency, Investment
 from p2pmb.models import MLMTree
 from payment_app.models import UserWallet, Transaction
@@ -55,6 +58,133 @@ class RequestOTPView(APIView):
             )
             return Response({"message": "OTP sent to your email.", "otp": otp_code}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class LoginAPIView(APIView):
+    def post(self, request, *args, **kwargs):
+        serializer = LoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        token, _ = Token.objects.get_or_create(user=serializer.validated_data['user'])
+        profile = serializer.validated_data['user'].profile
+        if not profile:
+            return Response({'message': 'User Does Not have profile, Please connect to support team'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        # push_data = DeviceInfo.objects.filter(created_by=serializer.validated_data['user']).last()
+        # if push_data:
+        #     push_data.device_uid = self.request.data['device_uid']
+        #     push_data.device_model_name = self.request.data['device_model_name']
+        #     push_data.device_os = self.request.data['device_os']
+        #     push_data.device_version = self.request.data['device_version']
+        #     push_data.device_token = self.request.data['device_token']
+        #     push_data.updated_by = serializer.validated_data['user']
+        #     push_data.save()
+        # else:
+        #     DeviceInfo.objects.create(created_by=serializer.validated_data['user'],
+        #                               device_uid=self.request.data['device_uid'],
+        #                               device_model_name=self.request.data['device_model_name'],
+        #                               device_os=self.request.data['device_os'],
+        #                               device_version=self.request.data['device_version'],
+        #                               device_token=self.request.data['device_token'])
+        res = {
+            "message": "Login successful.",
+            'key': token.key,
+            'basic': {
+                'name': profile.full_name,
+                'email': profile.user.email,
+                'profile_id': profile.id,
+                'user_id': profile.user.id,
+                'picture': profile.picture.url if profile and profile.picture else None,
+                "role": profile.role,
+                "referral_code": profile.referral_code,
+                "qr_code_url": profile.qr_code.url if profile.qr_code else None
+            }
+        }
+        return Response(res)
+
+
+class VerifyOptAPI(APIView):
+    '''This API is used to verify OPT'''
+    permission_classes = (AllowAny,)
+
+    def put(self, request):
+        username = request.data.get('username')
+        otp_value = int(request.data.get('otp'))
+        otp_type = request.data.get('type')
+
+        if not username or not otp_value or not otp_type:
+            return Response({'message': 'Incomplete request data.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = User.objects.filter(Q(username=username) | Q(email=username), is_active=True).last()
+
+        if not user:
+            return Response({'message': 'There is no user registered with this username.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        query_otp = OTP.objects.filter(created_by=user, type=otp_type).last()
+        if not query_otp:
+            return Response({'message': 'Please send OTP first.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if otp_value != query_otp.otp:
+            return Response({'message': 'The OTP you entered is not valid.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        query_data = {'is_verify': 'true'}
+        query_update = OTPSerializer(query_otp, data=query_data, partial=True)
+        if query_update.is_valid():
+            query_update.save()
+            return Response({'message': 'You have successfully verified the OTP.'}, status=status.HTTP_200_OK)
+        return Response({'message': query_update.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class OptResendAPIView(APIView):
+    """This API is used to resend the OPT once user is registered."""
+    permission_classes = (AllowAny,)
+
+    def post(self, request):
+        if not request.data or 'username' not in request.data:
+            return Response({'status': False, 'message': 'Need to pass username.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        user = User.objects.filter(Q(username=request.data['username']) | Q(email=request.data['username'])).last()
+        if not user:
+            return Response({'status': False, 'message': 'There is no user register with this email.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        if not user.email:
+            return Response({'status': False, 'message': 'This user has not having email, '
+                                                         'First update email for receiving OTP.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        if request.data.get('type'):
+            generate_otp_and_send_email(email=user.email, user=user, type=request.data.get('type'))
+        else:
+            generate_otp_and_send_email(email=user.email, user=user, type="register")
+        return Response({'status': True, 'message': 'We send mail, Please verify once.'},
+                        status=status.HTTP_200_OK)
+
+
+class ForgotPasswordChangeAPI(APIView):
+    '''When user is register then it will be able to change the password.'''
+    permission_classes = (AllowAny,)
+
+    def post(self, request):
+        username = request.data.get("username")
+        password = request.data.get("password")
+        confirm_password = request.data.get("confirm_password")
+        type = request.data.get("type")
+        if not password and confirm_password and username:
+            return Response({'error': 'Password and confirm password and username should be mandatory.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        if password != confirm_password:
+            return Response({'error': 'Invalid Password! Password does not match.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        user = User.objects.filter(Q(username=username) | Q(email=username)).last()
+        if not user:
+            return Response({'status': False, 'message': 'There is no user register with this email.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        verify_otp = OTP.objects.filter(created_by=user, verify='true', type=type).last()
+        if not verify_otp:
+            return Response({'status': False, 'message': 'First You need to verify OTP.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        user.set_password(password)
+        user.save()
+        return Response({'status': True, 'message': 'Password changed successfully! '}, status=status.HTTP_200_OK)
 
 
 class VerifyOTPView(APIView):

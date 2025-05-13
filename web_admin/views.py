@@ -26,7 +26,7 @@ from web_admin.serializers import ProfileSerializer, InvestmentSerializer, Manua
     UserDocumentSerializer, SuperAgencyCompanyDetailSerializer, AgencyCompanyDetailSerializer, \
     FieldAgentCompanyDetailSerializer, PropertyInterestEnquirySerializer, ContactUsEnquirySerializer, \
     GetPropertySerializer, PropertyDetailSerializer, UserCreateSerializer, LoginSerializer, \
-    UserPermissionProfileSerializer, ListWithDrawRequest, UserWithWorkingIDSerializer
+    UserPermissionProfileSerializer, ListWithDrawRequest, UserWithWorkingIDSerializer, GetAllCommissionSerializer
 from agency.models import Investment, FundWithdrawal, SuperAgency, Agency, FieldAgent
 from payment_app.models import UserWallet, Transaction
 from web_admin.choices import main_dashboard
@@ -464,7 +464,7 @@ class RejectKYCStatusAPIView(APIView):
     permission_classes = [IsStaffUser]
 
     def post(self, request):
-        user_id = request.query_params.get('user_id')
+        user_id = request.data.get('user_id')
         remarks = request.data.get('remarks', None)
 
         if not user_id:
@@ -922,7 +922,7 @@ class UserWiseFundDistributionAPIView(APIView):
     permission_classes = [IsStaffUser]
 
     def get(self, request, id):
-        user_account = MLMTree.objects.filter(status='active', child__id=id).last()
+        user_account = MLMTree.objects.filter(status='active', child__id=id, is_show=True).last()
         if not user_account:
             return Response({'message': 'User not enrolled in P2PMB Model.'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -1026,8 +1026,9 @@ class UserWithWorkingIDListView(ListAPIView):
     serializer_class = UserWithWorkingIDSerializer
 
     def get_queryset(self):
-        queryset = MLMTree.objects.select_related('child', 'parent').all()
+        queryset = MLMTree.objects.filter(is_show=True).select_related('child', 'parent').all()
         is_working_id = self.request.query_params.get('is_working_id')
+        sort_order = self.request.query_params.get('sort', 'desc')
         search = self.request.query_params.get('search', '').strip().lower()
 
         if search:
@@ -1047,17 +1048,20 @@ class UserWithWorkingIDListView(ListAPIView):
             else:
                 queryset = queryset.exclude(child_id__in=working_ids)
 
+        if sort_order == 'asc':
+            queryset = queryset.order_by('id')
+        else:
+            queryset = queryset.order_by('-id')
         return queryset
 
     def _get_working_ids(self):
-        investments = Investment.objects.filter(
-            investment_type='p2pmb',
-            is_approved=True
+        investments = Investment.objects.filter(status='active', investment_type='p2pmb', is_approved=True,
+                                                package__isnull=False, pay_method='main_wallet'
         ).values('user_id').annotate(total_amount=Sum('amount'))
 
         investment_map = {item['user_id']: item['total_amount'] for item in investments}
 
-        referrals = MLMTree.objects.values_list('referral_by_id', 'child_id')
+        referrals = MLMTree.objects.filter(is_show=True).values_list('referral_by_id', 'child_id')
         referral_map = {}
         for referral_by_id, child_id in referrals:
             referral_map.setdefault(referral_by_id, []).append(child_id)
@@ -1082,8 +1086,8 @@ class WithdrawDashboard(APIView):
 
     def get(self, request):
         user_id = request.query_params.get('user')
-        manual_funds = ManualFund.objects.filter(status='active')
-        withdraw_request = FundWithdrawal.objects.filter(status='active')
+        manual_funds = ManualFund.objects.filter(status='active').order_by('-id')
+        withdraw_request = FundWithdrawal.objects.filter(status='active').order_by('-id')
 
         if user_id:
             manual_funds = manual_funds.filter(added_to=user_id)
@@ -1101,3 +1105,55 @@ class WithdrawDashboard(APIView):
             'pending_withdraw': pending_withdraw,
         }
         return Response(response, status=status.HTTP_200_OK)
+
+
+class WithdrawDashboardV2(APIView):
+    permission_classes = [IsStaffUser]
+
+    def get(self, request):
+        user_id = request.query_params.get('user_id')
+        is_working = request.query_params.get('working', None)
+
+        if not user_id:
+            return Response({'message': 'User ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        get_investment = Investment.objects.filter(status='active', package__isnull=False, investment_type='p2pmb',
+                                                   user=user_id).last()
+        if is_working:
+            is_working_id = True
+            total_return_amount = (get_investment.amount or 0) * 4
+        else:
+            is_working_id = False
+            total_return_amount = (get_investment.amount or 0) * 2
+
+        total_income_earned = Commission.objects.filter(commission_to=user_id).aggregate(
+            total_amount=Sum('amount'))['total_amount'] or Decimal(0)
+
+        current_due_value = total_return_amount - total_income_earned
+        twenty_percentage_of_value = total_return_amount * Decimal(0.20)
+
+        if current_due_value > twenty_percentage_of_value:
+            is_low_balance = False
+        else:
+            is_low_balance = True
+
+        response = {
+            'investment_amount': get_investment.amount,
+            'is_working_id': is_working_id,
+            'total_return_amount': total_return_amount,
+            'total_income_earned': total_income_earned,
+            'current_due_values': current_due_value,
+            'is_low_balance': is_low_balance,
+        }
+        return Response(response, status=status.HTTP_200_OK)
+
+
+class CommissionListView(ListAPIView):
+    serializer_class = GetAllCommissionSerializer
+    permission_classes = [IsStaffUser]
+
+    def get_queryset(self):
+        user_id = self.request.query_params.get('user_id')
+        if not user_id:
+            return Commission.objects.none()
+        return Commission.objects.filter(status='active', commission_to=user_id)

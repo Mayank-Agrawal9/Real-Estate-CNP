@@ -35,5 +35,7 @@ urlpatterns = [
     path('company-liability', CompanyLiabilityStatsAPIView.as_view(), name='company-liability'),
     path('withdraw-request', WithDrawRequest.as_view(), name='withdraw-request'),
     path('withdraw-dashboard', WithdrawDashboard.as_view(), name='withdraw-dashboard'),
+    path('withdraw-dashboard-v2', WithdrawDashboardV2.as_view(), name='withdraw-dashboard-v2'),
+    path('commission-list', CommissionListView.as_view(), name='commission-list'),
     path('working-id', UserWithWorkingIDListView.as_view(), name='working-id'),
 ]

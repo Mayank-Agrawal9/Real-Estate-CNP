@@ -4,7 +4,7 @@ from django.contrib.auth.models import User
 from django.db import models
 from django_ckeditor_5.fields import CKEditor5Field
 
-from accounts.choices import GENDER_CHOICE, USER_ROLE, DOCUMENT_TYPE, COMPANY_TYPE
+from accounts.choices import GENDER_CHOICE, USER_ROLE, DOCUMENT_TYPE, COMPANY_TYPE, OTP_TYPE
 from master.models import State, City
 from real_estate.model_mixin import ModelMixin
 
@@ -17,6 +17,8 @@ class OTP(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     valid_until = models.DateTimeField()
     last_resend = models.DateTimeField(null=True, blank=True)
+    type = models.CharField(max_length=20, choices=OTP_TYPE, default='register', null=True, blank=True)
+    is_verify = models.BooleanField(default=False)
 
     def is_valid(self):
         return datetime.datetime.now() < self.valid_until

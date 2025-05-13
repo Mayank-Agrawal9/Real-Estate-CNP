@@ -7,7 +7,7 @@ from rest_framework import serializers, exceptions
 from accounts.models import Profile, BankDetails, UserPersonalDocument
 from agency.models import Investment, SuperAgency, Agency, FieldAgent, FundWithdrawal
 from master.models import City, State
-from p2pmb.models import Package, MLMTree
+from p2pmb.models import Package, MLMTree, Commission
 from property.models import Property
 from property.serializers import GetMediaDataSerializer, GetNearbyFacilitySerializer, GetPropertyFeatureSerializer
 from web_admin.models import ManualFund, ContactUsEnquiry, PropertyInterestEnquiry, FunctionalityAccessPermissions, \
@@ -401,3 +401,21 @@ class UserWithWorkingIDSerializer(serializers.ModelSerializer):
         self._referral_map = {}
         for referral_by_id, child_id in referrals:
             self._referral_map.setdefault(referral_by_id, []).append(child_id)
+
+
+class GetAllCommissionSerializer(serializers.ModelSerializer):
+    commission_by = serializers.SerializerMethodField()
+
+    def get_commission_by(self, obj):
+        if not obj.commission_by:
+            return None
+        return {
+            'first_name': obj.commission_by.first_name,
+            'last_name': obj.commission_by.last_name,
+            'email': obj.commission_by.email,
+            'username': obj.commission_by.username
+        }
+
+    class Meta:
+        model = Commission
+        fields = '__all__'

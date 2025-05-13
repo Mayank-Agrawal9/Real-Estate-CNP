@@ -459,8 +459,7 @@ class GetAllPayout(ListAPIView):
     def get_queryset(self):
         user = self.request.user
         queryset = Transaction.objects.filter(
-            receiver=user,
-            transaction_type__in=('reward', 'commission', 'rent', 'interest')
+            receiver=user, transaction_type__in=('reward', 'commission', 'rent', 'interest')
         ).order_by('-created_at')
 
         start_date = self.request.query_params.get('start_date')

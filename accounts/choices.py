@@ -4,6 +4,14 @@ STATUS_CHOICES = (
     ('blocked', 'Blocked')
 )
 
+OTP_TYPE = (
+    ('register', 'Register'),
+    ('login', 'Login'),
+    ('forgot', 'Forgot'),
+    ('delete', 'Delete'),
+    ('resend', 'Resend'),
+)
+
 GENDER_CHOICE = (
     ('Male', 'Male'),
     ('Female', 'Female'),

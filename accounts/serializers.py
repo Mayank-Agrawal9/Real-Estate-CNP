@@ -2,14 +2,48 @@ import base64
 import uuid
 
 from django.core.files.base import ContentFile
-from rest_framework import serializers
+from django.db.models import Q
+from rest_framework import serializers, exceptions
 
-from accounts.models import Profile, FAQ, ChangeRequest, UserPersonalDocument, BankDetails
+from accounts.models import Profile, FAQ, ChangeRequest, UserPersonalDocument, BankDetails, OTP
 from master.models import City
+from real_estate.model_mixin import User
 
 
 class RequestOTPSerializer(serializers.Serializer):
     email = serializers.EmailField()
+
+
+class LoginSerializer(serializers.Serializer):
+    username = serializers.CharField(max_length=250, required=True)
+    password = serializers.CharField(required=True)
+
+    def validate(self, attrs):
+        username = attrs.get('username')
+        if not username:
+            raise exceptions.ValidationError({'username': ['This field is required and may not be null or blank.']})
+
+        user = User.objects.filter(Q(username__exact=username) | Q(email__exact=username), is_active=True).last()
+        if not user:
+            raise exceptions.ValidationError({'detail': 'No user registered with this credentials.'})
+
+        opt_verify = OTP.objects.filter(created_by=user, type='register', verify='true').last()
+        if not opt_verify:
+            raise exceptions.ValidationError({'detail': 'Please verify otp first.'})
+
+        password = attrs.get('password')
+        if not user.check_password(password):
+            raise exceptions.AuthenticationFailed({'detail': 'Incorrect password.'})
+
+        attrs['user'] = user
+        return attrs
+
+
+class OTPSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = OTP
+        fields = '__all__'
 
 
 class VerifyOTPSerializer(serializers.Serializer):
