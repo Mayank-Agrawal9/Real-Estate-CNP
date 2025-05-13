@@ -478,7 +478,7 @@ class RejectKYCStatusAPIView(APIView):
         UserPersonalDocument.objects.filter(created_by=user_id).update(status='inactive', approval_status='rejected')
         BankDetails.objects.filter(user=user_id).update(status='inactive')
         if remarks:
-            Profile.objects.filter(user=user_id).update(kyc_remarks=remarks)
+            Profile.objects.filter(user=user_id).update(remarks=remarks)
         return Response({'message': 'User KYC and status updated successfully'}, status=status.HTTP_200_OK)
 
 
