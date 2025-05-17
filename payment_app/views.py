@@ -176,7 +176,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
     search_fields = ['transaction_id', 'deposit_transaction_id']
 
     def get_queryset(self):
-        return Transaction.objects.filter(Q(sender=self.request.user) | Q(receiver=self.request.user),
+        return Transaction.objects.filter(Q(sender=self.request.user, transaction_status='transfer') | Q(receiver=self.request.user),
                                           status='active').order_by('-date_created')
 
     @action(detail=False, methods=['post'], url_path='add-money-to-wallet')
