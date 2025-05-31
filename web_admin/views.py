@@ -119,6 +119,7 @@ class StaffLoginAPIView(generics.CreateAPIView):
             'profile_id': profile.id,
             'user_id': user.id,
             'picture': profile.picture.url if profile.picture else None,
+            'admin_role': profile.admin_role if profile and profile.admin_role else None,
             'mobile_number': profile.mobile_number,
             'token': token.key,
             'permissions': permissions_data

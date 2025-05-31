@@ -4,7 +4,7 @@ from django.contrib.auth.models import User
 from django.db import models
 from django_ckeditor_5.fields import CKEditor5Field
 
-from accounts.choices import GENDER_CHOICE, USER_ROLE, DOCUMENT_TYPE, COMPANY_TYPE, OTP_TYPE
+from accounts.choices import GENDER_CHOICE, USER_ROLE, DOCUMENT_TYPE, COMPANY_TYPE, OTP_TYPE, ADMIN_ROLE
 from master.models import State, City
 from real_estate.model_mixin import ModelMixin
 
@@ -45,6 +45,7 @@ class Profile(ModelMixin):
     pan_remarks = models.TextField(max_length=250, null=True, blank=True)
     aadhar_number = models.CharField(max_length=12, null=True, blank=True)
     role = models.CharField(max_length=25, choices=USER_ROLE, null=True, blank=True, default='customer')
+    admin_role = models.CharField(max_length=25, choices=ADMIN_ROLE, null=True, blank=True)
     is_kyc = models.BooleanField(default=False)
     city = models.ForeignKey(City, on_delete=models.CASCADE, null=True, blank=True)
     state = models.ForeignKey(State, on_delete=models.CASCADE, null=True, blank=True)

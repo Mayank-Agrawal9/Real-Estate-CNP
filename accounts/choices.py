@@ -36,6 +36,13 @@ USER_ROLE = (
     ('p2pmb', 'Person to Person'),
 )
 
+ADMIN_ROLE = (
+    ('kyc', 'KYC'),
+    ('god', 'GOD'),
+    ('vendor_listing', 'Vendor Listing'),
+    ('accounting', 'Accounting')
+)
+
 DOCUMENT_TYPE = (
     ('pan_card', 'Pan Card'),
     ('aadhar_front', 'Aadhar Card Front'),
