@@ -485,7 +485,7 @@ class RoyaltyClubDistribute:
     @staticmethod
     def distribute_royalty():
         royalty = P2PMBRoyaltyMaster.objects.filter(
-            month__month=5, month__year=datetime.datetime.now().year,
+            month__month=datetime.datetime.now().month, month__year=datetime.datetime.now().year,
             is_distributed=False
         ).last()
 
