@@ -26,7 +26,8 @@ from web_admin.serializers import ProfileSerializer, InvestmentSerializer, Manua
     UserDocumentSerializer, SuperAgencyCompanyDetailSerializer, AgencyCompanyDetailSerializer, \
     FieldAgentCompanyDetailSerializer, PropertyInterestEnquirySerializer, ContactUsEnquirySerializer, \
     GetPropertySerializer, PropertyDetailSerializer, UserCreateSerializer, LoginSerializer, \
-    UserPermissionProfileSerializer, ListWithDrawRequest, UserWithWorkingIDSerializer, GetAllCommissionSerializer
+    UserPermissionProfileSerializer, ListWithDrawRequest, UserWithWorkingIDSerializer, GetAllCommissionSerializer, \
+    CompanyInvestmentSerializer
 from agency.models import Investment, FundWithdrawal, SuperAgency, Agency, FieldAgent
 from payment_app.models import UserWallet, Transaction
 from web_admin.choices import main_dashboard
@@ -517,6 +518,14 @@ class PropertyInterestEnquiryViewSet(viewsets.ModelViewSet):
         if self.action == 'create':
             return [AllowAny()]
         return [IsStaffUser()]
+
+
+class CompanyInvestmentViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsStaffUser]
+    queryset = CompanyInvestment.objects.all().order_by('-initiated_date')
+    serializer_class = CompanyInvestmentSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_fields = ['applicable_for', 'investment_type', 'initiated_date']
 
 
 class DashboardCountAPIView(APIView):

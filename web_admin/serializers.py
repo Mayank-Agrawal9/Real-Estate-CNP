@@ -11,7 +11,7 @@ from p2pmb.models import Package, MLMTree, Commission
 from property.models import Property
 from property.serializers import GetMediaDataSerializer, GetNearbyFacilitySerializer, GetPropertyFeatureSerializer
 from web_admin.models import ManualFund, ContactUsEnquiry, PropertyInterestEnquiry, FunctionalityAccessPermissions, \
-    UserFunctionalityAccessPermission
+    UserFunctionalityAccessPermission, CompanyInvestment
 
 
 class ProfileSerializer(serializers.ModelSerializer):
@@ -157,6 +157,12 @@ class ContactUsEnquirySerializer(serializers.ModelSerializer):
 class PropertyInterestEnquirySerializer(serializers.ModelSerializer):
     class Meta:
         model = PropertyInterestEnquiry
+        fields = '__all__'
+
+
+class CompanyInvestmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CompanyInvestment
         fields = '__all__'
 
 

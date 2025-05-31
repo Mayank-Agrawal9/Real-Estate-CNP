@@ -7,6 +7,7 @@ router = DefaultRouter()
 router.register(r'manual-fund', ManualFundViewSet)
 router.register(r'contact-enquiry', ContactUsEnquiryViewSet)
 router.register(r'property-enquiry', PropertyInterestEnquiryViewSet)
+router.register(r'company-investment', CompanyInvestmentViewSet)
 
 
 urlpatterns = [
