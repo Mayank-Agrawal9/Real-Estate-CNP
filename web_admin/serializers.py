@@ -106,7 +106,7 @@ class UserDocumentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = UserPersonalDocument
-        fields = ('attachment', 'type', 'date_created', 'id')
+        fields = ('attachment', 'type', 'date_created', 'id', 'approval_status', 'rejection_reason')
 
 
 class PackageSerializer(serializers.ModelSerializer):
@@ -335,7 +335,8 @@ class ListWithDrawRequest(serializers.ModelSerializer):
 
     class Meta:
         model = FundWithdrawal
-        fields = ('id', 'user', 'withdrawal_amount', 'withdrawal_date', 'is_paid', 'date_created')
+        fields = ('id', 'user', 'withdrawal_amount', 'withdrawal_date', 'is_paid', 'date_created',
+                  'withdrawal_status', 'rejection_reason')
 
 
 class UserWithWorkingIDSerializer(serializers.ModelSerializer):

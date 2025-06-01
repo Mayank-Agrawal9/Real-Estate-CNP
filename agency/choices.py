@@ -43,6 +43,12 @@ INVESTMENT_GUARANTEED_TYPE = [
     ('part_payment', 'Part Payment')
 ]
 
+FUND_WITHDRAW_TYPE = [
+    ('pending', 'Pending'),
+    ('approved', 'Approved'),
+    ('rejected', 'Rejected')
+]
+
 
 REWARD_CHOICES = [
     ('android_mobile', 'Android Mobile'),

@@ -12,7 +12,7 @@ from rest_framework.authtoken.models import Token
 from rest_framework.exceptions import ValidationError
 from rest_framework.filters import SearchFilter
 from rest_framework.generics import ListAPIView, GenericAPIView
-from rest_framework.pagination import PageNumberPagination
+from rest_framework.pagination import PageNumberPagination, LimitOffsetPagination
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -28,7 +28,7 @@ from web_admin.serializers import ProfileSerializer, InvestmentSerializer, Manua
     GetPropertySerializer, PropertyDetailSerializer, UserCreateSerializer, LoginSerializer, \
     UserPermissionProfileSerializer, ListWithDrawRequest, UserWithWorkingIDSerializer, GetAllCommissionSerializer, \
     CompanyInvestmentSerializer
-from agency.models import Investment, FundWithdrawal, SuperAgency, Agency, FieldAgent
+from agency.models import Investment, FundWithdrawal, SuperAgency, Agency, FieldAgent, InvestmentInterest
 from payment_app.models import UserWallet, Transaction
 from web_admin.choices import main_dashboard
 
@@ -393,7 +393,7 @@ class UserDocumentAPIView(ListAPIView):
     permission_classes = [IsStaffUser]
     serializer_class = UserDocumentSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter]
-    filterset_fields = ['created_by', ]
+    filterset_fields = ['created_by', 'approval_status']
 
     def get_queryset(self):
         user_id = self.request.query_params.get('user_id')
@@ -1031,6 +1031,30 @@ class WithDrawRequest(ListAPIView):
         return queryset
 
 
+class ApproveRejectWithDrawAPIView(APIView):
+    permission_classes = [IsStaffUser,]
+
+    def post(self, request, *args, **kwargs):
+        withdraw_id = request.data.get("id", None)
+        action = request.data.get("action")
+        rejection_reason = request.data.get("rejection_reason", "")
+
+        if not withdraw_id or action not in ["approved", "rejected"]:
+            return Response({"error": "Invalid input."}, status=status.HTTP_400_BAD_REQUEST)
+
+        withdraw = WithDrawRequest.objects.filter(id=withdraw_id)
+
+        if not withdraw:
+            return Response({"error": "Invalid withdraw Id."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if action == "approved":
+            withdraw.update(withdrawal_status="approved", rejection_reason=None)
+        elif action == "rejected":
+            withdraw.update(withdrawal_status="rejected", rejection_reason=rejection_reason)
+
+        return Response({"detail": f"Withdraw {action} successfully."})
+
+
 class UserWithWorkingIDListView(ListAPIView):
     permission_classes = [IsStaffUser]
     serializer_class = UserWithWorkingIDSerializer
@@ -1139,7 +1163,10 @@ class WithdrawDashboardV2(APIView):
         total_income_earned = Commission.objects.filter(commission_to=user_id).aggregate(
             total_amount=Sum('amount'))['total_amount'] or Decimal(0)
 
-        current_due_value = total_return_amount - total_income_earned
+        total_interest_earned = InvestmentInterest.objects.filter(investment__user=user_id).aggregate(
+            total_amount=Sum('investment__amount'))['total_amount'] or Decimal(0)
+
+        current_due_value = total_return_amount - total_income_earned - total_interest_earned
         twenty_percentage_of_value = total_return_amount * Decimal(0.20)
 
         if current_due_value > twenty_percentage_of_value:
@@ -1151,19 +1178,59 @@ class WithdrawDashboardV2(APIView):
             'investment_amount': get_investment.amount,
             'is_working_id': is_working_id,
             'total_return_amount': total_return_amount,
-            'total_income_earned': total_income_earned,
+            'total_income_earned': total_income_earned + total_interest_earned,
             'current_due_values': current_due_value,
             'is_low_balance': is_low_balance,
         }
         return Response(response, status=status.HTTP_200_OK)
 
 
-class CommissionListView(ListAPIView):
-    serializer_class = GetAllCommissionSerializer
+class CommissionListView(APIView):
     permission_classes = [IsStaffUser]
+    pagination_class = LimitOffsetPagination()
 
-    def get_queryset(self):
-        user_id = self.request.query_params.get('user_id')
-        if not user_id:
-            return Commission.objects.none()
-        return Commission.objects.filter(status='active', commission_to=user_id)
+    def get(self, request):
+        user_id = request.query_params.get('user_id')
+
+        commission_qs = Commission.objects.filter(status='active')
+        interest_qs = InvestmentInterest.objects.filter(status='active')
+
+        if user_id:
+            commission_qs = commission_qs.filter(commission_to=user_id)
+            interest_qs = interest_qs.filter(investment__user=user_id)
+
+        commission_data = [
+            {
+                "id": entry.id,
+                "user_id": entry.commission_to.id,
+                "name": entry.commission_to.get_full_name(),
+                "email": entry.commission_to.email,
+                "amount": entry.amount,
+                "status": entry.status,
+                "commission_type": entry.commission_type,
+                "description": entry.description,
+                "date_created": entry.date_created
+            }
+            for entry in commission_qs
+        ]
+
+        interest_data = [
+            {
+                "id": entry.id,
+                "user_id": entry.investment.user.id,
+                "name": entry.investment.user.get_full_name(),
+                "email": entry.investment.user.email,
+                "amount": entry.investment.amount,
+                "status": "active",
+                "commission_type": "interest",
+                "description": f"Interest Send On {entry.interest_send_date}",
+                "date_created": entry.date_created
+            }
+            for entry in interest_qs
+        ]
+
+        combined_data = commission_data + interest_data
+        combined_data.sort(key=lambda x: x['date_created'], reverse=True)
+        paginator = self.pagination_class
+        page = paginator.paginate_queryset(combined_data, request)
+        return paginator.get_paginated_response(page)

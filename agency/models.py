@@ -7,7 +7,7 @@ from django.db import models
 from accounts.choices import COMPANY_TYPE
 from accounts.models import Profile
 from agency.choices import REFUND_CHOICES, INVESTMENT_TYPE_CHOICES, REFUND_STATUS_CHOICES, INVESTMENT_GUARANTEED_TYPE, \
-    PAYMENT_CHOICES
+    PAYMENT_CHOICES, FUND_WITHDRAW_TYPE
 from master.models import RewardMaster, City
 from p2pmb.models import Package
 from payment_app.models import Transaction
@@ -198,6 +198,8 @@ class FundWithdrawal(ModelMixin):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='withdrawal_user')
     withdrawal_amount = models.DecimalField(max_digits=15, decimal_places=2)
     withdrawal_date = models.DateTimeField(auto_now_add=True)
+    withdrawal_status = models.CharField(max_length=30, choices=FUND_WITHDRAW_TYPE, default='pending')
+    rejection_reason = models.TextField(null=True, blank=True)
     is_paid = models.BooleanField(default=False)
 
     def __str__(self):
