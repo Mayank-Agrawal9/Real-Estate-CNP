@@ -1055,7 +1055,7 @@ class ApproveRejectWithDrawAPIView(APIView):
         if not withdraw_id or action not in ["approved", "rejected"]:
             return Response({"error": "Invalid input."}, status=status.HTTP_400_BAD_REQUEST)
 
-        withdraw = WithDrawRequest.objects.filter(id=withdraw_id)
+        withdraw = FundWithdrawal.objects.filter(id=withdraw_id)
 
         if not withdraw:
             return Response({"error": "Invalid withdraw Id."}, status=status.HTTP_400_BAD_REQUEST)
