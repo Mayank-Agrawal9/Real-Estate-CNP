@@ -1164,7 +1164,7 @@ class WithdrawDashboardV2(APIView):
             total_amount=Sum('amount'))['total_amount'] or Decimal(0)
 
         total_interest_earned = InvestmentInterest.objects.filter(investment__user=user_id).aggregate(
-            total_amount=Sum('investment__amount'))['total_amount'] or Decimal(0)
+            total_amount=Sum('interest_amount'))['total_amount'] or Decimal(0)
 
         current_due_value = total_return_amount - total_income_earned - total_interest_earned
         twenty_percentage_of_value = total_return_amount * Decimal(0.20)
@@ -1220,7 +1220,7 @@ class CommissionListView(APIView):
                 "user_id": entry.investment.user.id,
                 "name": entry.investment.user.get_full_name(),
                 "email": entry.investment.user.email,
-                "amount": entry.investment.amount,
+                "amount": entry.interest_amount,
                 "status": "active",
                 "commission_type": "interest",
                 "description": f"Interest Send On {entry.interest_send_date}",
