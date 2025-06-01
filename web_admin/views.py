@@ -1061,7 +1061,7 @@ class ApproveRejectWithDrawAPIView(APIView):
             return Response({"error": "Invalid withdraw Id."}, status=status.HTTP_400_BAD_REQUEST)
 
         if action == "approved":
-            withdraw.update(withdrawal_status="approved", rejection_reason=None)
+            withdraw.update(withdrawal_status="approved", rejection_reason=None, is_paid=True)
         elif action == "rejected":
             withdraw.update(withdrawal_status="rejected", rejection_reason=rejection_reason)
 
