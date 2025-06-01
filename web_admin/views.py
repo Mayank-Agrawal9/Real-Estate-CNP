@@ -1026,8 +1026,24 @@ class WithDrawRequest(ListAPIView):
     def get_queryset(self):
         queryset = FundWithdrawal.objects.filter(status='active').order_by('-id')
         user_id = self.request.query_params.get('user')
+        status = self.request.query_params.get('withdraw_status')
+        search = self.request.query_params.get('search')
+
+        if status not in ['pending', 'approved', 'rejected']:
+            queryset = FundWithdrawal.objects.none()
+
         if user_id:
             queryset = queryset.filter(user__id=user_id)
+
+        if status:
+            queryset = queryset.filter(withdrawal_status=status)
+
+        if search:
+            queryset = queryset.filter(
+                Q(user__first_name__icontains=search) | Q(user__last_name__icontains=search) |
+                Q(user__email__icontains=search) | Q(user__username__icontains=search)
+            )
+
         return queryset
 
 
