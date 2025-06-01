@@ -1203,6 +1203,7 @@ class CommissionListView(APIView):
         if investment_type == 'interest':
             commission_qs = Commission.objects.none()
         elif investment_type:
+            interest_qs = InvestmentInterest.objects.none()
             commission_qs = commission_qs.filter(commission_type=investment_type)
 
         commission_data = [
