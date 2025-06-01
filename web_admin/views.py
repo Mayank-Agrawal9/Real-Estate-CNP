@@ -1191,6 +1191,7 @@ class CommissionListView(APIView):
 
     def get(self, request):
         user_id = request.query_params.get('user_id')
+        investment_type = request.query_params.get('commission_type')
 
         commission_qs = Commission.objects.filter(status='active')
         interest_qs = InvestmentInterest.objects.filter(status='active')
@@ -1198,6 +1199,11 @@ class CommissionListView(APIView):
         if user_id:
             commission_qs = commission_qs.filter(commission_to=user_id)
             interest_qs = interest_qs.filter(investment__user=user_id)
+
+        if investment_type == 'interest':
+            commission_qs = Commission.objects.none()
+        elif investment_type:
+            commission_qs = commission_qs.filter(commission_type=investment_type)
 
         commission_data = [
             {
