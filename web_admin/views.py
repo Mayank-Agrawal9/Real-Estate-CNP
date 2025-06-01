@@ -1029,13 +1029,10 @@ class WithDrawRequest(ListAPIView):
         status = self.request.query_params.get('withdraw_status')
         search = self.request.query_params.get('search')
 
-        if status not in ['pending', 'approved', 'rejected']:
-            queryset = FundWithdrawal.objects.none()
-
         if user_id:
             queryset = queryset.filter(user__id=user_id)
 
-        if status:
+        if status in ['pending', 'approved', 'rejected']:
             queryset = queryset.filter(withdrawal_status=status)
 
         if search:
