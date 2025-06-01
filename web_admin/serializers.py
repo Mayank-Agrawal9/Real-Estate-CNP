@@ -400,7 +400,8 @@ class UserWithWorkingIDSerializer(serializers.ModelSerializer):
 
     def _load_investment_and_referral_data(self):
         investments = Investment.objects.filter(
-            investment_type='p2pmb', is_approved=True
+            status='active', investment_type='p2pmb', is_approved=True,
+            package__isnull=False, pay_method='main_wallet'
         ).values('user_id').annotate(total_amount=Sum('amount'))
 
         self._investment_map = {item['user_id']: item['total_amount'] for item in investments}
