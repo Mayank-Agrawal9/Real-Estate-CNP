@@ -1045,7 +1045,7 @@ class CompanyLiabilityStatsAPIView(APIView):
 
         get_investment = Investment.objects.filter(status='active', package__isnull=False,
                                                    investment_type='p2pmb').aggregate(
-            total_amount=Sum('amount'))['amount'] or Decimal(0)
+            total_amount=Sum('amount'))['total_amount'] or Decimal(0)
 
         total_due_amount = get_investment - total_income_earned - total_interest_earned
         result = {
