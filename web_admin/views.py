@@ -589,14 +589,20 @@ class ManualFundGraphAPIView(APIView):
             start_date = date(current_year, month, 1)
             end_date = today if month == today.month else (start_date.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
             all_dates = [start_date + timedelta(days=i) for i in range((end_date - start_date).days + 1)]
-            funds = ManualFund.objects.filter(date_created__date__range=[start_date, end_date])
+            funds = Investment.objects.filter(date_created__date__range=[start_date, end_date],
+                                              investment_type='p2pmb', package__isnull=False,
+                                              is_approved=True, pay_method='main_wallet')
+            # funds = ManualFund.objects.filter(date_created__date__range=[start_date, end_date])
             funds_dict = {entry['date_created__date']: entry['total_amount'] for entry in funds.values('date_created__date').annotate(total_amount=Sum('amount'))}
             data = [{"date": date, "total_amount": funds_dict.get(date, 0)} for date in all_dates]
 
         elif filter_type == 'month_wise':
             months = range(1, 13)
-            funds = ManualFund.objects.filter(date_created__year=current_year).values('date_created__month').annotate(
-                total_amount=Sum('amount'))
+            # funds = ManualFund.objects.filter(date_created__year=current_year).values('date_created__month').annotate(
+            #     total_amount=Sum('amount'))
+            funds = Investment.objects.filter(date_created__year=current_year, investment_type='p2pmb',
+                                              package__isnull=False, is_approved=True, pay_method='main_wallet'
+                                              ).values('date_created__month').annotate(total_amount=Sum('amount'))
             funds_dict = {entry['date_created__month']: entry['total_amount'] for entry in funds}
             data = [{"month": month, "total_amount": funds_dict.get(month, 0)} for month in months]
 
@@ -608,9 +614,13 @@ class ManualFundGraphAPIView(APIView):
                 'Q4 (Oct-Dec)': (10, 12)
             }
             for quarter, (start_month, end_month) in quarters.items():
-                total = ManualFund.objects.filter(date_created__year=current_year,
-                                                  date_created__month__gte=start_month,
-                                                  date_created__month__lte=end_month).aggregate(Sum('amount'))['amount__sum'] or 0
+                # total = ManualFund.objects.filter(date_created__year=current_year,
+                #                                   date_created__month__gte=start_month,
+                #                                   date_created__month__lte=end_month).aggregate(Sum('amount'))['amount__sum'] or 0
+                total = Investment.objects.filter(date_created__year=current_year, date_created__month__gte=start_month,
+                                                  date_created__month__lte=end_month, investment_type='p2pmb',
+                                                  package__isnull=False, is_approved=True, pay_method='main_wallet'
+                                                  ).values('date_created__month').aggregate(Sum('amount'))['amount__sum'] or 0
                 data.append({"quarter": quarter, "total_amount": total})
 
         elif filter_type == 'half_yearly':
@@ -619,14 +629,21 @@ class ManualFundGraphAPIView(APIView):
                 'H2 (Jul-Dec)': (7, 12)
             }
             for half, (start_month, end_month) in halves.items():
-                total = ManualFund.objects.filter(date_created__year=current_year,
-                                                  date_created__month__gte=start_month,
-                                                  date_created__month__lte=end_month).aggregate(Sum('amount'))['amount__sum'] or 0
+                # total = ManualFund.objects.filter(date_created__year=current_year,
+                #                                   date_created__month__gte=start_month,
+                #                                   date_created__month__lte=end_month).aggregate(Sum('amount'))['amount__sum'] or 0
+                total = Investment.objects.filter(date_created__year=current_year, date_created__month__gte=start_month,
+                                                  date_created__month__lte=end_month, investment_type='p2pmb',
+                                                  package__isnull=False, is_approved=True, pay_method='main_wallet'
+                                                  ).values('date_created__month').aggregate(Sum('amount'))['amount__sum'] or 0
                 data.append({"half_year": half, "total_amount": total})
 
         elif filter_type == 'yearly':
             for year in range(current_year - 1, current_year + 1):
-                total = ManualFund.objects.filter(date_created__year=year).aggregate(Sum('amount'))['amount__sum'] or 0
+                # total = ManualFund.objects.filter(date_created__year=year).aggregate(Sum('amount'))['amount__sum'] or 0
+                total = Investment.objects.filter(date_created__year=year, investment_type='p2pmb',
+                                                  package__isnull=False, is_approved=True, pay_method='main_wallet'
+                                                  ).values('date_created__month').aggregate(Sum('amount'))['amount__sum'] or 0
                 data.append({"year": year, "total_amount": total})
 
         return Response({"filter_type": filter_type, "data": data})
@@ -1027,7 +1044,8 @@ class CompanyLiabilityStatsAPIView(APIView):
             total_amount=Sum('interest_amount'))['total_amount'] or Decimal(0)
 
         get_investment = Investment.objects.filter(status='active', package__isnull=False,
-                                                   investment_type='p2pmb').last()
+                                                   investment_type='p2pmb').aggregate(
+            total_amount=Sum('amount'))['amount'] or Decimal(0)
 
         total_due_amount = get_investment - total_income_earned - total_interest_earned
         result = {
