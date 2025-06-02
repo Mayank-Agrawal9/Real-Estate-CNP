@@ -199,6 +199,7 @@ class FundWithdrawal(ModelMixin):
     withdrawal_amount = models.DecimalField(max_digits=15, decimal_places=2)
     withdrawal_date = models.DateTimeField(auto_now_add=True)
     withdrawal_status = models.CharField(max_length=30, choices=FUND_WITHDRAW_TYPE, default='pending')
+    action_date = models.DateTimeField(null=True, blank=True)
     rejection_reason = models.TextField(null=True, blank=True)
     is_paid = models.BooleanField(default=False)
 

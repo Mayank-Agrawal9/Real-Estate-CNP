@@ -8,6 +8,7 @@ from accounts.models import Profile, BankDetails, UserPersonalDocument
 from agency.models import Investment, SuperAgency, Agency, FieldAgent, FundWithdrawal
 from master.models import City, State
 from p2pmb.models import Package, MLMTree, Commission
+from payment_app.models import Transaction
 from property.models import Property
 from property.serializers import GetMediaDataSerializer, GetNearbyFacilitySerializer, GetPropertyFeatureSerializer
 from web_admin.models import ManualFund, ContactUsEnquiry, PropertyInterestEnquiry, FunctionalityAccessPermissions, \
@@ -426,4 +427,31 @@ class GetAllCommissionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Commission
+        fields = '__all__'
+
+
+class TransactionDetailSerializer(serializers.ModelSerializer):
+    sender = serializers.SerializerMethodField()
+    receiver = serializers.SerializerMethodField()
+
+    def get_sender(self, obj):
+        if not obj.sender:
+            return None
+        return {
+            'id': obj.sender.id,
+            'username': obj.sender.username,
+            'name': obj.sender.get_full_name(),
+        }
+
+    def get_receiver(self, obj):
+        if not obj.receiver:
+            return None
+        return {
+            'id': obj.receiver.id,
+            'username': obj.receiver.username,
+            'name': obj.receiver.get_full_name(),
+        }
+
+    class Meta:
+        model = Transaction
         fields = '__all__'

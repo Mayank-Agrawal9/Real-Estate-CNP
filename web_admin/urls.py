@@ -40,4 +40,6 @@ urlpatterns = [
     path('withdraw-dashboard-v2', WithdrawDashboardV2.as_view(), name='withdraw-dashboard-v2'),
     path('commission-list', CommissionListView.as_view(), name='commission-list'),
     path('working-id', UserWithWorkingIDListView.as_view(), name='working-id'),
+    path('app-transfer-detail', AppTransferTransaction.as_view(), name='app-transfer-detail'),
+    path('aggregate-transfer-amount', AppTransferSumAmount.as_view(), name='aggregate-transfer-amount'),
 ]

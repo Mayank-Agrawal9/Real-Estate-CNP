@@ -27,7 +27,7 @@ from web_admin.serializers import ProfileSerializer, InvestmentSerializer, Manua
     FieldAgentCompanyDetailSerializer, PropertyInterestEnquirySerializer, ContactUsEnquirySerializer, \
     GetPropertySerializer, PropertyDetailSerializer, UserCreateSerializer, LoginSerializer, \
     UserPermissionProfileSerializer, ListWithDrawRequest, UserWithWorkingIDSerializer, GetAllCommissionSerializer, \
-    CompanyInvestmentSerializer
+    CompanyInvestmentSerializer, TransactionDetailSerializer
 from agency.models import Investment, FundWithdrawal, SuperAgency, Agency, FieldAgent, InvestmentInterest
 from payment_app.models import UserWallet, Transaction
 from web_admin.choices import main_dashboard
@@ -542,10 +542,14 @@ class DashboardCountAPIView(APIView):
 
         investment_data = Investment.objects.aggregate(
             investment_approved_user=Count("user", distinct=True, filter=Q(is_approved=True)),
-            p2pmb_fund_added=Sum("amount", filter=Q(is_approved=True, investment_type="p2pmb")),
-            super_agency_fund_added=Sum("amount", filter=Q(is_approved=True, investment_type="super_agency")),
-            agency_fund_added=Sum("amount", filter=Q(is_approved=True, investment_type="agency")),
-            field_agent_fund_added=Sum("amount", filter=Q(is_approved=True, investment_type="field_agent")),
+            p2pmb_fund_added=Sum("amount", filter=Q(is_approved=True, investment_type="p2pmb",
+                                                    package__isnull=False, status='active', pay_method='main_wallet')),
+            super_agency_fund_added=Sum("amount", filter=Q(is_approved=True, investment_type="super_agency",
+                                                           package__isnull=False, status='active', pay_method='main_wallet')),
+            agency_fund_added=Sum("amount", filter=Q(is_approved=True, investment_type="agency",
+                                                     package__isnull=False, status='active', pay_method='main_wallet')),
+            field_agent_fund_added=Sum("amount", filter=Q(is_approved=True, investment_type="field_agent",
+                                                          package__isnull=False, status='active', pay_method='main_wallet')),
             pending_approval_payment=Sum("amount", filter=Q(is_approved=False)),
             send_direct_income=Sum("user", distinct=True, filter=Q(send_direct_income=True)),
             send_level_income=Sum("user", distinct=True, filter=Q(send_level_income=True)),
@@ -1008,13 +1012,29 @@ class CompanyLiabilityStatsAPIView(APIView):
     permission_classes = [IsStaffUser]
 
     def get(self, request):
-        total_investment = ManualFund.objects.filter(status='active').aggregate(
-            total_amount=Sum('amount'))['total_amount'] or Decimal(0)
+        total_investment = Investment.objects.filter(status='active').aggregate(
+            total_amount=Sum("amount", filter=Q(is_approved=True, investment_type="p2pmb",
+                                                package__isnull=False, status='active', pay_method='main_wallet'))
+        )['total_amount'] or Decimal(0)
+
         total_liability = FundWithdrawal.objects.filter(status='active', is_paid=False).aggregate(
             total_withdrawal_amount=Sum('withdrawal_amount'))['total_withdrawal_amount'] or Decimal(0)
+
+        total_income_earned = Commission.objects.filter(status='active').aggregate(
+            total_amount=Sum('amount'))['total_amount'] or Decimal(0)
+
+        total_interest_earned = InvestmentInterest.objects.filter(status='active').aggregate(
+            total_amount=Sum('interest_amount'))['total_amount'] or Decimal(0)
+
+        get_investment = Investment.objects.filter(status='active', package__isnull=False,
+                                                   investment_type='p2pmb').last()
+
+        total_due_amount = get_investment - total_income_earned - total_interest_earned
         result = {
             'total_investment': total_investment,
-            'total_withdraw_pending': total_liability
+            'total_return_amount': total_liability,
+            'total_send_amount': total_due_amount,
+            'total_remaining_amount': total_liability if total_liability else 0 - total_due_amount if total_due_amount else 0,
         }
         return Response(result, status=status.HTTP_200_OK)
 
@@ -1061,9 +1081,21 @@ class ApproveRejectWithDrawAPIView(APIView):
             return Response({"error": "Invalid withdraw Id."}, status=status.HTTP_400_BAD_REQUEST)
 
         if action == "approved":
-            withdraw.update(withdrawal_status="approved", rejection_reason=None, is_paid=True)
+            # Add Logic For Send Money and add interest
+            deducted_amount = withdraw.withdrawal_amount * 0.95
+            taxable_amount = withdraw.withdrawal_amount - deducted_amount
+            Transaction.objects.create(
+                sender=withdraw.user, receiver=withdraw.user, amount=deducted_amount,
+                transaction_type='receive', transaction_status='deposit', payment_method='upi',
+                remarks='Added remarks', verified_by=self.request.user, verified_on=datetime.datetime.now(),
+                taxable_amount=taxable_amount
+            )
+            wallet_amount = UserWallet.objects.filter(user=withdraw.user).last()
+            wallet_amount -= withdraw.withdrawal_amount
+            wallet_amount.save()
+            withdraw.update(withdrawal_status="approved", rejection_reason=None, is_paid=True, action_date=datetime.datetime.now())
         elif action == "rejected":
-            withdraw.update(withdrawal_status="rejected", rejection_reason=rejection_reason)
+            withdraw.update(withdrawal_status="rejected", rejection_reason=rejection_reason, action_date=datetime.datetime.now())
 
         return Response({"detail": f"Withdraw {action} successfully."})
 
@@ -1173,10 +1205,10 @@ class WithdrawDashboardV2(APIView):
             is_working_id = False
             total_return_amount = (get_investment.amount or 0) * 2
 
-        total_income_earned = Commission.objects.filter(commission_to=user_id).aggregate(
+        total_income_earned = Commission.objects.filter(commission_to=user_id, status='active').aggregate(
             total_amount=Sum('amount'))['total_amount'] or Decimal(0)
 
-        total_interest_earned = InvestmentInterest.objects.filter(investment__user=user_id).aggregate(
+        total_interest_earned = InvestmentInterest.objects.filter(investment__user=user_id, status='active').aggregate(
             total_amount=Sum('interest_amount'))['total_amount'] or Decimal(0)
 
         current_due_value = total_return_amount - total_income_earned - total_interest_earned
@@ -1254,3 +1286,64 @@ class CommissionListView(APIView):
         paginator = self.pagination_class
         page = paginator.paginate_queryset(combined_data, request)
         return paginator.get_paginated_response(page)
+
+
+class AppTransferTransaction(APIView):
+    permission_classes = [IsStaffUser]
+
+    def get(self, request):
+        transactions = Transaction.objects.filter(status='active', transaction_type='transfer').order_by('-id')
+        month = request.query_params.get('month')
+        year = request.query_params.get('year')
+        if month and year:
+            transactions = transactions.filter(date_created__month=month, date_created__year=year)
+
+        search = request.query_params.get('search')
+        if search:
+            transactions = transactions.filter(
+                Q(sender__first_name__icontains=search) | Q(sender__last_name__icontains=search) |
+                Q(sender__email__icontains=search) | Q(sender__username__icontains=search) |
+                Q(receiver__first_name__icontains=search) | Q(receiver__last_name__icontains=search) |
+                Q(receiver__email__icontains=search) | Q(receiver__username__icontains=search)
+            )
+
+        paginator = LimitOffsetPagination()
+        paginated_transactions = paginator.paginate_queryset(transactions, request)
+        serializer = TransactionDetailSerializer(paginated_transactions, many=True)
+        return paginator.get_paginated_response(serializer.data)
+
+
+class AppTransferSumAmount(APIView):
+    permission_classes = [IsStaffUser]
+
+    def get(self, request):
+        transactions = Transaction.objects.filter(status='active', transaction_type='transfer')
+
+        month = request.query_params.get('month')
+        year = request.query_params.get('year')
+        if month and year:
+            transactions = transactions.filter(date_created__month=month, date_created__year=year)
+
+        search = request.query_params.get('search')
+        if search:
+            transactions = transactions.filter(
+                Q(sender__first_name__icontains=search) | Q(sender__last_name__icontains=search) |
+                Q(sender__email__icontains=search) | Q(sender__username__icontains=search) |
+                Q(receiver__first_name__icontains=search) | Q(receiver__last_name__icontains=search) |
+                Q(receiver__email__icontains=search) | Q(receiver__username__icontains=search)
+            )
+
+        totals = transactions.aggregate(
+            total_transaction_amount=Sum('amount'), total_taxable_amount=Sum('taxable_amount')
+        )
+
+        total_transaction_amount = totals['total_transaction_amount'] or 0
+        total_taxable_amount = totals['total_taxable_amount'] or 0
+
+        response_data = {
+            "total_transaction_amount": total_transaction_amount,
+            "taxable_amount": total_taxable_amount / 2,
+            "admin_amount": total_taxable_amount / 2
+        }
+
+        return Response(response_data, status=status.HTTP_200_OK)
