@@ -1029,13 +1029,39 @@ class CompanyLiabilityStatsAPIView(APIView):
     permission_classes = [IsStaffUser]
 
     def get(self, request):
-        total_investment = Investment.objects.filter(status='active').aggregate(
-            total_amount=Sum("amount", filter=Q(is_approved=True, investment_type="p2pmb",
-                                                package__isnull=False, status='active', pay_method='main_wallet'))
-        )['total_amount'] or Decimal(0)
+        investments = Investment.objects.filter(
+            status='active', investment_type='p2pmb', is_approved=True,
+            package__isnull=False, pay_method='main_wallet'
+        ).values('user_id').annotate(total_amount=Sum('amount'))
 
-        total_liability = FundWithdrawal.objects.filter(status='active', is_paid=False).aggregate(
-            total_withdrawal_amount=Sum('withdrawal_amount'))['total_withdrawal_amount'] or Decimal(0)
+        investment_map = {item['user_id']: item['total_amount'] for item in investments}
+        referrals = MLMTree.objects.filter(is_show=True).values_list('referral_by_id', 'child_id')
+        referral_map = {}
+        for referral_by_id, child_id in referrals:
+            referral_map.setdefault(referral_by_id, []).append(child_id)
+
+        working_ids = set()
+        for user_id, user_investment in investment_map.items():
+            if user_investment == 0:
+                continue
+            referral_ids = referral_map.get(user_id, [])
+            eligible_referrals = [
+                rid for rid in referral_ids
+                if investment_map.get(rid, Decimal('0')) >= user_investment
+            ]
+            if len(eligible_referrals) >= 2:
+                working_ids.add(user_id)
+
+        total_return_amount = Decimal('0')
+        for user_id, amount in investment_map.items():
+            multiplier = 4 if user_id in working_ids else 2
+            total_return_amount += amount * Decimal(multiplier)
+
+        total_investment = Investment.objects.filter(status='active').aggregate(
+            total_amount=Sum("amount", filter=Q(
+                is_approved=True, investment_type="p2pmb", package__isnull=False, pay_method='main_wallet'
+            ))
+        )['total_amount'] or Decimal(0)
 
         total_income_earned = Commission.objects.filter(status='active').aggregate(
             total_amount=Sum('amount'))['total_amount'] or Decimal(0)
@@ -1043,16 +1069,10 @@ class CompanyLiabilityStatsAPIView(APIView):
         total_interest_earned = InvestmentInterest.objects.filter(status='active').aggregate(
             total_amount=Sum('interest_amount'))['total_amount'] or Decimal(0)
 
-        get_investment = Investment.objects.filter(status='active', package__isnull=False,
-                                                   investment_type='p2pmb').aggregate(
-            total_amount=Sum('amount'))['total_amount'] or Decimal(0)
-
-        total_due_amount = get_investment - total_income_earned - total_interest_earned
         result = {
             'total_investment': total_investment,
-            'total_return_amount': total_liability,
-            'total_send_amount': total_due_amount,
-            'total_remaining_amount': total_liability if total_liability else 0 - total_due_amount if total_due_amount else 0,
+            'total_return_amount': total_return_amount,
+            'total_send_amount': total_income_earned + total_interest_earned,
         }
         return Response(result, status=status.HTTP_200_OK)
 
