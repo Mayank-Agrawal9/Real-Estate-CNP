@@ -1071,8 +1071,8 @@ class CompanyLiabilityStatsAPIView(APIView):
 
         result = {
             'total_investment': total_investment,
-            'total_return_amount': total_return_amount,
-            'total_send_amount': total_income_earned + total_interest_earned,
+            'total_return_amount': total_income_earned + total_interest_earned,
+            'total_send_amount': total_return_amount,
         }
         return Response(result, status=status.HTTP_200_OK)
 
