@@ -1298,6 +1298,11 @@ class CommissionListView(APIView):
         elif investment_type == 'core_team':
             interest_qs = InvestmentInterest.objects.none()
             commission_qs = Commission.objects.none()
+            core_group_earned = core_group_earned.filter(income_type='income')
+        elif investment_type == 'tour':
+            interest_qs = InvestmentInterest.objects.none()
+            commission_qs = Commission.objects.none()
+            core_group_earned = core_group_earned.filter(income_type='tour')
         elif investment_type:
             interest_qs = InvestmentInterest.objects.none()
             core_group_earned = CoreIncomeEarned.objects.none()
