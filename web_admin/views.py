@@ -18,7 +18,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.models import Profile, BankDetails, UserPersonalDocument
-from p2pmb.models import Commission, MLMTree
+from master.models import CoreGroupIncome
+from p2pmb.models import Commission, MLMTree, CoreIncomeEarned
 from property.models import Property
 from web_admin.models import ManualFund, CompanyInvestment, ContactUsEnquiry, PropertyInterestEnquiry, \
     UserFunctionalityAccessPermission
@@ -1069,9 +1070,12 @@ class CompanyLiabilityStatsAPIView(APIView):
         total_interest_earned = InvestmentInterest.objects.filter(status='active').aggregate(
             total_amount=Sum('interest_amount'))['total_amount'] or Decimal(0)
 
+        core_group_earned = CoreIncomeEarned.objects.filter(status='active').aggregate(
+            total_amount=Sum('income_earned'))['total_amount'] or Decimal(0)
+
         result = {
             'total_investment': total_investment,
-            'total_return_amount': total_income_earned + total_interest_earned,
+            'total_return_amount': total_income_earned + total_interest_earned + core_group_earned,
             'total_send_amount': total_return_amount,
         }
         return Response(result, status=status.HTTP_200_OK)
@@ -1249,7 +1253,10 @@ class WithdrawDashboardV2(APIView):
         total_interest_earned = InvestmentInterest.objects.filter(investment__user=user_id, status='active').aggregate(
             total_amount=Sum('interest_amount'))['total_amount'] or Decimal(0)
 
-        current_due_value = total_return_amount - total_income_earned - total_interest_earned
+        core_group_earned = CoreIncomeEarned.objects.filter(status='active').aggregate(
+            total_amount=Sum('income_earned'))['total_amount'] or Decimal(0)
+
+        current_due_value = total_return_amount - total_income_earned - total_interest_earned - core_group_earned
         twenty_percentage_of_value = total_return_amount * Decimal(0.20)
 
         if current_due_value > twenty_percentage_of_value:
@@ -1261,7 +1268,7 @@ class WithdrawDashboardV2(APIView):
             'investment_amount': get_investment.amount,
             'is_working_id': is_working_id,
             'total_return_amount': total_return_amount,
-            'total_income_earned': total_income_earned + total_interest_earned,
+            'total_income_earned': total_income_earned + total_interest_earned + core_group_earned,
             'current_due_values': current_due_value,
             'is_low_balance': is_low_balance,
         }
