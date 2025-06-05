@@ -1285,15 +1285,22 @@ class CommissionListView(APIView):
 
         commission_qs = Commission.objects.filter(status='active')
         interest_qs = InvestmentInterest.objects.filter(status='active')
+        core_group_earned = CoreIncomeEarned.objects.filter(status='active')
 
         if user_id:
             commission_qs = commission_qs.filter(commission_to=user_id)
             interest_qs = interest_qs.filter(investment__user=user_id)
+            core_group_earned = core_group_earned.filter(user=user_id)
 
         if investment_type == 'interest':
             commission_qs = Commission.objects.none()
+            core_group_earned = CoreIncomeEarned.objects.none()
+        elif investment_type == 'core_team':
+            interest_qs = InvestmentInterest.objects.none()
+            commission_qs = Commission.objects.none()
         elif investment_type:
             interest_qs = InvestmentInterest.objects.none()
+            core_group_earned = CoreIncomeEarned.objects.none()
             commission_qs = commission_qs.filter(commission_type=investment_type)
 
         commission_data = [
@@ -1311,6 +1318,21 @@ class CommissionListView(APIView):
             for entry in commission_qs
         ]
 
+        core_group_data = [
+            {
+                "id": entry.id,
+                "user_id": entry.user.id,
+                "name": entry.user.get_full_name(),
+                "email": entry.user.email,
+                "amount": entry.income_earned,
+                "status": entry.status,
+                "commission_type": "core_group",
+                "description": f"You have earned a core group income of ₹{entry.income_earned}.",
+                "date_created": entry.date_created
+            }
+            for entry in core_group_earned
+        ]
+
         interest_data = [
             {
                 "id": entry.id,
@@ -1326,7 +1348,7 @@ class CommissionListView(APIView):
             for entry in interest_qs
         ]
 
-        combined_data = commission_data + interest_data
+        combined_data = commission_data + interest_data + core_group_data
         combined_data.sort(key=lambda x: x['date_created'], reverse=True)
         paginator = self.pagination_class
         page = paginator.paginate_queryset(combined_data, request)
