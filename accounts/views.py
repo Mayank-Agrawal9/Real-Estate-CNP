@@ -27,7 +27,7 @@ from accounts.serializers import (RequestOTPSerializer, VerifyOTPSerializer, Res
                                   SuperAgencyKycSerializer, BasicDetailsSerializer, CompanyDetailsSerializer,
                                   BankDetailsSerializer, FAQSerializer,
                                   ChangeRequestSerializer, UserPersonalDocumentSerializer, UpdateUserProfileSerializer,
-                                  BankDetailsSerializerV2, LoginSerializer, OTPSerializer)
+                                  BankDetailsSerializerV2, LoginSerializer, OTPSerializer, UserRegistrationSerializer)
 from agency.models import SuperAgency, FieldAgent, Agency, Investment
 from p2pmb.models import MLMTree
 from payment_app.models import UserWallet, Transaction
@@ -57,6 +57,15 @@ class RequestOTPView(APIView):
                 fail_silently=False,
             )
             return Response({"message": "OTP sent to your email.", "otp": otp_code}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class RegisterUserView(APIView):
+    def post(self, request, *args, **kwargs):
+        serializer = UserRegistrationSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"message": "Registration successful. OTP sent to email."}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -96,7 +105,12 @@ class LoginAPIView(APIView):
                 'picture': profile.picture.url if profile and profile.picture else None,
                 "role": profile.role,
                 "referral_code": profile.referral_code,
-                "qr_code_url": profile.qr_code.url if profile.qr_code else None
+                "qr_code_url": profile.qr_code.url if profile.qr_code else None,
+                "is_vendor": profile.is_vendor if profile and profile.is_vendor else None,
+                "is_super_agency": profile.is_super_agency if profile and profile.is_super_agency else None,
+                "is_agency": profile.is_agency if profile and profile.is_agency else None,
+                "is_field_agent": profile.is_field_agent if profile and profile.is_field_agent else None,
+                "is_p2pmb": profile.is_p2pmb if profile and profile.is_p2pmb else None,
             }
         }
         return Response(res)

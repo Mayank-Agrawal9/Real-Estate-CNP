@@ -5,7 +5,7 @@ from .views import ResendOTPView, VerifyOTPView, RequestOTPView, LogoutView, Pro
     GetUserFriendReferralCodeDetails, VerifyBankIFSCCodeView, VerifyAndUpdateProfile, FAQAPIView, SoftwarePolicyAPIView, \
     DeleteUser, GetReferralCode, ChangeRequestViewSet, GetPPDReferralCode, ShowUserDetail, UpdateUserBasicDetailAPIView, \
     UserBankDetailsViewSet, UserPersonalDocumentViewSet, GenerateUniqueNumber, GeneratePreviousUniqueCode, LoginAPIView, \
-    VerifyOptAPI, OptResendAPIView, ForgotPasswordChangeAPI
+    VerifyOptAPI, OptResendAPIView, ForgotPasswordChangeAPI, RegisterUserView
 
 router = DefaultRouter()
 router.register(r'change-request', ChangeRequestViewSet)
@@ -17,6 +17,7 @@ urlpatterns = [
     path('', include(router.urls)),
     path('request-otp/', RequestOTPView.as_view(), name='request-otp'),
     path('login/', LoginAPIView.as_view(), name='login'),
+    path('registration/', RegisterUserView.as_view(), name='register-user'),
     path('verify-opt/', VerifyOptAPI.as_view(), name='verify_otp'),
     path('resend-opt/', OptResendAPIView.as_view(), name='resent_otp'),
     path('update-forgot-password/', ForgotPasswordChangeAPI.as_view(), name='forgot_password'),

@@ -1,12 +1,16 @@
 import base64
+import datetime
+import random
 import uuid
 
 from django.core.files.base import ContentFile
+from django.core.mail import send_mail
 from django.db.models import Q
 from rest_framework import serializers, exceptions
 
 from accounts.models import Profile, FAQ, ChangeRequest, UserPersonalDocument, BankDetails, OTP
 from master.models import City
+from real_estate import settings
 from real_estate.model_mixin import User
 
 
@@ -37,6 +41,78 @@ class LoginSerializer(serializers.Serializer):
 
         attrs['user'] = user
         return attrs
+
+
+class UserRegistrationSerializer(serializers.ModelSerializer):
+    first_name = serializers.CharField(required=True)
+    last_name = serializers.CharField(required=True)
+    email = serializers.EmailField(required=True)
+    confirm_password = serializers.CharField(write_only=True)
+    date_of_birth = serializers.DateField(required=False)
+    is_vendor = serializers.BooleanField(required=False)
+    picture = serializers.ImageField(required=False)
+
+    class Meta:
+        model = User
+        fields = ['first_name', 'last_name', 'email', 'password', 'confirm_password', 'date_of_birth', 'picture',
+                  'is_vendor']
+        extra_kwargs = {
+            'password': {'write_only': True},
+        }
+
+    def validate_email(self, value):
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("A user with this email already exists.")
+        return value
+
+    def validate(self, data):
+        if data['password'] != data['confirm_password']:
+            raise serializers.ValidationError("Passwords do not match.")
+        return data
+
+    def create(self, validated_data):
+        date_of_birth = validated_data.pop('date_of_birth', None)
+        is_vendor = validated_data.pop('is_vendor', False)
+        picture = validated_data.pop('picture', None)
+        validated_data.pop('confirm_password')
+
+        user = User.objects.create_user(
+            username=validated_data['email'], email=validated_data['email'],
+            first_name=validated_data['first_name'], last_name=validated_data['last_name'],
+            password=validated_data['password'],
+        )
+
+        Profile.objects.create(
+            user=user, date_of_birth=date_of_birth, picture=picture, is_vendor=is_vendor
+        )
+        otp_code = random.randint(100000, 999999)
+
+        OTP.objects.update_or_create(
+            email=validated_data['email'],
+            defaults={
+                "otp": otp_code,
+                "valid_until": datetime.datetime.now() + datetime.timedelta(minutes=20),
+            },
+        )
+        send_mail(
+            "Your OTP Code",
+            f"Your OTP code is {otp_code}. It is valid for 10 minutes.",
+            settings.DEFAULT_FROM_EMAIL,
+            [validated_data['email']],
+            fail_silently=False,
+        )
+        user.profile.save()
+        return user
+
+    def send_otp_email(self, email, otp):
+        from django.core.mail import send_mail
+        send_mail(
+            subject='Your OTP Code',
+            message=f'Your OTP code is {otp}',
+            from_email='no-reply@yourdomain.com',
+            recipient_list=[email],
+            fail_silently=False,
+        )
 
 
 class OTPSerializer(serializers.ModelSerializer):
