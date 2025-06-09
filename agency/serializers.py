@@ -126,9 +126,14 @@ class RefundPolicySerializer(serializers.ModelSerializer):
 
 
 class FundWithdrawalSerializer(serializers.ModelSerializer):
+    tds_amount = serializers.SerializerMethodField()
+
     class Meta:
         model = FundWithdrawal
         fields = '__all__'
+
+    def get_tds_amount(self, obj):
+        return round(obj.withdrawal_amount * 0.05, 2) if obj.withdrawal_amount else 0
 
 
 class InvestmentInterestSerializer(serializers.ModelSerializer):

@@ -5,7 +5,7 @@ from .views import ResendOTPView, VerifyOTPView, RequestOTPView, LogoutView, Pro
     GetUserFriendReferralCodeDetails, VerifyBankIFSCCodeView, VerifyAndUpdateProfile, FAQAPIView, SoftwarePolicyAPIView, \
     DeleteUser, GetReferralCode, ChangeRequestViewSet, GetPPDReferralCode, ShowUserDetail, UpdateUserBasicDetailAPIView, \
     UserBankDetailsViewSet, UserPersonalDocumentViewSet, GenerateUniqueNumber, GeneratePreviousUniqueCode, LoginAPIView, \
-    VerifyOptAPI, OptResendAPIView, ForgotPasswordChangeAPI, RegisterUserView
+    VerifyOptAPI, OptResendAPIView, ForgotPasswordChangeAPI, RegisterUserView, UpdateROIStatus
 
 router = DefaultRouter()
 router.register(r'change-request', ChangeRequestViewSet)
@@ -25,6 +25,7 @@ urlpatterns = [
     path('resend-otp/', ResendOTPView.as_view(), name='resend-otp'),
     path('logout/', LogoutView.as_view()),
     path('profile/', ProfileView.as_view(), name='profile'),
+    path('update-roi-status/<int:user_id>/', UpdateROIStatus.as_view(), name='update-roi-status'),
     path('user-kyc/', UserKycAPIView.as_view(), name='user_kyc'),
     path('basic-detail/', UpdateUserBasicDetailAPIView.as_view(), name='user_basic_detail_kyc'),
     path('verify-kyc/', VerifyAndUpdateProfile.as_view(), name='verify_kyc'),

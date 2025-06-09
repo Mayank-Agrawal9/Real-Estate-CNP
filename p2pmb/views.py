@@ -20,8 +20,8 @@ from p2pmb.models import MLMTree, Package, Commission, ExtraReward, CoreIncomeEa
 from p2pmb.serializers import MLMTreeSerializer, MLMTreeNodeSerializer, PackageSerializer, CommissionSerializer, \
     ShowInvestmentDetail, GetP2PMBLevelData, GetMyApplyingData, MLMTreeNodeSerializerV2, MLMTreeParentNodeSerializerV2, \
     ExtraRewardSerializer, CoreIncomeEarnedSerializer, RoyaltyEarnedSerializer, P2PMBRoyaltyMasterSerializer, \
-    CreateRoyaltyEarnedSerializer, TransactionSerializer
-from payment_app.models import Transaction
+    CreateRoyaltyEarnedSerializer, TransactionSerializer, GetDirectUserSerializer
+from payment_app.models import Transaction, UserWallet
 
 
 # Create your views here.
@@ -92,6 +92,28 @@ class MLMTreeViewV2(APIView):
                 serializer = MLMTreeParentNodeSerializerV2(master_node, many=True)
 
             return Response(serializer.data)
+
+
+class GetUserDirectTeamAPIView(ListAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = GetDirectUserSerializer
+
+    def get_queryset(self):
+        return MLMTree.objects.filter(
+            referral_by=self.request.user, is_show=True
+        ).select_related('child', 'parent', 'referral_by').order_by('-id')
+
+
+class GetTDSAmountAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        wallet = UserWallet.objects.filter(user=request.user).order_by('-id').last()
+
+        if wallet:
+            return Response({"tds_amount": wallet.tds_amount})
+        else:
+            return Response({"tds_amount": 0})
 
 
 class GetParentLevelsView(APIView):

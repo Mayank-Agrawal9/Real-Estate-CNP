@@ -1043,3 +1043,20 @@ class ShowUserDetail(APIView):
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class UpdateROIStatus(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request, user_id):
+        profile = Profile.objects.filter(user=user_id).last()
+        if not profile:
+            return Response({"message": "User don't having profile, Please create first profile."},
+                            status=status.HTTP_200_OK)
+        if profile.is_roi_send:
+            profile.is_roi_send = False
+            profile.save()
+        else:
+            profile.is_roi_send = True
+            profile.save()
+        return Response({"message": "ROI status updated successfully."}, status=status.HTTP_200_OK)

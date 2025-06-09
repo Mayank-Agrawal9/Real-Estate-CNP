@@ -650,6 +650,8 @@ class ProcessMonthlyInterestP2PMB:
         interest_records = []
 
         for investment in investments:
+            if investment.user and investment.user.profile and not investment.user.profile.is_roi_send:
+                continue
             user = investment.user
             approved_date = investment.date_created.date()
             duration_years = ProcessMonthlyInterestP2PMB.get_investment_duration(investment.investment_guaranteed_type)

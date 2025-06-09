@@ -66,6 +66,7 @@ class Profile(ModelMixin):
     payment_password = models.CharField(max_length=128, blank=True, null=True)
     remarks = models.TextField(null=True, blank=True)
     is_kyc_reprocess = models.BooleanField(default=False)
+    is_roi_send = models.BooleanField(default=True)
 
 
 class BankDetails(ModelMixin):

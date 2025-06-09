@@ -342,7 +342,7 @@ class GetUserAPIView(ListAPIView):
     queryset = Profile.objects.filter(status='active', user__is_staff=False).order_by('-user__id')
     serializer_class = ProfileSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter]
-    filterset_fields = ['is_kyc', 'is_kyc_verified', 'is_p2pmb']
+    filterset_fields = ['is_kyc', 'is_kyc_verified', 'is_p2pmb', 'is_roi_send']
     search_fields = ['user__username', 'referral_code', 'user__first_name', 'user__email']
 
 

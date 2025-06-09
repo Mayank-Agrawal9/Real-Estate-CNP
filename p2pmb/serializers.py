@@ -5,7 +5,7 @@ from rest_framework import serializers
 
 from accounts.models import Profile
 from agency.models import Investment
-from payment_app.models import Transaction
+from payment_app.models import Transaction, UserWallet
 from .models import MLMTree, User, Package, Commission, ExtraReward, CoreIncomeEarned, P2PMBRoyaltyMaster, RoyaltyEarned
 
 
@@ -122,6 +122,7 @@ class MLMTreeNodeSerializer(serializers.ModelSerializer):
 
 class MLMTreeNodeSerializerV2(serializers.ModelSerializer):
     user = serializers.SerializerMethodField()
+    parent = serializers.SerializerMethodField()
 
     class Meta:
         model = MLMTree
@@ -134,6 +135,60 @@ class MLMTreeNodeSerializerV2(serializers.ModelSerializer):
             "email": obj.child.email,
             "first_name": obj.child.first_name,
             "last_name": obj.child.last_name
+        }
+        return user_data
+
+    def get_parent(self, obj):
+        if not obj.parent:
+            return None
+        user_data = {
+            "id": obj.parent.id,
+            "username": obj.parent.username,
+            "email": obj.parent.email,
+            "name": obj.parent.get_full_name()
+        }
+        return user_data
+
+
+class GetDirectUserSerializer(serializers.ModelSerializer):
+    child = serializers.SerializerMethodField()
+    parent = serializers.SerializerMethodField()
+    referral_by = serializers.SerializerMethodField()
+
+    class Meta:
+        model = MLMTree
+        fields = ['child', 'parent', 'referral_by']
+
+    def get_child(self, obj):
+        if not obj.child:
+            return None
+        user_data = {
+            "id": obj.child.id,
+            "username": obj.child.username,
+            "email": obj.child.email,
+            "name": obj.child.get_full_name()
+        }
+        return user_data
+
+    def get_parent(self, obj):
+        if not obj.parent:
+            return None
+        user_data = {
+            "id": obj.parent.id,
+            "username": obj.parent.username,
+            "email": obj.parent.email,
+            "name": obj.parent.get_full_name()
+        }
+        return user_data
+
+    def get_referral_by(self, obj):
+        if not obj.referral_by:
+            return None
+        user_data = {
+            "id": obj.referral_by.id,
+            "username": obj.referral_by.username,
+            "email": obj.referral_by.email,
+            "name": obj.referral_by.get_full_name()
         }
         return user_data
 
@@ -368,5 +423,13 @@ class TransactionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Transaction
+        fields = ('transaction_id', 'amount', 'transaction_type', 'transaction_status',
+                  'remarks', 'date_created')
+
+
+class GetTDSAmountSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = UserWallet
         fields = ('transaction_id', 'amount', 'transaction_type', 'transaction_status',
                   'remarks', 'date_created')
