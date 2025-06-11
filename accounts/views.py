@@ -27,7 +27,8 @@ from accounts.serializers import (RequestOTPSerializer, VerifyOTPSerializer, Res
                                   SuperAgencyKycSerializer, BasicDetailsSerializer, CompanyDetailsSerializer,
                                   BankDetailsSerializer, FAQSerializer,
                                   ChangeRequestSerializer, UserPersonalDocumentSerializer, UpdateUserProfileSerializer,
-                                  BankDetailsSerializerV2, LoginSerializer, OTPSerializer, UserRegistrationSerializer)
+                                  BankDetailsSerializerV2, LoginSerializer, OTPSerializer, UserRegistrationSerializer,
+                                  UserDetailSerializer)
 from agency.models import SuperAgency, FieldAgent, Agency, Investment
 from p2pmb.models import MLMTree
 from payment_app.models import UserWallet, Transaction
@@ -225,10 +226,11 @@ class VerifyOTPView(APIView):
             user, created = User.objects.get_or_create(username=email, defaults={"email": email})
             referral_code = generate_unique_referral_code()
             image_code = generate_unique_image_code()
-            qr_code_file = generate_qr_code_with_email(email, user.id)
+            qr_code_file = generate_qr_code_with_email(referral_code, user.id)
 
             profile, created = Profile.objects.get_or_create(user=user, defaults={
                 "created_by": user,
+                "parent_user": user,
                 "referral_code": referral_code,
                 "qr_code": qr_code_file,
                 "image_code": image_code,
@@ -1060,3 +1062,94 @@ class UpdateROIStatus(APIView):
             profile.is_roi_send = True
             profile.save()
         return Response({"message": "ROI status updated successfully."}, status=status.HTTP_200_OK)
+
+
+class GetUserListByEmail(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        get_all_user = User.objects.filter(email=self.request.user.email)
+        get_user_list = UserDetailSerializer(get_all_user, many=True).data
+        return Response(get_user_list, status=status.HTTP_200_OK)
+
+
+class SwitchUserAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user_id = request.GET.get('user_id')
+        profile = Profile.objects.filter(user__id=user_id).last()
+        if not profile:
+            return Response({'message': "User don't have profile, Please connect to admin"},
+                            status=status.HTTP_400_BAD_REQUEST)
+        token, _ = Token.objects.get_or_create(user=profile.user)
+        return Response({
+            "message": "Login successful.",
+            "token": token.key,
+            "user_id": profile.user.id,
+            "picture": profile.picture.url if profile and profile.picture else None,
+            "role": profile.role,
+            "referral_code": profile.referral_code,
+            "name": profile.user.get_full_name(),
+            "email": profile.user.email,
+            "qr_code_url": profile.qr_code.url if profile.qr_code else None,
+        }, status=status.HTTP_200_OK)
+
+
+class CreateMultipleAccountAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        total_user = Profile.objects.filter(parent_user=self.request.user).count()
+        if total_user >= 10:
+            return Response({'message': "You have reached, Maximum number of limit"},
+                            status=status.HTTP_400_BAD_REQUEST)
+        referral_code = generate_unique_referral_code()
+        user, created = User.objects.get_or_create(username=referral_code,
+                                                   defaults={"email": self.request.user.email,
+                                                             "first_name": self.request.user.first_name,
+                                                             "last_name": self.request.user.last_name})
+        image_code = generate_unique_image_code()
+        qr_code_file = generate_qr_code_with_email(referral_code, user.id)
+
+        profile, created = Profile.objects.get_or_create(user=user, defaults={
+            "created_by": user,
+            "referral_code": referral_code,
+            "qr_code": qr_code_file,
+            "image_code": image_code,
+            "date_of_birth": self.request.user.profile.date_of_birth,
+            "gender": self.request.user.profile.gender,
+            "father_name": self.request.user.profile.father_name,
+            "picture": self.request.user.profile.picture,
+            "mobile_number": self.request.user.profile.mobile_number,
+            "mobile_number1": self.request.user.profile.mobile_number1,
+            "mobile_number2": self.request.user.profile.mobile_number2,
+            "other_email": self.request.user.profile.picture,
+            "pan_number": self.request.user.profile.pan_number,
+            "voter_number": self.request.user.profile.voter_number,
+            "pan_remarks": self.request.user.profile.pan_remarks,
+            "aadhar_number": self.request.user.profile.aadhar_number,
+            "role": self.request.user.profile.role,
+            "admin_role": self.request.user.profile.admin_role,
+            "is_kyc": self.request.user.profile.is_kyc,
+            "city": self.request.user.profile.city,
+            "state": self.request.user.profile.state,
+            "bio": self.request.user.profile.bio,
+            "is_kyc_verified": self.request.user.profile.is_kyc_verified,
+            "verified_by": self.request.user.profile.verified_by,
+            "verified_on": self.request.user.profile.verified_on,
+            "pin_code": self.request.user.profile.pin_code,
+            "referral_by": self.request.user,
+            "parent_user": self.request.user,
+            "is_kyc_reprocess": self.request.user.profile.is_kyc_reprocess,
+            "is_roi_send": self.request.user.profile.is_roi_send,
+        })
+
+        if not created:
+            profile.qr_code = qr_code_file
+            profile.save()
+
+        UserWallet.objects.get_or_create(user=user, created_by=user)
+        token, _ = Token.objects.get_or_create(user=user)
+
+        return Response({"message": "User Create successfully."}, status=status.HTTP_200_OK)

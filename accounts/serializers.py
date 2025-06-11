@@ -28,6 +28,7 @@ class LoginSerializer(serializers.Serializer):
             raise exceptions.ValidationError({'username': ['This field is required and may not be null or blank.']})
 
         user = User.objects.filter(Q(username__exact=username) | Q(email__exact=username), is_active=True).last()
+        # profile = Profile.objects.filter(Q(username__exact=username) | Q(email__exact=username), is_active=True).last()
         if not user:
             raise exceptions.ValidationError({'detail': 'No user registered with this credentials.'})
 
@@ -337,3 +338,18 @@ class UserPersonalDocumentSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserPersonalDocument
         fields = '__all__'
+
+
+class UserDetailSerializer(serializers.ModelSerializer):
+    full_name = serializers.SerializerMethodField()
+    is_primary_account = serializers.SerializerMethodField()
+
+    def get_full_name(self, obj):
+        return obj.get_full_name()
+
+    def get_is_primary_account(self, obj):
+        return obj.email == obj.username
+
+    class Meta:
+        model = User
+        fields = ('id', 'username', 'full_name', 'is_primary_account')

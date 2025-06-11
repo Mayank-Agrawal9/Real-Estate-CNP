@@ -5,7 +5,8 @@ from .views import ResendOTPView, VerifyOTPView, RequestOTPView, LogoutView, Pro
     GetUserFriendReferralCodeDetails, VerifyBankIFSCCodeView, VerifyAndUpdateProfile, FAQAPIView, SoftwarePolicyAPIView, \
     DeleteUser, GetReferralCode, ChangeRequestViewSet, GetPPDReferralCode, ShowUserDetail, UpdateUserBasicDetailAPIView, \
     UserBankDetailsViewSet, UserPersonalDocumentViewSet, GenerateUniqueNumber, GeneratePreviousUniqueCode, LoginAPIView, \
-    VerifyOptAPI, OptResendAPIView, ForgotPasswordChangeAPI, RegisterUserView, UpdateROIStatus
+    VerifyOptAPI, OptResendAPIView, ForgotPasswordChangeAPI, RegisterUserView, UpdateROIStatus, GetUserListByEmail, \
+    SwitchUserAPIView, CreateMultipleAccountAPIView
 
 router = DefaultRouter()
 router.register(r'change-request', ChangeRequestViewSet)
@@ -39,4 +40,7 @@ urlpatterns = [
     path('deactivate-user/', DeleteUser.as_view(), name='delete-user'),
     path('generate-unique-number/', GenerateUniqueNumber.as_view(), name='unique-code'),
     path('generate-previous-unique-number/', GeneratePreviousUniqueCode.as_view(), name='previous-unique-code'),
+    path('get-user-list-by-email/', GetUserListByEmail.as_view(), name='get-user-list-by-email'),
+    path('switch-user/', SwitchUserAPIView.as_view(), name='switch-user'),
+    path('create-proxy-user/', CreateMultipleAccountAPIView.as_view(), name='create-multiple-user'),
 ]

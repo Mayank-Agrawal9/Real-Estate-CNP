@@ -41,6 +41,38 @@ class PayUserSerializer(serializers.Serializer):
         return data
 
 
+# class ScanAndPayUserSerializer(serializers.Serializer):
+#     recipient = serializers.CharField(required=True)
+#     amount = serializers.FloatField(required=False, min_value=0.01)
+#     wallet_type = serializers.ChoiceField(choices=['main_wallet', 'app_wallet'], default='app_wallet')
+#
+#     def validate(self, data):
+#         sender = self.context['request'].user
+#         recipient = data['recipient']
+#         amount = data.get('amount')
+#         wallet_type = data.get('wallet_type')
+#
+#         recipient = User.objects.filter(username=recipient).last()
+#         if not recipient:
+#             raise serializers.ValidationError("Recipient not found.")
+#
+#         if sender == recipient:
+#             raise serializers.ValidationError("You cannot send money to yourself.")
+#
+#         sender_wallet = UserWallet.objects.filter(user=sender).first()
+#         if not sender_wallet:
+#             raise serializers.ValidationError("Sender's wallet not found.")
+#
+#         if amount:
+#             if wallet_type == 'app_wallet' and sender_wallet.app_wallet_balance < amount:
+#                 raise serializers.ValidationError("Insufficient balance in your wallet.")
+#             if wallet_type == 'main_wallet' and sender_wallet.main_wallet_balance < amount:
+#                 raise serializers.ValidationError("Insufficient balance in your wallet.")
+#
+#         data['recipient'] = recipient
+#         return data
+
+
 class WithdrawRequestSerializer(serializers.Serializer):
     amount = serializers.FloatField(required=True, min_value=0.01)
 

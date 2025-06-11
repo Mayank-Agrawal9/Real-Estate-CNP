@@ -62,6 +62,7 @@ class Profile(ModelMixin):
     image_code = models.CharField(max_length=10, null=True, blank=True, unique=True)
     pin_code = models.CharField(max_length=7, null=True, blank=True)
     referral_by = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name="referral_by")
+    parent_user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name="parent_user")
     kyc_video = models.FileField(null=True, blank=True)
     payment_password = models.CharField(max_length=128, blank=True, null=True)
     remarks = models.TextField(null=True, blank=True)

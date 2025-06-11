@@ -15,7 +15,7 @@ from real_estate import settings
 
 
 def generate_unique_referral_code():
-    prefix = "CNP"
+    prefix = "GAVIRON"
     code_length = 7
 
     while True:

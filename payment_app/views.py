@@ -94,6 +94,64 @@ class UserWalletViewSet(viewsets.ModelViewSet):
 
         return Response({"message": "Payment successfully transferred."}, status=status.HTTP_200_OK)
 
+    # @action(detail=False, methods=['post'], url_path='scan-and-pay')
+    # def scan_and_pay_money_to_user_wallet(self, request):
+    #     serializer = ScanAndPayUserSerializer(data=request.data, context={'request': request})
+    #     serializer.is_valid(raise_exception=True)
+    #
+    #     sender = request.user
+    #     recipient = serializer.validated_data['recipient']
+    #     amount = serializer.validated_data.get('amount')
+    #     wallet_type = serializer.validated_data.get('wallet_type', 'app_wallet')
+    #
+    #     if not (sender.profile.is_kyc and sender.profile.is_kyc_verified):
+    #         return Response(
+    #             {"error": "You have not completed KYC verification."},
+    #             status=status.HTTP_400_BAD_REQUEST
+    #         )
+    #     # if not (recipient.profile.is_kyc and recipient.profile.is_kyc_verified):
+    #     #     return Response(
+    #     #         {"error": "Recipient has not completed their KYC verification."},
+    #     #         status=status.HTTP_400_BAD_REQUEST
+    #     #     )
+    #
+    #     if amount is None:
+    #         return Response(
+    #             {"message": "Recipient is valid for transfer."},
+    #             status=status.HTTP_200_OK
+    #         )
+    #
+    #     sender_wallet = UserWallet.objects.get(user=sender)
+    #     recipient_wallet, _ = UserWallet.objects.get_or_create(user=recipient)
+    #     if wallet_type == "app_wallet":
+    #         taxable_amount = Decimal(amount) * Decimal('0.05')
+    #         payable_amount = Decimal(amount) - taxable_amount
+    #         sender_wallet.app_wallet_balance -= payable_amount
+    #         sender_wallet.save()
+    #         recipient_wallet.app_wallet_balance += payable_amount
+    #         recipient_wallet.save()
+    #         Transaction.objects.create(
+    #             created_by=request.user, sender=sender, receiver=recipient,
+    #             amount=amount, taxable_amount=taxable_amount, tds_amount=taxable_amount, transaction_status='approved',
+    #             transaction_type='send', status='active'
+    #         )
+    #     elif wallet_type == "main_wallet":
+    #         sender_wallet.main_wallet_balance -= Decimal(amount)
+    #         sender_wallet.save()
+    #         recipient_wallet.main_wallet_balance += Decimal(amount)
+    #         recipient_wallet.save()
+    #         Transaction.objects.create(
+    #             created_by=request.user, sender=sender, receiver=recipient,
+    #             amount=amount, transaction_status='approved', tds_amount=taxable_amount,
+    #             transaction_type='send', status='active'
+    #         )
+    #     else:
+    #         return Response(
+    #             {"message": "Currently we are accepting in-app transfer and main wallet transfer."},
+    #             status=status.HTTP_400_BAD_REQUEST)
+    #
+    #     return Response({"message": "Payment successfully transferred."}, status=status.HTTP_200_OK)
+
     @action(detail=False, methods=['post'], url_path='send-money-to-wallet')
     def send_money_to_main_wallet(self, request):
         user_wallet = UserWallet.objects.get(user=request.user)
