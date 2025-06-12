@@ -1133,7 +1133,7 @@ class ApproveRejectWithDrawAPIView(APIView):
                 taxable_amount=taxable_amount
             )
             wallet = UserWallet.objects.filter(user=withdraw.user).last()
-            wallet.amount -= withdraw.withdrawal_amount
+            wallet.main_wallet_balance -= withdraw.withdrawal_amount
             wallet.save()
             withdraw.update(withdrawal_status="approved", rejection_reason=None, is_paid=True,
                             action_date=datetime.datetime.now())
