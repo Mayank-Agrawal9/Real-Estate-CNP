@@ -99,7 +99,7 @@ class LoginAPIView(APIView):
             "message": "Login successful.",
             'key': token.key,
             'basic': {
-                'name': profile.full_name,
+                'name': profile.user.get_full_name(),
                 'email': profile.user.email,
                 'profile_id': profile.id,
                 'user_id': profile.user.id,
@@ -124,9 +124,8 @@ class VerifyOptAPI(APIView):
     def put(self, request):
         username = request.data.get('username')
         otp_value = int(request.data.get('otp'))
-        otp_type = request.data.get('type')
 
-        if not username or not otp_value or not otp_type:
+        if not username or not otp_value:
             return Response({'message': 'Incomplete request data.'}, status=status.HTTP_400_BAD_REQUEST)
 
         user = User.objects.filter(Q(username=username) | Q(email=username), is_active=True).last()
@@ -135,14 +134,14 @@ class VerifyOptAPI(APIView):
             return Response({'message': 'There is no user registered with this username.'},
                             status=status.HTTP_400_BAD_REQUEST)
 
-        query_otp = OTP.objects.filter(created_by=user, type=otp_type).last()
+        query_otp = OTP.objects.filter(email=username, is_verify=False).last()
         if not query_otp:
             return Response({'message': 'Please send OTP first.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        if otp_value != query_otp.otp:
+        if otp_value != int(query_otp.otp):
             return Response({'message': 'The OTP you entered is not valid.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        query_data = {'is_verify': 'true'}
+        query_data = {'is_verify': True}
         query_update = OTPSerializer(query_otp, data=query_data, partial=True)
         if query_update.is_valid():
             query_update.save()
@@ -261,30 +260,22 @@ class ResendOTPView(APIView):
         serializer = ResendOTPSerializer(data=request.data)
         if serializer.is_valid():
             email = serializer.validated_data['email'].lower()
-            try:
-                otp_entry = OTP.objects.get(email=email)
-            except Exception as e:
-                return Response({"error": "Email not found. Please request a new OTP first."},
-                                status=status.HTTP_404_NOT_FOUND)
-
-            if not otp_entry.can_resend():
-                return Response(
-                    {"error": "You can only request a new OTP after 1 minute."},
-                    status=status.HTTP_429_TOO_MANY_REQUESTS
-                )
-
             new_otp = str(random.randint(100000, 999999))
-            otp_entry.otp = new_otp
-            otp_entry.valid_until = datetime.datetime.now() + datetime.timedelta(minutes=10)
-            otp_entry.last_resend = datetime.datetime.now()
-            otp_entry.save()
-            # send_mail(
-            #     subject="Your OTP Code",
-            #     message=f"Your OTP code is {new_otp}. It is valid for 10 minutes.",
-            #     from_email=settings.DEFAULT_FROM_EMAIL,
-            #     recipient_list=[email],
-            #     fail_silently=False,
-            # )
+            OTP.objects.update_or_create(
+                email=email,
+                defaults={
+                    "otp": new_otp,
+                    "valid_until": datetime.datetime.now() + datetime.timedelta(minutes=10),
+                    "is_verify": False
+                },
+            )
+            send_mail(
+                subject="Your OTP Code",
+                message=f"Your OTP code is {new_otp}. It is valid for 10 minutes.",
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[email],
+                fail_silently=False,
+            )
             return Response({"message": "A new OTP has been sent to your email."}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 

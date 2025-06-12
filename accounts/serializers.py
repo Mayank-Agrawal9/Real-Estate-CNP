@@ -32,9 +32,10 @@ class LoginSerializer(serializers.Serializer):
         if not user:
             raise exceptions.ValidationError({'detail': 'No user registered with this credentials.'})
 
-        opt_verify = OTP.objects.filter(created_by=user, type='register', verify='true').last()
-        if not opt_verify:
-            raise exceptions.ValidationError({'detail': 'Please verify otp first.'})
+        opt_verify = OTP.objects.filter(Q(email__exact=username) | Q(email__exact=user.email),
+                                        type='register', is_verify=True).last()
+        # if not opt_verify:
+        #     raise exceptions.ValidationError({'detail': 'Please verify otp first.'})
 
         password = attrs.get('password')
         if not user.check_password(password):
