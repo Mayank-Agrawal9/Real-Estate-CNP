@@ -1117,7 +1117,7 @@ class ApproveRejectWithDrawAPIView(APIView):
         if not withdraw_id or action not in ["approved", "rejected"]:
             return Response({"error": "Invalid input."}, status=status.HTTP_400_BAD_REQUEST)
 
-        withdraw = FundWithdrawal.objects.filter(id=withdraw_id)
+        withdraw = FundWithdrawal.objects.filter(id=withdraw_id).last()
 
         if not withdraw:
             return Response({"error": "Invalid withdraw Id."}, status=status.HTTP_400_BAD_REQUEST)
@@ -1135,7 +1135,8 @@ class ApproveRejectWithDrawAPIView(APIView):
             wallet_amount = UserWallet.objects.filter(user=withdraw.user).last()
             wallet_amount -= withdraw.withdrawal_amount
             wallet_amount.save()
-            withdraw.update(withdrawal_status="approved", rejection_reason=None, is_paid=True, action_date=datetime.datetime.now())
+            withdraw.update(withdrawal_status="approved", rejection_reason=None, is_paid=True,
+                            action_date=datetime.datetime.now())
         elif action == "rejected":
             withdraw.update(withdrawal_status="rejected", rejection_reason=rejection_reason, action_date=datetime.datetime.now())
 
