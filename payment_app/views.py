@@ -218,7 +218,7 @@ class UserWalletViewSet(viewsets.ModelViewSet):
             taxable_amount=taxable_amount, transaction_type='withdraw', transaction_status='pending'
         )
         FundWithdrawal.objects.create(user=request.user, withdrawal_amount=amount,
-                                      withdrawal_date=datetime.datetime.now())
+                                      withdrawal_date=datetime.datetime.now(), taxable_amount=taxable_amount)
         return Response({"message": "Your withdrawal will be credited to your account within 48 hours. "
                                     "Thank you for your patience."}, status=status.HTTP_201_CREATED)
 

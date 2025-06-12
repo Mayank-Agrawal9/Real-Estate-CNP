@@ -197,6 +197,7 @@ class PPDAccount(ModelMixin):
 class FundWithdrawal(ModelMixin):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='withdrawal_user')
     withdrawal_amount = models.DecimalField(max_digits=15, decimal_places=2)
+    taxable_amount = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     withdrawal_date = models.DateTimeField(auto_now_add=True)
     withdrawal_status = models.CharField(max_length=30, choices=FUND_WITHDRAW_TYPE, default='pending')
     action_date = models.DateTimeField(null=True, blank=True)

@@ -330,14 +330,18 @@ class UserPermissionProfileSerializer(serializers.ModelSerializer):
 
 class ListWithDrawRequest(serializers.ModelSerializer):
     user = serializers.SerializerMethodField()
+    send_amount = serializers.SerializerMethodField()
 
     def get_user(self, obj):
         return {'id': obj.user.id, 'name': obj.user.get_full_name(), 'email': obj.user.email, 'username': obj.user.username}
 
+    def get_send_amount(self, obj):
+        return (obj.withdrawal_amount - obj.taxable_amount) or 0
+
     class Meta:
         model = FundWithdrawal
         fields = ('id', 'user', 'withdrawal_amount', 'withdrawal_date', 'is_paid', 'date_created',
-                  'withdrawal_status', 'rejection_reason')
+                  'withdrawal_status', 'rejection_reason', 'taxable_amount', 'send_amount')
 
 
 class UserWithWorkingIDSerializer(serializers.ModelSerializer):
