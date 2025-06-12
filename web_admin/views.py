@@ -1132,9 +1132,9 @@ class ApproveRejectWithDrawAPIView(APIView):
                 remarks='Added remarks', verified_by=self.request.user, verified_on=datetime.datetime.now(),
                 taxable_amount=taxable_amount
             )
-            wallet_amount = UserWallet.objects.filter(user=withdraw.user).last()
-            wallet_amount -= withdraw.withdrawal_amount
-            wallet_amount.save()
+            wallet = UserWallet.objects.filter(user=withdraw.user).last()
+            wallet.amount -= withdraw.withdrawal_amount
+            wallet.save()
             withdraw.update(withdrawal_status="approved", rejection_reason=None, is_paid=True,
                             action_date=datetime.datetime.now())
         elif action == "rejected":
