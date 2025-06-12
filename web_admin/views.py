@@ -1135,11 +1135,16 @@ class ApproveRejectWithDrawAPIView(APIView):
             wallet = UserWallet.objects.filter(user=withdraw.user).last()
             wallet.main_wallet_balance -= withdraw.withdrawal_amount
             wallet.save()
-            withdraw.update(withdrawal_status="approved", rejection_reason=None, is_paid=True,
-                            action_date=datetime.datetime.now())
+            withdraw.withdrawal_status = "approved"
+            withdraw.rejection_reason = None
+            withdraw.is_paid = True
+            withdraw.action_date = datetime.datetime.now()
+            withdraw.save()
         elif action == "rejected":
-            withdraw.update(withdrawal_status="rejected", rejection_reason=rejection_reason, action_date=datetime.datetime.now())
-
+            withdraw.withdrawal_status = "rejected"
+            withdraw.rejection_reason = rejection_reason
+            withdraw.action_date = datetime.datetime.now()
+            withdraw.save()
         return Response({"detail": f"Withdraw {action} successfully."})
 
 
