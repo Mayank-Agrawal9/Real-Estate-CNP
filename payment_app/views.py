@@ -206,8 +206,7 @@ class UserWalletViewSet(viewsets.ModelViewSet):
     def withdraw_payment(self, request):
         if not (request.user.profile.is_kyc and request.user.profile.is_kyc_verified):
             return Response(
-                {"error": "You has not completed KYC verification."},
-                status=status.HTTP_400_BAD_REQUEST
+                {"error": "You has not completed KYC verification."}, status=status.HTTP_400_BAD_REQUEST
             )
         serializer = WithdrawRequestSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
