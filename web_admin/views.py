@@ -1124,7 +1124,7 @@ class ApproveRejectWithDrawAPIView(APIView):
 
         if action == "approved":
             # Add Logic For Send Money and add interest
-            deducted_amount = withdraw.withdrawal_amount * 0.95
+            deducted_amount = withdraw.withdrawal_amount * Decimal('0.95')
             taxable_amount = withdraw.withdrawal_amount - deducted_amount
             Transaction.objects.create(
                 sender=withdraw.user, receiver=withdraw.user, amount=deducted_amount,
