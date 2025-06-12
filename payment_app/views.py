@@ -10,7 +10,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from agency.models import Investment
+from agency.models import Investment, FundWithdrawal
 from payment_app.models import Transaction, UserWallet
 from payment_app.serializers import WithdrawRequestSerializer, ApproveTransactionSerializer, PayUserSerializer, \
     UserWalletSerializer, TransactionSerializer, AddMoneyToWalletSerializer
@@ -214,14 +214,12 @@ class UserWalletViewSet(viewsets.ModelViewSet):
         amount = serializer.validated_data['amount']
         taxable_amount = (Decimal(amount) * Decimal('0.05'))
         Transaction.objects.create(
-            created_by=request.user,
-            sender=request.user,
-            receiver=request.user,
-            amount=amount,
-            taxable_amount=taxable_amount,
-            transaction_type='withdraw',
-            transaction_status='pending'
+            created_by=request.user, sender=request.user,
+            receiver=request.user, amount=amount,
+            taxable_amount=taxable_amount, transaction_type='withdraw', transaction_status='pending'
         )
+        FundWithdrawal.objects.create(user=request.user, withdrawal_amount=amount,
+                                      withdrawal_date=datetime.datetime.now())
         return Response({"message": "Your withdrawal will be credited to your account within 48 hours. "
                                     "Thank you for your patience."}, status=status.HTTP_201_CREATED)
 

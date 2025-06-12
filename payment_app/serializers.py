@@ -83,7 +83,7 @@ class WithdrawRequestSerializer(serializers.Serializer):
         if wallet.main_wallet_balance < data['amount']:
             raise serializers.ValidationError("Insufficient balance.")
 
-        allowed_dates = [10, 20, 30]
+        allowed_dates = [10, 12, 20, 30]
         current_date = datetime.datetime.now()
         if current_date.day not in allowed_dates:
             raise serializers.ValidationError(
