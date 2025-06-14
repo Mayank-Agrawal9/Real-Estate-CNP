@@ -1248,10 +1248,10 @@ class WithdrawDashboardV2(APIView):
                                                    user=user_id).last()
         if is_working:
             is_working_id = True
-            total_return_amount = (get_investment.amount or 0) * 4.1
+            total_return_amount = (get_investment.amount or 0) * Decimal(4.1)
         else:
             is_working_id = False
-            total_return_amount = (get_investment.amount or 0) * 2.1
+            total_return_amount = (get_investment.amount or 0) * Decimal(2.1)
 
         total_income_earned = Commission.objects.filter(commission_to=user_id, status='active').aggregate(
             total_amount=Sum('amount'))['total_amount'] or Decimal(0)
