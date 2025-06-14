@@ -35,6 +35,7 @@ urlpatterns = [
     path('user-fund-distribution/<int:id>/', UserWiseFundDistributionAPIView.as_view(), name='user-fund-distribution'),
     path('company-liability', CompanyLiabilityStatsAPIView.as_view(), name='company-liability'),
     path('withdraw-request', WithDrawRequest.as_view(), name='withdraw-request'),
+    path('withdraw-summary', WithdrawSummaryAPIView.as_view(), name='withdraw-summary'),
     path('action-withdraw-request', ApproveRejectWithDrawAPIView.as_view(), name='action-withdraw-request'),
     path('withdraw-dashboard', WithdrawDashboard.as_view(), name='withdraw-dashboard'),
     path('withdraw-dashboard-v2', WithdrawDashboardV2.as_view(), name='withdraw-dashboard-v2'),

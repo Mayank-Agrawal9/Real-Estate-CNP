@@ -582,10 +582,10 @@ class MyIdValueAPIView(APIView):
         check_working_id = MLMTree.objects.filter(referral_by=self.request.user).count()
         if check_working_id and check_working_id >= 2:
             is_working_id = True
-            total_return_amount = (get_investment.amount or 0) * 4
+            total_return_amount = (get_investment.amount or 0) * 4.1
         else:
             is_working_id = False
-            total_return_amount = (get_investment.amount or 0) * 2
+            total_return_amount = (get_investment.amount or 0) * 2.1
 
         total_income_earned = Commission.objects.filter(commission_to=request.user).aggregate(
             total_amount=Sum('amount'))['total_amount'] or Decimal(0)

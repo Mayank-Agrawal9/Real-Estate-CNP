@@ -152,12 +152,10 @@ class MLMTreeNodeSerializerV2(serializers.ModelSerializer):
 
 class GetDirectUserSerializer(serializers.ModelSerializer):
     child = serializers.SerializerMethodField()
-    parent = serializers.SerializerMethodField()
-    referral_by = serializers.SerializerMethodField()
 
     class Meta:
         model = MLMTree
-        fields = ['child', 'parent', 'referral_by']
+        fields = ['child']
 
     def get_child(self, obj):
         if not obj.child:
@@ -166,29 +164,8 @@ class GetDirectUserSerializer(serializers.ModelSerializer):
             "id": obj.child.id,
             "username": obj.child.username,
             "email": obj.child.email,
-            "name": obj.child.get_full_name()
-        }
-        return user_data
-
-    def get_parent(self, obj):
-        if not obj.parent:
-            return None
-        user_data = {
-            "id": obj.parent.id,
-            "username": obj.parent.username,
-            "email": obj.parent.email,
-            "name": obj.parent.get_full_name()
-        }
-        return user_data
-
-    def get_referral_by(self, obj):
-        if not obj.referral_by:
-            return None
-        user_data = {
-            "id": obj.referral_by.id,
-            "username": obj.referral_by.username,
-            "email": obj.referral_by.email,
-            "name": obj.referral_by.get_full_name()
+            "name": obj.child.get_full_name(),
+            "picture": obj.child.profile.picture if obj.child.profile and obj.child.profile.picture else None
         }
         return user_data
 

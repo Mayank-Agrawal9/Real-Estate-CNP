@@ -1055,7 +1055,7 @@ class CompanyLiabilityStatsAPIView(APIView):
 
         total_return_amount = Decimal('0')
         for user_id, amount in investment_map.items():
-            multiplier = 4 if user_id in working_ids else 2
+            multiplier = 4.1 if user_id in working_ids else 2.1
             total_return_amount += amount * Decimal(multiplier)
 
         total_investment = Investment.objects.filter(status='active').aggregate(
@@ -1248,10 +1248,10 @@ class WithdrawDashboardV2(APIView):
                                                    user=user_id).last()
         if is_working:
             is_working_id = True
-            total_return_amount = (get_investment.amount or 0) * 4
+            total_return_amount = (get_investment.amount or 0) * 4.1
         else:
             is_working_id = False
-            total_return_amount = (get_investment.amount or 0) * 2
+            total_return_amount = (get_investment.amount or 0) * 2.1
 
         total_income_earned = Commission.objects.filter(commission_to=user_id, status='active').aggregate(
             total_amount=Sum('amount'))['total_amount'] or Decimal(0)
@@ -1425,3 +1425,36 @@ class AppTransferSumAmount(APIView):
         }
 
         return Response(response_data, status=status.HTTP_200_OK)
+
+
+class WithdrawSummaryAPIView(APIView):
+    permission_classes = [IsStaffUser]
+
+    def get(self, request, *args, **kwargs):
+        queryset = FundWithdrawal.objects.filter(status='active')
+        user_id = request.query_params.get('user')
+        search = request.query_params.get('search')
+
+        if user_id:
+            queryset = queryset.filter(user__id=user_id)
+
+        if search:
+            queryset = queryset.filter(
+                Q(user__first_name__icontains=search) |
+                Q(user__last_name__icontains=search) |
+                Q(user__email__icontains=search) |
+                Q(user__username__icontains=search)
+            )
+        total_amount = queryset.aggregate(total=Sum('withdrawal_amount'))['total'] or 0
+        approved_amount = queryset.filter(withdrawal_status='approved').aggregate(total=Sum('withdrawal_amount'))['total'] or 0
+        rejected_amount = queryset.filter(withdrawal_status='rejected').aggregate(total=Sum('withdrawal_amount'))['total'] or 0
+        pending_amount = queryset.filter(withdrawal_status='pending').aggregate(total=Sum('withdrawal_amount'))['total'] or 0
+        taxable_amount = queryset.aggregate(taxable=Sum('withdrawal_amount'))['taxable'] or 0
+        taxable_amount = round(taxable_amount * Decimal(0.05), 2)
+        return Response({
+            'total_amount': total_amount,
+            'approved_amount': approved_amount,
+            'rejected_amount': rejected_amount,
+            'pending_amount': pending_amount,
+            'taxable_amount': taxable_amount
+        })
