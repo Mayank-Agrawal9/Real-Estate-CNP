@@ -1055,7 +1055,7 @@ class CompanyLiabilityStatsAPIView(APIView):
 
         total_return_amount = Decimal('0')
         for user_id, amount in investment_map.items():
-            multiplier = 4.1 if user_id in working_ids else 2.1
+            multiplier = 4.4 if user_id in working_ids else 2.1
             total_return_amount += amount * Decimal(multiplier)
 
         total_investment = Investment.objects.filter(status='active').aggregate(
@@ -1248,7 +1248,7 @@ class WithdrawDashboardV2(APIView):
                                                    user=user_id).last()
         if is_working:
             is_working_id = True
-            total_return_amount = (get_investment.amount or 0) * Decimal(4.1)
+            total_return_amount = (get_investment.amount or 0) * Decimal(4.4)
         else:
             is_working_id = False
             total_return_amount = (get_investment.amount or 0) * Decimal(2.1)

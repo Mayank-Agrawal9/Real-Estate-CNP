@@ -582,7 +582,7 @@ class MyIdValueAPIView(APIView):
         check_working_id = MLMTree.objects.filter(referral_by=self.request.user).count()
         if check_working_id and check_working_id >= 2:
             is_working_id = True
-            total_return_amount = (get_investment.amount or 0) * 4.1
+            total_return_amount = (get_investment.amount or 0) * 4.4
         else:
             is_working_id = False
             total_return_amount = (get_investment.amount or 0) * 2.1
