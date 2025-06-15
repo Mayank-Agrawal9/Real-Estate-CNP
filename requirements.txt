@@ -28,3 +28,5 @@ django-storages==1.14.4
 django-auditlog==3.0.0
 django-crontab==0.7.1
 django-multiselectfield==0.1.13
+django_ckeditor_5
+qrcode

@@ -1,6 +1,7 @@
 import datetime
 from decimal import Decimal
 
+import requests
 from dateutil.relativedelta import relativedelta
 from django.db.models import Q
 from rest_framework import viewsets, status
@@ -14,6 +15,7 @@ from master.models import RewardMaster
 from p2pmb.calculation import DistributeDirectCommission
 from p2pmb.models import MLMTree
 from payment_app.models import UserWallet, Transaction
+from real_estate import settings
 from .calculation import distribute_monthly_rent_for_super_agency, calculate_super_agency_rewards, \
     calculate_agency_rewards, calculate_field_agent_rewards, process_monthly_rentals_for_ppd_interest
 from .models import Investment, Commission, RefundPolicy, FundWithdrawal, SuperAgency, Agency, FieldAgent, \
@@ -156,6 +158,71 @@ class InvestmentViewSet(viewsets.ModelViewSet):
             return Response({"status": True}, status=status.HTTP_200_OK)
         else:
             return Response({"status": False}, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['post'], url_path='initiate-payment-p2pmb')
+    class InitiatePaymentView(APIView):
+        def post(self, request):
+            amount = Decimal(request.data.get('amount'))
+            referral_code = request.data.get('referral_by')
+
+            if not amount:
+                return Response({'status': False, 'message': 'Amount is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+            referral_by = None
+            if referral_code:
+                referral_profile = Profile.objects.filter(referral_code=referral_code).last()
+                if referral_profile:
+                    referral_by = referral_profile.user
+
+            # Create transaction with pending status
+            transaction = Transaction.objects.create(
+                created_by=request.user,
+                sender=request.user,
+                amount=amount,
+                taxable_amount=0,
+                transaction_type="investment",
+                transaction_status="pending",
+                payment_method="cashfree",
+                remarks="Cashfree payment initiated."
+            )
+
+            # Cashfree API request
+            headers = {
+                "Content-Type": "application/json",
+                "x-client-id": settings.CASHFREE_APP_ID,
+                "x-client-secret": settings.CASHFREE_SECRET_KEY,
+                "x-api-version": "2022-09-01"
+            }
+
+            payload = {
+                "order_id": f"ORD{transaction.id}",
+                "order_amount": float(amount),
+                "order_currency": "INR",
+                "customer_details": {
+                    "customer_id": str(request.user.id),
+                    "customer_email": request.user.email,
+                    "customer_phone": request.user.profile.mobile if hasattr(request.user, 'profile') else "0000000000"
+                },
+                "order_meta": {
+                    "return_url": f"{settings.BASE_URL}/payment/callback?order_id=ORD{transaction.id}",
+                    "notify_url": f"{settings.BASE_URL}/api/payment/webhook/"
+                }
+            }
+
+            response = requests.post(f"{settings.CASHFREE_BASE_URL}/pg/orders", json=payload, headers=headers)
+
+            if response.status_code == 200:
+                data = response.json()
+                session_id = data.get("payment_session_id")
+                payment_url = f"{settings.CASHFREE_BASE_URL}/pg/checkout/post/{session_id}"
+                return Response({
+                    "status": True,
+                    "payment_url": payment_url,
+                    "order_id": f"ORD{transaction.id}"
+                }, status=status.HTTP_200_OK)
+
+            return Response({"status": False, "message": "Payment initiation failed"},
+                            status=status.HTTP_400_BAD_REQUEST)
 
 
 class CommissionViewSet(viewsets.ModelViewSet):
