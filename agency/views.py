@@ -1,8 +1,15 @@
+import base64
 import datetime
+import hashlib
+import hmac
+import json
 from decimal import Decimal
 
+import requests
 from dateutil.relativedelta import relativedelta
 from django.db.models import Q
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -14,6 +21,7 @@ from master.models import RewardMaster
 from p2pmb.calculation import DistributeDirectCommission
 from p2pmb.models import MLMTree
 from payment_app.models import UserWallet, Transaction
+from real_estate import settings
 from .calculation import distribute_monthly_rent_for_super_agency, calculate_super_agency_rewards, \
     calculate_agency_rewards, calculate_field_agent_rewards, process_monthly_rentals_for_ppd_interest
 from .models import Investment, Commission, RefundPolicy, FundWithdrawal, SuperAgency, Agency, FieldAgent, \
@@ -134,12 +142,13 @@ class InvestmentViewSet(viewsets.ModelViewSet):
             investment_data = {
                 'created_by': self.request.user,
                 'user': self.request.user,
+                'status': 'inactive',
                 'amount': amount,
                 'investment_type': investment_type,
                 'gst': 0,
                 'transaction_id': transaction,
                 'pay_method': wallet_type,
-                'is_approved': True,
+                'is_approved': False,
                 'approved_by': self.request.user,
                 'approved_on': datetime.datetime.now(),
                 'investment_guaranteed_type': investment_guaranteed_type,
@@ -156,6 +165,186 @@ class InvestmentViewSet(viewsets.ModelViewSet):
             return Response({"status": True}, status=status.HTTP_200_OK)
         else:
             return Response({"status": False}, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['post'], url_path='initiate-payment-p2pmb')
+    def initiate_payment(self, request):
+        amount = Decimal(request.data.get('amount'))
+        wallet_type = request.data.get('wallet_type')
+        package = request.data.get('package')
+        investment_type = request.data.get('investment_type')
+        investment_guaranteed_type = request.data.get('investment_guaranteed_type')
+        if not investment_type:
+            investment_type = 'p2pmb'
+        referral_code = request.data.get('referral_by')
+        referral_by = None
+
+        if not amount and not wallet_type and not package:
+            return Response({'status': False}, status=status.HTTP_400_BAD_REQUEST)
+
+        if referral_code:
+            get_user_by_referral = Profile.objects.filter(referral_code=referral_code).last()
+            referral_by = get_user_by_referral.user
+
+        if not referral_by:
+            get_user_by_referral = Profile.objects.filter(referral_code='CNPPB007700').last()
+            if get_user_by_referral:
+                referral_by = get_user_by_referral.user
+
+        filter_condition = Q(user=self.request.user)
+        if wallet_type == 'main_wallet':
+            filter_condition &= Q(main_wallet_balance__gte=amount)
+        if wallet_type == 'app_wallet':
+            filter_condition &= Q(app_wallet_balance__gte=amount)
+
+        if not amount:
+            return Response({'status': False, 'message': 'Amount is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if amount < 10:
+            return Response({'status': False, 'message': 'Minimum amount is ₹10'}, status=status.HTTP_400_BAD_REQUEST)
+
+        transaction = Transaction.objects.create(
+            created_by=request.user, sender=request.user, amount=amount,
+            taxable_amount=0, transaction_type="investment",
+            transaction_status="pending", payment_method="cashfree",
+            remarks="Cashfree payment initiated."
+        )
+
+        investment_data = {
+            'created_by': self.request.user,
+            'status': 'inactive',
+            'user': self.request.user,
+            'amount': amount,
+            'investment_type': investment_type,
+            'gst': 0,
+            'transaction_id': transaction,
+            'pay_method': wallet_type,
+            'is_approved': False,
+            'approved_by': self.request.user,
+            'approved_on': datetime.datetime.now(),
+            'investment_guaranteed_type': investment_guaranteed_type,
+            'referral_by': referral_by if referral_by else None
+        }
+
+        investment = Investment.objects.create(**investment_data)
+        if package:
+            investment.package.set(package)
+        get_mlm = MLMTree.objects.filter(child=self.request.user).last()
+        if get_mlm:
+            get_mlm.turnover += amount
+            get_mlm.save()
+
+        headers = {
+            "Content-Type": "application/json",
+            "x-client-id": settings.CASHFREE_APP_ID,
+            "x-client-secret": settings.CASHFREE_SECRET_KEY,
+            "x-api-version": "2025-01-01"
+        }
+
+        payload = {
+            "order_id": f"{transaction.id}",
+            "order_amount": float(amount),
+            "order_currency": "INR",
+            "customer_details": {
+                "customer_id": str(request.user.id),
+                "customer_email": request.user.email,
+                "customer_phone": request.user.profile.mobile_number if request.user.profile and request.user.profile.mobile_number else "0000000000",
+                "customer_name": request.user.get_full_name() or "Customer"
+            },
+            "order_meta": {
+                "return_url": f"{settings.BASE_URL}/api/agency/callback?order_id={transaction.id}",
+                "notify_url": f"{settings.BASE_URL}/api/agency/webhook/",
+                "payment_methods": "cc,dc,upi,paypal",
+                "investment_id": investment.id
+            }
+        }
+
+        try:
+            response = requests.post(
+                f"https://sandbox.cashfree.com/pg/orders", json=payload, headers=headers
+            )
+            response.raise_for_status()
+            data = response.json()
+            if response.status_code == 200:
+                session_id = data.get("payment_session_id")
+                payment_url = f"{settings.CASHFREE_BASE_URL}/pg/checkout/post/{session_id}"
+                transaction.gateway_reference = data.get("cf_order_id")
+                transaction.save()
+
+                return Response({
+                    "status": True,
+                    "payment_url": payment_url,
+                    "order_id": payload["order_id"],
+                    "session_id": session_id
+                }, status=status.HTTP_200_OK)
+
+            return Response({
+                "status": False,
+                "message": "Payment initiation failed",
+                "error": data.get("message", "Unknown error")
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        except requests.exceptions.RequestException as e:
+            return Response({
+                "status": False,
+                "message": "Payment gateway error",
+                "error": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class CashfreeWebhookView(APIView):
+
+    def post(self, request):
+        raw_body = request.body
+        signature = request.headers.get("x-cf-signature")
+
+        if not signature:
+            return Response({'status': False, 'message': 'Missing signature'}, status=status.HTTP_403_FORBIDDEN)
+
+        computed_signature = base64.b64encode(
+            hmac.new(
+                key=bytes(settings.CASHFREE_SECRET_KEY, 'utf-8'), msg=raw_body, digestmod=hashlib.sha256
+            ).digest()
+        ).decode()
+
+        if computed_signature != signature:
+            return Response({'status': False, 'message': 'Invalid signature'}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            data = json.loads(raw_body)
+        except Exception:
+            return Response({'status': False, 'message': 'Invalid JSON body'}, status=status.HTTP_400_BAD_REQUEST)
+
+        order_id = data.get('order_id')
+        transaction_status = data.get('order_status')
+        order_meta = data.get('order_meta', {})
+        investment_id = order_meta.get('investment_id')
+
+        if not order_id or not transaction_status or not investment_id:
+            return Response({'status': False, 'message': 'Missing required fields'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            transaction = Transaction.objects.get(id=order_id)
+        except Exception as e:
+            return Response({'status': False, 'message': 'Transaction not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            investment = Investment.objects.get(id=investment_id)
+        except Exception as e:
+            return Response({'status': False, 'message': 'Investment not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        if transaction_status == 'PAID':
+            if transaction.transaction_status != 'approved':
+                transaction.transaction_status = 'approved'
+                transaction.save()
+
+            if investment.status != 'active' or not investment.is_approved:
+                investment.status = 'active'
+                investment.is_approved = True
+                investment.save()
+
+            return Response({'status': True, 'message': 'Payment successfully processed'}, status=status.HTTP_200_OK)
+        return Response({'status': True, 'message': f'Status received: {transaction_status}'}, status=status.HTTP_200_OK)
 
 
 class CommissionViewSet(viewsets.ModelViewSet):

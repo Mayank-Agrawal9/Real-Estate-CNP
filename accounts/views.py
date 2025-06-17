@@ -181,7 +181,6 @@ class ForgotPasswordChangeAPI(APIView):
         username = request.data.get("username")
         password = request.data.get("password")
         confirm_password = request.data.get("confirm_password")
-        type = request.data.get("type")
         if not password and confirm_password and username:
             return Response({'error': 'Password and confirm password and username should be mandatory.'},
                             status=status.HTTP_400_BAD_REQUEST)
@@ -191,10 +190,6 @@ class ForgotPasswordChangeAPI(APIView):
         user = User.objects.filter(Q(username=username) | Q(email=username)).last()
         if not user:
             return Response({'status': False, 'message': 'There is no user register with this email.'},
-                            status=status.HTTP_400_BAD_REQUEST)
-        verify_otp = OTP.objects.filter(created_by=user, verify='true', type=type).last()
-        if not verify_otp:
-            return Response({'status': False, 'message': 'First You need to verify OTP.'},
                             status=status.HTTP_400_BAD_REQUEST)
         user.set_password(password)
         user.save()

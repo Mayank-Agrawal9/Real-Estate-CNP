@@ -279,6 +279,8 @@ CORS_ALLOWED_ORIGINS = [
     # 'http://64.225.84.50',
     'http://139.59.71.1',
     'https://admin.clicknpayrealestate.com',
-    'https://clicknpayrealestate.com'
+    'http://clicknpayrealestate.com',
+    'https://clicknpayrealestate.com',
+    'https://staging.clicknpayrealestate.com'
 ]
 

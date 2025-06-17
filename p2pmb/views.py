@@ -8,7 +8,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import serializers, status, viewsets
 from rest_framework.filters import SearchFilter
 from rest_framework.generics import ListAPIView
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -227,7 +227,7 @@ class MyApplying(APIView):
 
 
 class PackageViewSet(viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
     serializer_class = PackageSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter]
     search_fields = ['name', 'applicable_for']
@@ -240,7 +240,7 @@ class PackageViewSet(viewsets.ModelViewSet):
     def get_serializer_context(self):
         """Pass the user context to the serializer"""
         context = super().get_serializer_context()
-        context['user'] = self.request.user
+        context['user'] = self.request.user if self.request.user.is_authenticated else None
         return context
 
 
