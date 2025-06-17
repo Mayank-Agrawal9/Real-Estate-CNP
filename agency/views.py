@@ -1,4 +1,5 @@
 import datetime
+import json
 from decimal import Decimal
 
 import requests
@@ -160,69 +161,132 @@ class InvestmentViewSet(viewsets.ModelViewSet):
             return Response({"status": False}, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=['post'], url_path='initiate-payment-p2pmb')
-    class InitiatePaymentView(APIView):
-        def post(self, request):
-            amount = Decimal(request.data.get('amount'))
-            referral_code = request.data.get('referral_by')
+    def initiate_payment(self, request):
+        amount = Decimal(request.data.get('amount'))
+        referral_code = request.data.get('referral_by')
 
-            if not amount:
-                return Response({'status': False, 'message': 'Amount is required'}, status=status.HTTP_400_BAD_REQUEST)
+        if not amount:
+            return Response({'status': False, 'message': 'Amount is required'}, status=status.HTTP_400_BAD_REQUEST)
 
-            referral_by = None
-            if referral_code:
-                referral_profile = Profile.objects.filter(referral_code=referral_code).last()
-                if referral_profile:
-                    referral_by = referral_profile.user
+        if amount < 10:
+            return Response({'status': False, 'message': 'Minimum amount is ₹10'}, status=status.HTTP_400_BAD_REQUEST)
 
-            # Create transaction with pending status
-            transaction = Transaction.objects.create(
-                created_by=request.user,
-                sender=request.user,
-                amount=amount,
-                taxable_amount=0,
-                transaction_type="investment",
-                transaction_status="pending",
-                payment_method="cashfree",
-                remarks="Cashfree payment initiated."
+        referral_by = None
+        if referral_code:
+            referral_profile = Profile.objects.filter(referral_code=referral_code).last()
+            if referral_profile:
+                referral_by = referral_profile.user
+
+        transaction = Transaction.objects.create(
+            created_by=request.user, sender=request.user, amount=amount,
+            taxable_amount=0, transaction_type="investment",
+            transaction_status="pending", payment_method="cashfree",
+            remarks="Cashfree payment initiated."
+        )
+
+        headers = {
+            "Content-Type": "application/json",
+            "x-client-id": settings.CASHFREE_APP_ID,
+            "x-client-secret": settings.CASHFREE_SECRET_KEY,
+            "x-api-version": "2025-01-01"
+        }
+
+        payload = {
+            "order_id": f"{transaction.id}",
+            "order_amount": float(amount),
+            "order_currency": "INR",
+            "customer_details": {
+                "customer_id": str(request.user.id),
+                "customer_email": request.user.email,
+                "customer_phone": request.user.profile.mobile_number if request.user.profile and request.user.profile.mobile_number else "0000000000",
+                "customer_name": request.user.get_full_name() or "Customer"
+            },
+            "order_meta": {
+                "return_url": f"{settings.BASE_URL}/payment/callback?order_id={transaction.id}",
+                "notify_url": f"{settings.BASE_URL}/api/payment/webhook/",
+                "payment_methods": "cc,dc,upi,paypal"
+            }
+        }
+
+        try:
+            response = requests.post(
+                f"https://sandbox.cashfree.com/pg/orders", json=payload, headers=headers
             )
-
-            # Cashfree API request
-            headers = {
-                "Content-Type": "application/json",
-                "x-client-id": settings.CASHFREE_APP_ID,
-                "x-client-secret": settings.CASHFREE_SECRET_KEY,
-                "x-api-version": "2022-09-01"
-            }
-
-            payload = {
-                "order_id": f"ORD{transaction.id}",
-                "order_amount": float(amount),
-                "order_currency": "INR",
-                "customer_details": {
-                    "customer_id": str(request.user.id),
-                    "customer_email": request.user.email,
-                    "customer_phone": request.user.profile.mobile if hasattr(request.user, 'profile') else "0000000000"
-                },
-                "order_meta": {
-                    "return_url": f"{settings.BASE_URL}/payment/callback?order_id=ORD{transaction.id}",
-                    "notify_url": f"{settings.BASE_URL}/api/payment/webhook/"
-                }
-            }
-
-            response = requests.post(f"{settings.CASHFREE_BASE_URL}/pg/orders", json=payload, headers=headers)
-
+            response.raise_for_status()
+            data = response.json()
             if response.status_code == 200:
-                data = response.json()
                 session_id = data.get("payment_session_id")
                 payment_url = f"{settings.CASHFREE_BASE_URL}/pg/checkout/post/{session_id}"
+                transaction.gateway_reference = data.get("cf_order_id")
+                transaction.save()
+
                 return Response({
                     "status": True,
                     "payment_url": payment_url,
-                    "order_id": f"ORD{transaction.id}"
+                    "order_id": payload["order_id"],
+                    "session_id": session_id
                 }, status=status.HTTP_200_OK)
 
-            return Response({"status": False, "message": "Payment initiation failed"},
-                            status=status.HTTP_400_BAD_REQUEST)
+            return Response({
+                "status": False,
+                "message": "Payment initiation failed",
+                "error": data.get("message", "Unknown error")
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        except requests.exceptions.RequestException as e:
+            return Response({
+                "status": False,
+                "message": "Payment gateway error",
+                "error": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=False, methods=['post'], url_path='webhook')
+    def cashfree_webhook(self, request):
+        """
+        Handle Cashfree payment webhook notifications
+        """
+        try:
+            received_signature = request.headers.get('x-cf-signature')
+            secret_key = settings.CASHFREE_SECRET_KEY
+            payload = request.body.decode('utf-8')
+            generated_signature = hmac.new(
+                secret_key.encode(),
+                msg=payload.encode(),
+                digestmod=hashlib.sha256
+            ).hexdigest()
+
+            if not hmac.compare_digest(generated_signature, received_signature):
+                return Response({"status": "error", "message": "Invalid signature"}, status=403)
+
+            data = json.loads(payload)
+            order_id = data.get('order_id')
+            payment_status = data.get('payment_status')
+
+            # Extract our transaction ID from order_id (ORDER_{transaction_id}_{timestamp})
+            try:
+                transaction_id = int(order_id.split('_')[1])
+                transaction = Transaction.objects.get(id=transaction_id)
+            except (IndexError, ValueError, Transaction.DoesNotExist):
+                return Response({"status": "error", "message": "Transaction not found"}, status=404)
+
+            # Update transaction based on payment status
+            if payment_status == 'SUCCESS':
+                transaction.transaction_status = 'completed'
+                transaction.gateway_response = data
+                transaction.save()
+
+                # Add any post-payment logic here
+                # e.g., send confirmation email, update user wallet, etc.
+
+            elif payment_status in ['FAILED', 'USER_DROPPED']:
+                transaction.transaction_status = 'failed'
+                transaction.gateway_response = data
+                transaction.save()
+
+            return Response({"status": "success"})
+
+        except Exception as e:
+            return Response({"status": "error", "message": str(e)}, status=500)
 
 
 class CommissionViewSet(viewsets.ModelViewSet):
