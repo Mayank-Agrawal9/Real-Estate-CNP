@@ -240,7 +240,7 @@ class PackageViewSet(viewsets.ModelViewSet):
     def get_serializer_context(self):
         """Pass the user context to the serializer"""
         context = super().get_serializer_context()
-        context['user'] = self.request.user
+        context['user'] = None
         return context
 
 
