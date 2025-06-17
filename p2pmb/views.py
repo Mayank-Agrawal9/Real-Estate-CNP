@@ -227,7 +227,7 @@ class MyApplying(APIView):
 
 
 class PackageViewSet(viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticated]
+    # permission_classes = [IsAuthenticated]
     serializer_class = PackageSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter]
     search_fields = ['name', 'applicable_for']
