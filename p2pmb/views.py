@@ -227,7 +227,7 @@ class MyApplying(APIView):
 
 
 class PackageViewSet(viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticated]
+    # permission_classes = [IsAuthenticated]
     serializer_class = PackageSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter]
     search_fields = ['name', 'applicable_for']
@@ -240,7 +240,7 @@ class PackageViewSet(viewsets.ModelViewSet):
     def get_serializer_context(self):
         """Pass the user context to the serializer"""
         context = super().get_serializer_context()
-        context['user'] = self.request.user
+        context['user'] = None
         return context
 
 
