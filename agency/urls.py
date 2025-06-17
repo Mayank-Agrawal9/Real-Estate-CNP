@@ -3,7 +3,8 @@ from rest_framework.routers import DefaultRouter
 from .views import (InvestmentViewSet, CommissionViewSet, RefundViewSet, FundWithdrawalViewSet,
                     SuperAgencyViewSet, AgencyViewSet, FieldAgentViewSet, RewardEarnedViewSet,
                     PPDAccountViewSet, InvestmentInterestViewSet, UserFieldAgentAPIView, UserAgencyAPIView,
-                    UserSuperAgencyAPIView, EarnedRewardAPIView, RemainingRewardAPIView, IncomeDetailsAPIView)
+                    UserSuperAgencyAPIView, EarnedRewardAPIView, RemainingRewardAPIView, IncomeDetailsAPIView,
+                    CashfreeWebhookView)
 
 router = DefaultRouter()
 router.register(r'super-agency', SuperAgencyViewSet)
@@ -26,4 +27,5 @@ urlpatterns = [
     path('get-earned-reward/', EarnedRewardAPIView.as_view()),
     path('get-pending-reward/', RemainingRewardAPIView.as_view()),
     path('income-details/', IncomeDetailsAPIView.as_view()),
+    path('webhook/', CashfreeWebhookView.as_view()),
 ]

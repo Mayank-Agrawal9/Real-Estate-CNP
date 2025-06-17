@@ -119,7 +119,7 @@ class CoreGroupPhaseViewSet(viewsets.ModelViewSet):
     queryset = CoreGroupPhase.objects.filter(status='active')
     serializer_class = CoreGroupPhaseSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter]
-    filterset_fields = ['club_type', ]
+    filterset_fields = ['validity', 'name']
 
 
 class CoreGroupIncomeViewset(viewsets.ModelViewSet):
