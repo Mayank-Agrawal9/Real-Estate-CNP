@@ -68,8 +68,7 @@ class CreatePropertySerializer(serializers.Serializer):
     postal_code = serializers.CharField(max_length=20)
     street_address = serializers.CharField()
     media_files = serializers.ListField(
-        child=serializers.FileField(),
-        required=False
+        child=serializers.FileField(), required=False
     )
     features = PropertyFeatureSerializer(many=True, required=False)
     nearby_facilities = NearbyFacilitySerializer(many=True, required=False)

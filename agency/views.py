@@ -258,37 +258,37 @@ class InvestmentViewSet(viewsets.ModelViewSet):
             }
         }
 
-        try:
-            response = requests.post(
-                f"https://sandbox.cashfree.com/pg/orders", json=payload, headers=headers
-            )
-            response.raise_for_status()
-            data = response.json()
-            if response.status_code == 200:
-                session_id = data.get("payment_session_id")
-                payment_url = f"{settings.CASHFREE_BASE_URL}/pg/checkout/post/{session_id}"
-                transaction.gateway_reference = data.get("cf_order_id")
-                transaction.save()
-
-                return Response({
-                    "status": True,
-                    "payment_url": payment_url,
-                    "order_id": payload["order_id"],
-                    "session_id": session_id
-                }, status=status.HTTP_200_OK)
+        # try:
+        response = requests.post(
+            f"https://sandbox.cashfree.com/pg/orders", json=payload, headers=headers
+        )
+        response.raise_for_status()
+        data = response.json()
+        if response.status_code == 200:
+            session_id = data.get("payment_session_id")
+            payment_url = f"{settings.CASHFREE_BASE_URL}/pg/checkout/post/{session_id}"
+            transaction.gateway_reference = data.get("cf_order_id")
+            transaction.save()
 
             return Response({
-                "status": False,
-                "message": "Payment initiation failed",
-                "error": data.get("message", "Unknown error")
-            }, status=status.HTTP_400_BAD_REQUEST)
+                "status": True,
+                "payment_url": payment_url,
+                "order_id": payload["order_id"],
+                "session_id": session_id
+            }, status=status.HTTP_200_OK)
 
-        except requests.exceptions.RequestException as e:
-            return Response({
-                "status": False,
-                "message": "Payment gateway error",
-                "error": str(e)
-            }, status=status.HTTP_400_BAD_REQUEST)
+        return Response({
+            "status": False,
+            "message": "Payment initiation failed",
+            "error": data.get("message", "Unknown error")
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+        # except requests.exceptions.RequestException as e:
+        #     return Response({
+        #         "status": False,
+        #         "message": "Payment gateway error",
+        #         "error": str(e)
+        #     }, status=status.HTTP_400_BAD_REQUEST)
 
 
 @method_decorator(csrf_exempt, name='dispatch')
