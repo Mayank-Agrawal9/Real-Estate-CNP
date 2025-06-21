@@ -246,7 +246,7 @@ class InvestmentViewSet(viewsets.ModelViewSet):
             "order_currency": "INR",
             "customer_details": {
                 "customer_id": str(request.user.id),
-                "customer_email": request.user.email,
+                "customer_email": request.user.email or "test@example.com",
                 "customer_phone": request.user.profile.mobile_number if request.user.profile and request.user.profile.mobile_number else "0000000000",
                 "customer_name": request.user.get_full_name() or "Customer"
             },
