@@ -235,8 +235,11 @@ class InvestmentViewSet(viewsets.ModelViewSet):
 
         profile = getattr(request.user, 'profile', None)
         mobile_number = getattr(profile, 'mobile_number', '') if profile else ''
-        customer_phone = str(mobile_number).strip() if mobile_number and str(mobile_number).strip() else "0000000000"
-
+        customer_phone = (
+            str(mobile_number).strip()
+            if mobile_number and str(mobile_number).strip().lower() not in ['null', 'none', '']
+            else "0000000000"
+        )
         headers = {
             "Content-Type": "application/json",
             "x-client-id": settings.CASHFREE_APP_ID,
