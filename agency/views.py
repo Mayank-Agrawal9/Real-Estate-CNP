@@ -233,6 +233,10 @@ class InvestmentViewSet(viewsets.ModelViewSet):
             get_mlm.turnover += amount
             get_mlm.save()
 
+        profile = getattr(request.user, 'profile', None)
+        mobile_number = getattr(profile, 'mobile_number', '') if profile else ''
+        customer_phone = str(mobile_number).strip() if mobile_number and str(mobile_number).strip() else "0000000000"
+
         headers = {
             "Content-Type": "application/json",
             "x-client-id": settings.CASHFREE_APP_ID,
@@ -247,7 +251,7 @@ class InvestmentViewSet(viewsets.ModelViewSet):
             "customer_details": {
                 "customer_id": str(request.user.id),
                 "customer_email": request.user.email or "test@example.com",
-                "customer_phone": request.user.profile.mobile_number if request.user.profile and request.user.profile.mobile_number else "0000000000",
+                "customer_phone": customer_phone,
                 "customer_name": request.user.get_full_name() or "Customer"
             },
             "order_meta": {
