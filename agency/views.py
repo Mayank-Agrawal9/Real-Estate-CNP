@@ -262,9 +262,8 @@ class InvestmentViewSet(viewsets.ModelViewSet):
             response = requests.post(
                 f"https://sandbox.cashfree.com/pg/orders", json=payload, headers=headers
             )
-
-            response.raise_for_status()
             res = response.text
+            response.raise_for_status()
             data = response.json()
             if response.status_code == 200:
                 session_id = data.get("payment_session_id")
@@ -291,6 +290,8 @@ class InvestmentViewSet(viewsets.ModelViewSet):
                 "message": "Payment gateway error",
                 "error": str(e),
                 "text_reponse": res,
+                "payload": payload,
+                "headers": headers,
             }, status=status.HTTP_400_BAD_REQUEST)
 
 
