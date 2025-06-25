@@ -66,6 +66,23 @@ class CoreGroupIncomeSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class CoreGroupIncomeListSerializer(serializers.ModelSerializer):
+    phase = serializers.SerializerMethodField()
+
+    def get_phase(self, obj):
+        if not obj.phase:
+            return None
+        else:
+            return {
+                'id': obj.phase.id,
+                'name': obj.phase.name,
+            }
+
+    class Meta:
+        model = CoreGroupIncome
+        fields = '__all__'
+
+
 class CoreGroupPhaseSerializer(serializers.ModelSerializer):
     class Meta:
         model = CoreGroupPhase
