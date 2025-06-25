@@ -332,7 +332,7 @@ class CoreIncomeEarnedViewSet(viewsets.ModelViewSet):
     serializer_class = CoreIncomeEarnedSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter]
     queryset = CoreIncomeEarned.objects.active()
-    filterset_fields = ['income_type',]
+    filterset_fields = ['income_type', 'core_income', 'user']
 
 
 class P2PMBRoyaltyMasterViewSet(viewsets.ModelViewSet):
