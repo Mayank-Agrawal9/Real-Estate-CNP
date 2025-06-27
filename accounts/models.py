@@ -1,10 +1,12 @@
 import datetime
+import uuid
 
 from django.contrib.auth.models import User
 from django.db import models
 from django_ckeditor_5.fields import CKEditor5Field
 
-from accounts.choices import GENDER_CHOICE, USER_ROLE, DOCUMENT_TYPE, COMPANY_TYPE, OTP_TYPE, ADMIN_ROLE
+from accounts.choices import GENDER_CHOICE, USER_ROLE, DOCUMENT_TYPE, COMPANY_TYPE, OTP_TYPE, ADMIN_ROLE, \
+    CHANGE_REQUEST_CHOICE
 from master.models import State, City
 from real_estate.model_mixin import ModelMixin
 
@@ -122,12 +124,31 @@ class FAQ(models.Model):
 
 
 class ChangeRequest(ModelMixin):
+    reference_number = models.CharField(max_length=30, unique=True, blank=True)
     phone_number = models.CharField(max_length=20, null=True, blank=True)
+    new_phone_number = models.CharField(max_length=20, null=True, blank=True)
     email = models.EmailField(null=True, blank=True)
     account_number = models.CharField(max_length=20, null=True, blank=True)
+    ifsc_code = models.CharField(max_length=20, default='')
+    account_holder_name = models.CharField(max_length=100, default='')
+    bank_name = models.CharField(max_length=100, default='')
+    new_account_number = models.CharField(max_length=20, null=True, blank=True)
+    new_ifsc_code = models.CharField(max_length=20, default='')
+    new_account_holder_name = models.CharField(max_length=100, default='')
+    new_bank_name = models.CharField(max_length=100, default='')
     full_name = models.CharField(max_length=200, null=True, blank=True)
     verified_by = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True, related_name="request_accept")
+    request_status = models.CharField(max_length=20, choices=CHANGE_REQUEST_CHOICE, default='pending')
     verified_on = models.DateTimeField(null=True, blank=True)
+    admin_remark = models.TextField(blank=True, null=True)
+
+    def save(self, *args, **kwargs):
+        if not self.reference_number:
+            now = datetime.datetime.now()
+            timestamp = now.strftime('%Y%m%d%H%M%S%f')
+            suffix = uuid.uuid4().hex[:6].upper()
+            self.reference_number = f"REQ-{timestamp}{suffix}"
+        super().save(*args, **kwargs)
 
     class Meta:
         verbose_name = "Change Request"

@@ -28,7 +28,7 @@ from accounts.serializers import (RequestOTPSerializer, VerifyOTPSerializer, Res
                                   BankDetailsSerializer, FAQSerializer,
                                   ChangeRequestSerializer, UserPersonalDocumentSerializer, UpdateUserProfileSerializer,
                                   BankDetailsSerializerV2, LoginSerializer, OTPSerializer, UserRegistrationSerializer,
-                                  UserDetailSerializer)
+                                  UserDetailSerializer, KycProfileSerializer, CreateKycRequestSerializer)
 from agency.models import SuperAgency, FieldAgent, Agency, Investment
 from p2pmb.models import MLMTree
 from payment_app.models import UserWallet, Transaction
@@ -933,15 +933,70 @@ class GeneratePreviousUniqueCode(APIView):
 class ChangeRequestViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     queryset = ChangeRequest.objects.filter(status='active')
-    serializer_class = ChangeRequestSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_fields = ['phone_number', 'email', 'verified_by']
 
     def get_queryset(self):
         return ChangeRequest.objects.filter(created_by=self.request.user, status='active')
 
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return CreateKycRequestSerializer
+        return ChangeRequestSerializer
+
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
+
+    @action(detail=False, methods=['post'], url_path='approve/(?P<pk>[^/.]+)')
+    def approve_change_request(self, request, pk=None):
+        change_request = ChangeRequest.objects.filter(pk=pk).last()
+        if not change_request:
+            return Response({"error": "Change request not found."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if change_request.request_status != 'pending':
+            return Response({"error": "Request has already been processed."}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = change_request.created_by
+
+        # Update BankDetails
+        bank, _ = BankDetails.objects.get_or_create(user=user)
+        bank.account_number = change_request.new_account_number or bank.account_number
+        bank.ifsc_code = change_request.new_ifsc_code or bank.ifsc_code
+        bank.account_holder_name = change_request.new_account_holder_name or bank.account_holder_name
+        bank.bank_name = change_request.new_bank_name or bank.bank_name
+        bank.save()
+
+        # Update phone number in Profile
+        profile = Profile.objects.filter(user=user).last()
+        if change_request.new_phone_number:
+            profile.phone_number = change_request.new_phone_number
+            profile.save()
+
+        # Update ChangeRequest
+        change_request.request_status = 'approved'
+        change_request.verified_by = self.request.user
+        change_request.verified_on = datetime.datetime.now()
+        change_request.admin_remark = self.request.data.get('admin_remark', '')
+        change_request.save()
+
+        return Response({"message": "Change request approved successfully."})
+
+    @action(detail=False, methods=['post'], url_path='reject/(?P<pk>[^/.]+)')
+    def reject_change_request(self, request, pk):
+        change_request = ChangeRequest.objects.filter(pk=pk).last()
+        if not change_request:
+            return Response({"error": "Change request not found."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if change_request.request_status != 'pending':
+            return Response({"error": "Request has already been processed."}, status=status.HTTP_400_BAD_REQUEST)
+
+        change_request.request_status = 'rejected'
+        change_request.verified_by = self.request.user
+        change_request.verified_on = datetime.datetime.now()
+        change_request.admin_remark = self.request.data.get('admin_remark', '')
+        change_request.save()
+
+        return Response({"message": "Change request rejected successfully."})
 
 
 class UserBankDetailsViewSet(viewsets.ModelViewSet):
@@ -1139,3 +1194,24 @@ class CreateMultipleAccountAPIView(APIView):
         token, _ = Token.objects.get_or_create(user=user)
 
         return Response({"message": "User Create successfully."}, status=status.HTTP_200_OK)
+
+
+class GetUserKycBasicDetailAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        profile = Profile.objects.filter(user=user).last()
+        bank_details = BankDetails.objects.filter(user=user).last()
+
+        if not bank_details:
+            return Response({'message': "User don't have bank details, hence it can not create change request"},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        profile_data = KycProfileSerializer(profile).data if profile else {}
+        bank_data = BankDetailsSerializer(bank_details).data if bank_details else {}
+
+        return Response({
+            'profile': profile_data,
+            'bank_details': bank_data,
+        })

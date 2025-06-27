@@ -164,6 +164,21 @@ class ProfileSerializer(serializers.ModelSerializer):
         return data
 
 
+class KycProfileSerializer(serializers.ModelSerializer):
+    full_name = serializers.SerializerMethodField()
+    email = serializers.SerializerMethodField()
+
+    def get_full_name(self, obj):
+        return obj.user.get_full_name() if obj.user else None
+
+    def get_email(self, obj):
+        return obj.user.email if obj.user else None
+
+    class Meta:
+        model = Profile
+        fields = ['full_name', 'mobile_number', 'email']
+
+
 class BasicDetailsSerializer(serializers.Serializer):
     full_name = serializers.SerializerMethodField()
     father_name = serializers.CharField(required=True)
@@ -323,6 +338,31 @@ class FAQSerializer(serializers.ModelSerializer):
         fields = ['id', 'question', 'answer', 'created_at', 'updated_at']
 
 
+class CreateKycRequestSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(required=True)
+    account_number = serializers.CharField(required=True)
+    ifsc_code = serializers.CharField(required=True)
+    new_account_number = serializers.CharField(max_length=20, required=True)
+    new_ifsc_code = serializers.CharField(max_length=20, required=True)
+    new_account_holder_name = serializers.CharField(max_length=100, required=True)
+    new_bank_name = serializers.CharField(max_length=100, required=True)
+    full_name = serializers.CharField(max_length=200, required=False)
+
+    class Meta:
+        model = ChangeRequest
+        fields = '__all__'
+
+    def validate(self, attrs):
+        user = self.context['request'].user
+        new_account_number = attrs.get('new_account_number').strip()
+        account_number = attrs.get('account_number').strip()
+
+        if new_account_number == account_number:
+            raise serializers.ValidationError("New account number cannot be the same as the current account number.")
+
+        return attrs
+
+
 class ChangeRequestSerializer(serializers.ModelSerializer):
     class Meta:
         model = ChangeRequest
@@ -354,3 +394,10 @@ class UserDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('id', 'username', 'full_name', 'is_primary_account')
+
+
+class UserKycRequestSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = BankDetails
+        fields = ('id', 'account_number', 'account_holder_name', 'ifsc_code', 'bank_name')
