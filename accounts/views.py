@@ -645,7 +645,7 @@ class GetPPDReferralCode(APIView):
         mlm = MLMTree.objects.filter(level=12, position=1, is_show=True).last()
         if not mlm:
             profile_dict = {
-                'referral_code': 'CNPPB007700',
+                'referral_code': 'GAVIRON001166',
                 'first_name': 'Click N Pay',
                 'last_name': 'Real Estate',
                 'email': 'clicknpayrealestate@gmail.com',

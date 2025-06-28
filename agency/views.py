@@ -95,7 +95,7 @@ class InvestmentViewSet(viewsets.ModelViewSet):
             referral_by = get_user_by_referral.user
 
         if not referral_by:
-            get_user_by_referral = Profile.objects.filter(referral_code='CNPPB007700').last()
+            get_user_by_referral = Profile.objects.filter(referral_code='GAVIRON001166').last()
             if get_user_by_referral:
                 referral_by = get_user_by_referral.user
 
@@ -186,7 +186,7 @@ class InvestmentViewSet(viewsets.ModelViewSet):
             referral_by = get_user_by_referral.user
 
         if not referral_by:
-            get_user_by_referral = Profile.objects.filter(referral_code='CNPPB007700').last()
+            get_user_by_referral = Profile.objects.filter(referral_code='GAVIRON001166').last()
             if get_user_by_referral:
                 referral_by = get_user_by_referral.user
 
