@@ -136,6 +136,7 @@ class ChangeRequest(ModelMixin):
     new_ifsc_code = models.CharField(max_length=20, default='')
     new_account_holder_name = models.CharField(max_length=100, default='')
     new_bank_name = models.CharField(max_length=100, default='')
+    new_bank_address = models.CharField(max_length=250, default='')
     full_name = models.CharField(max_length=200, null=True, blank=True)
     verified_by = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True, related_name="request_accept")
     request_status = models.CharField(max_length=20, choices=CHANGE_REQUEST_CHOICE, default='pending')
