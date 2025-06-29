@@ -267,7 +267,7 @@ class InvestmentViewSet(viewsets.ModelViewSet):
         res = None
         try:
             response = requests.post(
-                f"https://sandbox.cashfree.com/pg/orders", json=payload, headers=headers
+                f"{settings.CASHFREE_ORDER_URL}", json=payload, headers=headers
             )
             res = response.text
             response.raise_for_status()
