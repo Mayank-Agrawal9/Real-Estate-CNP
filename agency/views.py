@@ -244,7 +244,7 @@ class InvestmentViewSet(viewsets.ModelViewSet):
             "Content-Type": "application/json",
             "x-client-id": settings.CASHFREE_APP_ID,
             "x-client-secret": settings.CASHFREE_SECRET_KEY,
-            "x-api-version": "2022-09-01"
+            "x-api-version": "2025-01-01"
         }
 
         payload = {
@@ -274,7 +274,7 @@ class InvestmentViewSet(viewsets.ModelViewSet):
             data = response.json()
             if response.status_code == 200:
                 session_id = data.get("payment_session_id")
-                payment_url = f"{settings.CASHFREE_BASE_URL}/pg/checkout/post/{session_id}"
+                payment_url = f"{settings.CASHFREE_BASE_URL}/checkout/post/{session_id}"
                 transaction.gateway_reference = data.get("cf_order_id")
                 transaction.save()
 
