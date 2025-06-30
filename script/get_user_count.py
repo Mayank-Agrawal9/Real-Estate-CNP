@@ -10,6 +10,7 @@ django.setup()
 
 from agency.models import InvestmentInterest
 from payment_app.models import UserWallet
+from p2pmb.calculation import ProcessMonthlyInterestP2PMB
 
 
 def create_users_with_profiles_and_wallets():
@@ -41,4 +42,5 @@ def create_users_with_profiles_and_wallets():
 
 
 if __name__ == "__main__":
-    create_users_with_profiles_and_wallets()
+    # create_users_with_profiles_and_wallets()
+    ProcessMonthlyInterestP2PMB.generate_interest_for_all_investments()

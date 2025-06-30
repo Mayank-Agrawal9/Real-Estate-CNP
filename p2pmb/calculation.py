@@ -624,6 +624,7 @@ class ProcessMonthlyInterestP2PMB:
         """Example function to calculate monthly interest."""
         interest_rate = ProcessMonthlyInterestP2PMB.calculate_interest_rate(user, investment_type)
         interest_amount = invested_amount * interest_rate
+        print(f"{user.id} User Id, {interest_rate} Percentage, {interest_amount} interest_amount")
         return interest_amount
 
     @staticmethod
@@ -675,53 +676,53 @@ class ProcessMonthlyInterestP2PMB:
             amount = ProcessMonthlyInterestP2PMB.calculate_monthly_interest_amount(
                 user, investment.investment_guaranteed_type, investment.amount)
 
-            # Handle partial month interest for the first month
-            if approved_date.year == today.year and approved_date.month == today.month - 1:
-                days_remaining = (first_interest_date - approved_date).days
-                full_month_days = (first_interest_date - datetime.timedelta(days=1)).day
-
-                amount = (amount / full_month_days) * days_remaining
-
-                interest_records.append(
-                    InvestmentInterest(
-                        created_by=user,
-                        investment=investment,
-                        interest_amount=amount,
-                        interest_send_date=today,
-                        is_sent=True,
-                        end_date=end_date
-                    )
-                )
-            else:
-                interest_records.append(
-                    InvestmentInterest(
-                        created_by=user,
-                        investment=investment,
-                        interest_amount=amount,
-                        interest_send_date=today.replace(day=1),
-                        is_sent=True,
-                        end_date=end_date
-                    )
-                )
-
-            create_transaction_entry(
-                user, user, amount, 'interest', 'approved',
-                f'Monthly Interest Added for investment of {investment.amount} in P2PMB.'
-            )
-
-            # Update user wallet
-            user_wallet = UserWallet.objects.filter(user=user, status='active').last()
-            if user_wallet:
-                user_wallet.app_wallet_balance += amount
-                user_wallet.save()
-
-            # Mark investment as interest sent
-            investment.is_interest_send = True
-            investment.save()
-
-        if interest_records:
-            InvestmentInterest.objects.bulk_create(interest_records)
-            print(f"Interest records created for {len(interest_records)} investments.")
+        #     # Handle partial month interest for the first month
+        #     if approved_date.year == today.year and approved_date.month == today.month - 1:
+        #         days_remaining = (first_interest_date - approved_date).days
+        #         full_month_days = (first_interest_date - datetime.timedelta(days=1)).day
+        #
+        #         amount = (amount / full_month_days) * days_remaining
+        #
+        #         interest_records.append(
+        #             InvestmentInterest(
+        #                 created_by=user,
+        #                 investment=investment,
+        #                 interest_amount=amount,
+        #                 interest_send_date=today,
+        #                 is_sent=True,
+        #                 end_date=end_date
+        #             )
+        #         )
+        #     else:
+        #         interest_records.append(
+        #             InvestmentInterest(
+        #                 created_by=user,
+        #                 investment=investment,
+        #                 interest_amount=amount,
+        #                 interest_send_date=today.replace(day=1),
+        #                 is_sent=True,
+        #                 end_date=end_date
+        #             )
+        #         )
+        #
+        #     create_transaction_entry(
+        #         user, user, amount, 'interest', 'approved',
+        #         f'Monthly Interest Added for investment of {investment.amount} in P2PMB.'
+        #     )
+        #
+        #     # Update user wallet
+        #     user_wallet = UserWallet.objects.filter(user=user, status='active').last()
+        #     if user_wallet:
+        #         user_wallet.app_wallet_balance += amount
+        #         user_wallet.save()
+        #
+        #     # Mark investment as interest sent
+        #     investment.is_interest_send = True
+        #     investment.save()
+        #
+        # if interest_records:
+        #     InvestmentInterest.objects.bulk_create(interest_records)
+        #     print(f"Interest records created for {len(interest_records)} investments.")
 
     @staticmethod
     def calculate_interest_rate(user, investment_type):
