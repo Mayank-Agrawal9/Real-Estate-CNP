@@ -624,7 +624,7 @@ class ProcessMonthlyInterestP2PMB:
         """Example function to calculate monthly interest."""
         interest_rate = ProcessMonthlyInterestP2PMB.calculate_interest_rate(user, investment_type)
         interest_amount = invested_amount * interest_rate
-        print(f"{user.id} User Id, {interest_rate} Percentage, {interest_amount} interest_amount")
+        print(f"{user.username} User Id, {interest_rate} Percentage, {interest_amount} interest_amount")
         return interest_amount
 
     @staticmethod
