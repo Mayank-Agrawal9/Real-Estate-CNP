@@ -623,6 +623,7 @@ class ProcessMonthlyInterestP2PMB:
     def calculate_monthly_interest_amount(user, investment_type, invested_amount):
         """Example function to calculate monthly interest."""
         interest_rate = ProcessMonthlyInterestP2PMB.calculate_interest_rate(user, investment_type)
+        print(interest_rate, "interest_rate")
         interest_amount = invested_amount * interest_rate
         return interest_amount
 
