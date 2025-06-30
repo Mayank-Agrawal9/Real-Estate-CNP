@@ -623,7 +623,6 @@ class ProcessMonthlyInterestP2PMB:
     def calculate_monthly_interest_amount(user, investment_type, invested_amount):
         """Example function to calculate monthly interest."""
         interest_rate = ProcessMonthlyInterestP2PMB.calculate_interest_rate(user, investment_type)
-        print(interest_rate, "interest_rate")
         interest_amount = invested_amount * interest_rate
         return interest_amount
 
@@ -737,7 +736,7 @@ class ProcessMonthlyInterestP2PMB:
             if MLMTree.objects.filter(referral_by=member).count() >= 10
         )
         if high_performers_in_team >= 10:
-            return Decimal('0.05') if investment_type == 'full_payment' else Decimal('1.0')
+            return Decimal('0.05') if investment_type == 'full_payment' else Decimal('0.1')
 
         # 4. Check for 3x: From direct referrals, any 5 have ≥10 referrals
         if referral_count >= 10:
@@ -746,13 +745,13 @@ class ProcessMonthlyInterestP2PMB:
                 if MLMTree.objects.filter(referral_by=referral.child).count() >= 10
             )
             if high_performers_in_directs >= 5:
-                return Decimal('0.03') if investment_type == 'full_payment' else Decimal('0.6')  # 3x
+                return Decimal('0.03') if investment_type == 'full_payment' else Decimal('0.06')  # 3x
 
-            return Decimal('0.02') if investment_type == 'full_payment' else Decimal('0.4')  # 2x
+            return Decimal('0.02') if investment_type == 'full_payment' else Decimal('0.04')  # 2x
 
         # 5. Check for 1.5x
         if referral_count >= 5:
-            return Decimal('0.015') if investment_type == 'full_payment' else Decimal('0.3')  # 1.5x
+            return Decimal('0.015') if investment_type == 'full_payment' else Decimal('0.03')  # 1.5x
 
         # 6. Fallback
         return base_interest_rate
