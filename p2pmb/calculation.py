@@ -50,6 +50,8 @@ class DistributeDirectCommission:
                 # Process referral commission
                 DistributeDirectCommission.process_referral_commission(referral_by, profile_instance.child,
                                                                        instant_commission)
+                DistributeDirectCommission.schedule_monthly_payments(profile_instance.child,
+                                                                     referral_by, monthly_commission)
 
                 # Process parent commission if exists
                 # if profile_instance.parent:
@@ -57,9 +59,8 @@ class DistributeDirectCommission:
                 #                                                          profile_instance.child, monthly_commission)
 
                 # Schedule monthly payments for 9 months
-                if profile_instance.parent:
-                    DistributeDirectCommission.schedule_monthly_payments(profile_instance.child,
-                                                                         profile_instance.parent, monthly_commission)
+                # if profile_instance.parent:
+
 
             else:
                 # Handle case where there is no referral
