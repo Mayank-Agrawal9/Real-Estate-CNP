@@ -8,7 +8,7 @@ import django
 
 django.setup()
 
-from p2pmb.models import Commission
+from p2pmb.models import Commission, ScheduledCommission, MLMTree
 from payment_app.models import UserWallet
 
 # def create_users_with_profiles_and_wallets():
@@ -72,8 +72,16 @@ def revert_monthly_interest():
 #     for data in get_schedule_commission:
 #         Transaction
 
+def update_schedule_commission():
+    commission = ScheduledCommission.objects.filter(send_by__isnull=False)
+    for data in commission:
+        get_mlm = MLMTree.objects.filter(child=data.send_by).last()
+        if get_mlm and get_mlm.referral_by:
+            data.user = get_mlm.referral_by
+            data.save()
+
 
 if __name__ == "__main__":
     # create_users_with_profiles_and_wallets()
     # ProcessMonthlyInterestP2PMB.generate_interest_for_all_investments()
-    revert_monthly_interest()
+    update_schedule_commission()
