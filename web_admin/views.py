@@ -1075,7 +1075,7 @@ class CompanyLiabilityStatsAPIView(APIView):
 
         result = {
             'total_investment': total_investment,
-            'total_return_amount': total_investment * 0.20,
+            'total_return_amount': total_investment * Decimal('0.20'),
             'total_send_amount': total_return_amount,
         }
         return Response(result, status=status.HTTP_200_OK)
