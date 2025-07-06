@@ -302,7 +302,7 @@ class ProfileView(APIView):
     def put(self, request):
         try:
             profile = Profile.objects.get(user=request.user)
-            serializer = ProfileSerializer(profile, data=request.data, partial=False)
+            serializer = ProfileSerializer(profile, data=request.data, partial=True)
             if serializer.is_valid():
                 serializer.save()
                 return Response(serializer.data, status=status.HTTP_200_OK)
