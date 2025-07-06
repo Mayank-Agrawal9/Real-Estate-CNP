@@ -1064,18 +1064,18 @@ class CompanyLiabilityStatsAPIView(APIView):
             ))
         )['total_amount'] or Decimal(0)
 
-        total_income_earned = Commission.objects.filter(status='active').aggregate(
-            total_amount=Sum('amount'))['total_amount'] or Decimal(0)
-
-        total_interest_earned = InvestmentInterest.objects.filter(status='active').aggregate(
-            total_amount=Sum('interest_amount'))['total_amount'] or Decimal(0)
-
-        core_group_earned = CoreIncomeEarned.objects.filter(status='active').aggregate(
-            total_amount=Sum('income_earned'))['total_amount'] or Decimal(0)
+        # total_income_earned = Commission.objects.filter(status='active').aggregate(
+        #     total_amount=Sum('amount'))['total_amount'] or Decimal(0)
+        #
+        # total_interest_earned = InvestmentInterest.objects.filter(status='active').aggregate(
+        #     total_amount=Sum('interest_amount'))['total_amount'] or Decimal(0)
+        #
+        # core_group_earned = CoreIncomeEarned.objects.filter(status='active').aggregate(
+        #     total_amount=Sum('income_earned'))['total_amount'] or Decimal(0)
 
         result = {
             'total_investment': total_investment,
-            'total_return_amount': total_income_earned + total_interest_earned + core_group_earned,
+            'total_return_amount': total_investment * 0.20,
             'total_send_amount': total_return_amount,
         }
         return Response(result, status=status.HTTP_200_OK)

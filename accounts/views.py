@@ -1165,7 +1165,7 @@ class CreateMultipleAccountAPIView(APIView):
             "mobile_number": self.request.user.profile.mobile_number,
             "mobile_number1": self.request.user.profile.mobile_number1,
             "mobile_number2": self.request.user.profile.mobile_number2,
-            "other_email": self.request.user.profile.picture,
+            "other_email": self.request.user.profile.other_email,
             "pan_number": self.request.user.profile.pan_number,
             "voter_number": self.request.user.profile.voter_number,
             "pan_remarks": self.request.user.profile.pan_remarks,

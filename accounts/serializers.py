@@ -1,6 +1,7 @@
 import base64
 import datetime
 import random
+import re
 import uuid
 
 from django.core.files.base import ContentFile
@@ -27,13 +28,27 @@ class LoginSerializer(serializers.Serializer):
         if not username:
             raise exceptions.ValidationError({'username': ['This field is required and may not be null or blank.']})
 
+        email = username.strip().lower()
+
+        email_regex = r'^[A-Za-z0-9._%-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'
+        if not re.match(email_regex, email):
+            raise exceptions.ValidationError({'username': ['Enter a valid email address.']})
+
+        if '+' in username:
+            raise exceptions.ValidationError({'username': ['Email addresses with "+" are not allowed.']})
+
+        blocked_domains = ['tempmail.com', 'mailinator.com', 'yopmail.com']
+        domain = email.split('@')[-1]
+        if domain in blocked_domains:
+            raise exceptions.ValidationError({'username': ['Disposable email addresses are not allowed.']})
+
         user = User.objects.filter(Q(username__exact=username) | Q(email__exact=username), is_active=True).last()
         # profile = Profile.objects.filter(Q(username__exact=username) | Q(email__exact=username), is_active=True).last()
         if not user:
             raise exceptions.ValidationError({'detail': 'No user registered with this credentials.'})
 
-        opt_verify = OTP.objects.filter(Q(email__exact=username) | Q(email__exact=user.email),
-                                        type='register', is_verify=True).last()
+        # opt_verify = OTP.objects.filter(Q(email__exact=username) | Q(email__exact=user.email),
+        #                                 type='register', is_verify=True).last()
         # if not opt_verify:
         #     raise exceptions.ValidationError({'detail': 'Please verify otp first.'})
 
