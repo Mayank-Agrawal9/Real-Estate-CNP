@@ -190,9 +190,9 @@ class PackageBuyView(APIView):
     def get(self, request):
         do_investment = Investment.objects.filter(user=self.request.user, package__isnull=False)
         if do_investment.exists():
-            return Response({"message": True}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"message": True}, status=status.HTTP_200_OK)
         else:
-            return Response({"message": False}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"message": False}, status=status.HTTP_200_OK)
 
 
 class GetUserDetailsView(APIView):
