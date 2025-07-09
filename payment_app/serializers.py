@@ -20,8 +20,8 @@ class PayUserSerializer(serializers.Serializer):
         wallet_type = data.get('wallet_type')
 
         try:
-            recipient = User.objects.get(email=recipient_email)
-        except User.DoesNotExist:
+            recipient = User.objects.filter(username=recipient_email).last()
+        except Exception as e:
             raise serializers.ValidationError("Recipient not found.")
 
         if sender == recipient:

@@ -51,7 +51,6 @@ INSTALLED_APPS = [
     'corsheaders',
     'storages',
     'django_ckeditor_5',
-    'auditlog',
     'django_crontab',
 ]
 
@@ -75,8 +74,7 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'real_estate.middleware.CustomAuditlogMiddleware'
+    'django.middleware.clickjacking.XFrameOptionsMiddleware'
 ]
 
 ROOT_URLCONF = 'real_estate.urls'
@@ -259,8 +257,6 @@ CKEDITOR_5_CONFIGS = {
         },
     }
 }
-
-AUDITLOG_INCLUDE_ALL_MODELS = True
 
 
 # Cron Jobs

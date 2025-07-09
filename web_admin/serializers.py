@@ -4,7 +4,7 @@ from django.contrib.auth.models import User
 from django.db.models import Q, Sum
 from rest_framework import serializers, exceptions
 
-from accounts.models import Profile, BankDetails, UserPersonalDocument
+from accounts.models import Profile, BankDetails, UserPersonalDocument, ChangeRequest
 from agency.models import Investment, SuperAgency, Agency, FieldAgent, FundWithdrawal
 from master.models import City, State
 from p2pmb.models import Package, MLMTree, Commission
@@ -458,4 +458,21 @@ class TransactionDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Transaction
+        fields = '__all__'
+
+
+class AdminChangeRequestSerializer(serializers.ModelSerializer):
+    created_by = serializers.SerializerMethodField()
+
+    def get_created_by(self, obj):
+        if not obj.created_by:
+            return None
+        return {
+            'id': obj.created_by.id,
+            'username': obj.created_by.username,
+            'name': obj.created_by.get_full_name(),
+        }
+
+    class Meta:
+        model = ChangeRequest
         fields = '__all__'

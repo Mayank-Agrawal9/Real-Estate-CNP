@@ -42,5 +42,7 @@ urlpatterns = [
     path('commission-list', CommissionListView.as_view(), name='commission-list'),
     path('working-id', UserWithWorkingIDListView.as_view(), name='working-id'),
     path('app-transfer-detail', AppTransferTransaction.as_view(), name='app-transfer-detail'),
+    path('change-request-list', ChangeRequestListAPIView.as_view(), name='change-request-list'),
+    path('aggregate-change-request', AggregateChangeRequestAPIView.as_view(), name='aggregate-change-request'),
     path('aggregate-transfer-amount', AppTransferSumAmount.as_view(), name='aggregate-transfer-amount'),
 ]

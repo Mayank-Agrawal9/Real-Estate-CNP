@@ -1,6 +1,7 @@
 import base64
 import datetime
 import random
+import re
 import uuid
 
 from django.core.files.base import ContentFile
@@ -27,13 +28,27 @@ class LoginSerializer(serializers.Serializer):
         if not username:
             raise exceptions.ValidationError({'username': ['This field is required and may not be null or blank.']})
 
+        email = username.strip().lower()
+
+        email_regex = r'^[A-Za-z0-9._%-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'
+        if not re.match(email_regex, email):
+            raise exceptions.ValidationError({'username': ['Enter a valid email address.']})
+
+        if '+' in username:
+            raise exceptions.ValidationError({'username': ['Email addresses with "+" are not allowed.']})
+
+        blocked_domains = ['tempmail.com', 'mailinator.com', 'yopmail.com']
+        domain = email.split('@')[-1]
+        if domain in blocked_domains:
+            raise exceptions.ValidationError({'username': ['Disposable email addresses are not allowed.']})
+
         user = User.objects.filter(Q(username__exact=username) | Q(email__exact=username), is_active=True).last()
         # profile = Profile.objects.filter(Q(username__exact=username) | Q(email__exact=username), is_active=True).last()
         if not user:
             raise exceptions.ValidationError({'detail': 'No user registered with this credentials.'})
 
-        opt_verify = OTP.objects.filter(Q(email__exact=username) | Q(email__exact=user.email),
-                                        type='register', is_verify=True).last()
+        # opt_verify = OTP.objects.filter(Q(email__exact=username) | Q(email__exact=user.email),
+        #                                 type='register', is_verify=True).last()
         # if not opt_verify:
         #     raise exceptions.ValidationError({'detail': 'Please verify otp first.'})
 
@@ -162,6 +177,21 @@ class ProfileSerializer(serializers.ModelSerializer):
         data = super().to_representation(instance)
         data["full_name"] = f"{instance.user.first_name} {instance.user.last_name}".strip()
         return data
+
+
+class KycProfileSerializer(serializers.ModelSerializer):
+    full_name = serializers.SerializerMethodField()
+    email = serializers.SerializerMethodField()
+
+    def get_full_name(self, obj):
+        return obj.user.get_full_name() if obj.user else None
+
+    def get_email(self, obj):
+        return obj.user.email if obj.user else None
+
+    class Meta:
+        model = Profile
+        fields = ['full_name', 'mobile_number', 'email']
 
 
 class BasicDetailsSerializer(serializers.Serializer):
@@ -323,6 +353,31 @@ class FAQSerializer(serializers.ModelSerializer):
         fields = ['id', 'question', 'answer', 'created_at', 'updated_at']
 
 
+class CreateKycRequestSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(required=True)
+    account_number = serializers.CharField(required=True)
+    ifsc_code = serializers.CharField(required=True)
+    new_account_number = serializers.CharField(max_length=20, required=True)
+    new_ifsc_code = serializers.CharField(max_length=20, required=True)
+    new_account_holder_name = serializers.CharField(max_length=100, required=True)
+    new_bank_name = serializers.CharField(max_length=100, required=True)
+    full_name = serializers.CharField(max_length=200, required=False)
+
+    class Meta:
+        model = ChangeRequest
+        fields = '__all__'
+
+    def validate(self, attrs):
+        user = self.context['request'].user
+        new_account_number = attrs.get('new_account_number').strip()
+        account_number = attrs.get('account_number').strip()
+
+        if new_account_number == account_number:
+            raise serializers.ValidationError("New account number cannot be the same as the current account number.")
+
+        return attrs
+
+
 class ChangeRequestSerializer(serializers.ModelSerializer):
     class Meta:
         model = ChangeRequest
@@ -354,3 +409,10 @@ class UserDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('id', 'username', 'full_name', 'is_primary_account')
+
+
+class UserKycRequestSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = BankDetails
+        fields = ('id', 'account_number', 'account_holder_name', 'ifsc_code', 'bank_name')

@@ -54,3 +54,10 @@ DOCUMENT_TYPE = (
     ('shop_agreement', 'Shop Agreement'),
     ('kyc_photo', 'KYC Photo'),
 )
+
+
+CHANGE_REQUEST_CHOICE = (
+    ('pending', 'Pending'),
+    ('approved', 'Approved'),
+    ('rejected', 'Rejected'),
+)

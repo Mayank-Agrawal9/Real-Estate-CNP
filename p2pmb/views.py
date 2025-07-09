@@ -190,9 +190,9 @@ class PackageBuyView(APIView):
     def get(self, request):
         do_investment = Investment.objects.filter(user=self.request.user, package__isnull=False)
         if do_investment.exists():
-            return Response({"message": True}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"message": True}, status=status.HTTP_200_OK)
         else:
-            return Response({"message": False}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"message": False}, status=status.HTTP_200_OK)
 
 
 class GetUserDetailsView(APIView):
@@ -297,6 +297,12 @@ class CommissionViewSet(viewsets.ModelViewSet):
         """ Add MLM levels only if `commission_type` is 'level'. """
         queryset = self.filter_queryset(self.get_queryset())
 
+        is_direct = request.query_params.get('commission_type') == 'direct'
+
+        direct_total = None
+        if is_direct:
+            direct_total = queryset.aggregate(total_amount=Sum('amount'))['total_amount'] or 0
+
         page = self.paginate_queryset(queryset)
         serialized_data = self.get_serializer(page, many=True).data if page is not None else self.get_serializer(
             queryset, many=True).data
@@ -311,8 +317,16 @@ class CommissionViewSet(viewsets.ModelViewSet):
                     item["show_level"] = level
 
         if page is not None:
-            return self.get_paginated_response(serialized_data)
-        return Response(serialized_data)
+            response = self.get_paginated_response(serialized_data)
+            if is_direct:
+                response.data["total_direct_amount"] = direct_total
+            return response
+
+        response_data = {"results": serialized_data}
+        if is_direct:
+            response_data["total_direct_amount"] = direct_total
+
+        return Response(response_data)
 
 
 class ExtraRewardViewSet(viewsets.ModelViewSet):
@@ -332,7 +346,7 @@ class CoreIncomeEarnedViewSet(viewsets.ModelViewSet):
     serializer_class = CoreIncomeEarnedSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter]
     queryset = CoreIncomeEarned.objects.active()
-    filterset_fields = ['income_type',]
+    filterset_fields = ['income_type', 'core_income', 'user']
 
 
 class P2PMBRoyaltyMasterViewSet(viewsets.ModelViewSet):
@@ -582,10 +596,10 @@ class MyIdValueAPIView(APIView):
         check_working_id = MLMTree.objects.filter(referral_by=self.request.user).count()
         if check_working_id and check_working_id >= 2:
             is_working_id = True
-            total_return_amount = (get_investment.amount or 0) * 4.4
+            total_return_amount = (get_investment.amount or 0) * Decimal('4.4')
         else:
             is_working_id = False
-            total_return_amount = (get_investment.amount or 0) * 2.1
+            total_return_amount = (get_investment.amount or 0) * Decimal('2.1')
 
         total_income_earned = Commission.objects.filter(commission_to=request.user).aggregate(
             total_amount=Sum('amount'))['total_amount'] or Decimal(0)

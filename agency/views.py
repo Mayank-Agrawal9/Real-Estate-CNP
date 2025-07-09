@@ -95,7 +95,7 @@ class InvestmentViewSet(viewsets.ModelViewSet):
             referral_by = get_user_by_referral.user
 
         if not referral_by:
-            get_user_by_referral = Profile.objects.filter(referral_code='CNPPB007700').last()
+            get_user_by_referral = Profile.objects.filter(referral_code='GAVIRON001166').last()
             if get_user_by_referral:
                 referral_by = get_user_by_referral.user
 
@@ -142,13 +142,13 @@ class InvestmentViewSet(viewsets.ModelViewSet):
             investment_data = {
                 'created_by': self.request.user,
                 'user': self.request.user,
-                'status': 'inactive',
+                'status': 'active',
                 'amount': amount,
                 'investment_type': investment_type,
                 'gst': 0,
                 'transaction_id': transaction,
                 'pay_method': wallet_type,
-                'is_approved': False,
+                'is_approved': True,
                 'approved_by': self.request.user,
                 'approved_on': datetime.datetime.now(),
                 'investment_guaranteed_type': investment_guaranteed_type,
@@ -186,7 +186,7 @@ class InvestmentViewSet(viewsets.ModelViewSet):
             referral_by = get_user_by_referral.user
 
         if not referral_by:
-            get_user_by_referral = Profile.objects.filter(referral_code='CNPPB007700').last()
+            get_user_by_referral = Profile.objects.filter(referral_code='GAVIRON001166').last()
             if get_user_by_referral:
                 referral_by = get_user_by_referral.user
 
@@ -233,6 +233,13 @@ class InvestmentViewSet(viewsets.ModelViewSet):
             get_mlm.turnover += amount
             get_mlm.save()
 
+        profile = getattr(request.user, 'profile', None)
+        mobile_number = getattr(profile, 'mobile_number', '') if profile else ''
+        customer_phone = (
+            str(mobile_number).strip()
+            if mobile_number and str(mobile_number).strip().lower() not in ['null', 'none', '']
+            else "0000000000"
+        )
         headers = {
             "Content-Type": "application/json",
             "x-client-id": settings.CASHFREE_APP_ID,
@@ -246,8 +253,8 @@ class InvestmentViewSet(viewsets.ModelViewSet):
             "order_currency": "INR",
             "customer_details": {
                 "customer_id": str(request.user.id),
-                "customer_email": request.user.email,
-                "customer_phone": request.user.profile.mobile_number if request.user.profile and request.user.profile.mobile_number else "0000000000",
+                "customer_email": request.user.email or "test@example.com",
+                "customer_phone": customer_phone,
                 "customer_name": request.user.get_full_name() or "Customer"
             },
             "order_meta": {
@@ -257,16 +264,17 @@ class InvestmentViewSet(viewsets.ModelViewSet):
                 "investment_id": investment.id
             }
         }
-
+        res = None
         try:
             response = requests.post(
-                f"https://sandbox.cashfree.com/pg/orders", json=payload, headers=headers
+                f"{settings.CASHFREE_ORDER_URL}", json=payload, headers=headers
             )
+            res = response.text
             response.raise_for_status()
             data = response.json()
             if response.status_code == 200:
                 session_id = data.get("payment_session_id")
-                payment_url = f"{settings.CASHFREE_BASE_URL}/pg/checkout/post/{session_id}"
+                payment_url = f"{settings.CASHFREE_BASE_URL}/checkout/post/{session_id}"
                 transaction.gateway_reference = data.get("cf_order_id")
                 transaction.save()
 
@@ -287,7 +295,10 @@ class InvestmentViewSet(viewsets.ModelViewSet):
             return Response({
                 "status": False,
                 "message": "Payment gateway error",
-                "error": str(e)
+                "error": str(e),
+                "text_reponse": res,
+                "payload": payload,
+                "headers": headers,
             }, status=status.HTTP_400_BAD_REQUEST)
 
 

@@ -17,7 +17,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.models import Profile, BankDetails, UserPersonalDocument
+from accounts.models import Profile, BankDetails, UserPersonalDocument, ChangeRequest
 from master.models import CoreGroupIncome
 from p2pmb.models import Commission, MLMTree, CoreIncomeEarned
 from property.models import Property
@@ -28,7 +28,7 @@ from web_admin.serializers import ProfileSerializer, InvestmentSerializer, Manua
     FieldAgentCompanyDetailSerializer, PropertyInterestEnquirySerializer, ContactUsEnquirySerializer, \
     GetPropertySerializer, PropertyDetailSerializer, UserCreateSerializer, LoginSerializer, \
     UserPermissionProfileSerializer, ListWithDrawRequest, UserWithWorkingIDSerializer, GetAllCommissionSerializer, \
-    CompanyInvestmentSerializer, TransactionDetailSerializer
+    CompanyInvestmentSerializer, TransactionDetailSerializer, AdminChangeRequestSerializer
 from agency.models import Investment, FundWithdrawal, SuperAgency, Agency, FieldAgent, InvestmentInterest
 from payment_app.models import UserWallet, Transaction
 from web_admin.choices import main_dashboard
@@ -1391,6 +1391,28 @@ class AppTransferTransaction(APIView):
         return paginator.get_paginated_response(serializer.data)
 
 
+class ChangeRequestListAPIView(APIView):
+    permission_classes = [IsStaffUser]
+
+    def get(self, request):
+        change_request = ChangeRequest.objects.filter(status='active').order_by('-id')
+        request_status = request.query_params.get('request_status')
+        if request_status:
+            change_request = change_request.filter(request_status=request_status)
+
+        search = request.query_params.get('search')
+        if search:
+            change_request = change_request.filter(
+                Q(created_by__first_name__icontains=search) | Q(created_by__last_name__icontains=search) |
+                Q(created_by__email__icontains=search) | Q(created_by__username__icontains=search)
+            )
+
+        paginator = LimitOffsetPagination()
+        paginated_transactions = paginator.paginate_queryset(change_request, request)
+        serializer = AdminChangeRequestSerializer(paginated_transactions, many=True)
+        return paginator.get_paginated_response(serializer.data)
+
+
 class AppTransferSumAmount(APIView):
     permission_classes = [IsStaffUser]
 
@@ -1458,3 +1480,16 @@ class WithdrawSummaryAPIView(APIView):
             'pending_amount': pending_amount,
             'taxable_amount': taxable_amount
         })
+
+
+class AggregateChangeRequestAPIView(APIView):
+    permission_classes = [IsStaffUser]
+
+    def get(self, request):
+        change_request_count = ChangeRequest.objects.aggregate(
+            all_request=Count("id"),
+            pending_request=Count("id", filter=Q(request_status='pending')),
+            approved_request=Count("id", filter=Q(request_status='approved')),
+            rejected_request=Count("id", filter=Q(request_status='rejected')),
+        )
+        return Response(change_request_count, status=status.HTTP_200_OK)
