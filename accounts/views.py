@@ -1182,8 +1182,7 @@ class CreateMultipleAccountAPIView(APIView):
             "pin_code": self.request.user.profile.pin_code,
             "referral_by": self.request.user,
             "parent_user": self.request.user,
-            "is_kyc_reprocess": self.request.user.profile.is_kyc_reprocess,
-            "is_roi_send": self.request.user.profile.is_roi_send,
+            "is_kyc_reprocess": self.request.user.profile.is_kyc_reprocess
         })
 
         if not created:
