@@ -5,7 +5,7 @@ from django.db.models import Q, Sum
 from rest_framework import serializers, exceptions
 
 from accounts.models import Profile, BankDetails, UserPersonalDocument, ChangeRequest
-from agency.models import Investment, SuperAgency, Agency, FieldAgent, FundWithdrawal
+from agency.models import Investment, SuperAgency, Agency, FieldAgent, FundWithdrawal, RewardEarned
 from master.models import City, State
 from p2pmb.models import Package, MLMTree, Commission
 from payment_app.models import Transaction
@@ -476,3 +476,48 @@ class AdminChangeRequestSerializer(serializers.ModelSerializer):
     class Meta:
         model = ChangeRequest
         fields = '__all__'
+
+
+class RewardEarnedAdminSerializer(serializers.ModelSerializer):
+    user = serializers.SerializerMethodField()
+    reward = serializers.SerializerMethodField()
+
+    def get_user(self, obj):
+        if obj.user:
+            return {
+                'id': obj.user.id,
+                'name': obj.user.get_full_name(),
+                'email': obj.user.email
+            }
+        return None
+
+    def get_reward(self, obj):
+        if obj.reward:
+            return {
+                'id': obj.reward.id,
+                'name': obj.reward.name,
+                'email': obj.reward.turnover_threshold
+            }
+        return None
+
+    class Meta:
+        model = RewardEarned
+        fields = '__all__'
+
+
+class GetAllMLMChildSerializer(serializers.ModelSerializer):
+    child = serializers.SerializerMethodField()
+
+    def get_child(self, obj):
+        if not obj.child:
+            return None
+        return {
+            'id': obj.child.id,
+            'name': obj.child.get_full_name(),
+            'referral_code': obj.child.profile.referral_code,
+            'email': obj.child.email,
+        }
+
+    class Meta:
+        model = MLMTree
+        fields = ('child', )

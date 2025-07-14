@@ -21,7 +21,7 @@ from rest_framework.views import APIView
 
 from accounts.helpers import generate_unique_referral_code, update_super_agency_profile, generate_qr_code_with_email, \
     update_agency_profile, update_field_agent_profile, update_p2pmb_profile, generate_unique_image_code, \
-    generate_otp_and_send_email
+    generate_otp_and_send_email, normalize_gmail
 from accounts.models import OTP, Profile, BankDetails, UserPersonalDocument, SoftwarePolicy, FAQ, ChangeRequest
 from accounts.serializers import (RequestOTPSerializer, VerifyOTPSerializer, ResendOTPSerializer, ProfileSerializer,
                                   SuperAgencyKycSerializer, BasicDetailsSerializer, CompanyDetailsSerializer,
@@ -41,7 +41,8 @@ class RequestOTPView(APIView):
     def post(self, request):
         serializer = RequestOTPSerializer(data=request.data)
         if serializer.is_valid():
-            email = serializer.validated_data['email'].lower()
+            raw_email = serializer.validated_data['email'].lower()
+            email = normalize_gmail(raw_email)
             otp_code = str(random.randint(100000, 999999))
             OTP.objects.update_or_create(
                 email=email,
@@ -1182,8 +1183,7 @@ class CreateMultipleAccountAPIView(APIView):
             "pin_code": self.request.user.profile.pin_code,
             "referral_by": self.request.user,
             "parent_user": self.request.user,
-            "is_kyc_reprocess": self.request.user.profile.is_kyc_reprocess,
-            "is_roi_send": self.request.user.profile.is_roi_send,
+            "is_kyc_reprocess": self.request.user.profile.is_kyc_reprocess
         })
 
         if not created:

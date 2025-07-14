@@ -2,7 +2,7 @@ import datetime
 from collections import deque
 from decimal import Decimal
 
-from django.db.models import Sum
+from django.db.models import Sum, Q
 from django.utils.dateparse import parse_date
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import serializers, status, viewsets
@@ -12,11 +12,13 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from agency.models import Investment, RewardEarned
+from agency.models import Investment, RewardEarned, InvestmentInterest
 from p2pmb.calculation import (RoyaltyClubDistribute, DistributeDirectCommission, DistributeLevelIncome,
                                LifeTimeRewardIncome, ProcessMonthlyInterestP2PMB)
-from p2pmb.cron import distribute_level_income
-from p2pmb.models import MLMTree, Package, Commission, ExtraReward, CoreIncomeEarned, P2PMBRoyaltyMaster, RoyaltyEarned
+from p2pmb.cron import distribute_level_income, distribute_direct_income
+from p2pmb.helpers import get_downline_count, count_all_descendants, get_levels_above_count
+from p2pmb.models import MLMTree, Package, Commission, ExtraReward, CoreIncomeEarned, P2PMBRoyaltyMaster, RoyaltyEarned, \
+    ExtraRewardEarned
 from p2pmb.serializers import MLMTreeSerializer, MLMTreeNodeSerializer, PackageSerializer, CommissionSerializer, \
     ShowInvestmentDetail, GetP2PMBLevelData, GetMyApplyingData, MLMTreeNodeSerializerV2, MLMTreeParentNodeSerializerV2, \
     ExtraRewardSerializer, CoreIncomeEarnedSerializer, RoyaltyEarnedSerializer, P2PMBRoyaltyMasterSerializer, \
@@ -114,6 +116,14 @@ class GetTDSAmountAPIView(APIView):
             return Response({"tds_amount": wallet.tds_amount})
         else:
             return Response({"tds_amount": 0})
+
+
+class DiIncomeAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        distribute_direct_income()
+        return Response({'m': 'Done'})
 
 
 class GetParentLevelsView(APIView):
@@ -515,33 +525,6 @@ class GetParentLevelCountView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
-    def get_levels_above_count(self, user):
-        """ Retrieve and count all levels of parent users recursively until the root is reached. """
-        current_user = user.parent
-        level_count = 0
-
-        while current_user:
-            parent = MLMTree.objects.filter(child=current_user, status='active', is_show=True).first()
-            if not parent or not parent.parent:
-                break
-
-            current_user = parent.parent
-            level_count += 1
-
-        return level_count
-
-    def count_all_descendants(self, user):
-        """
-        Recursively count all child users at all levels.
-        """
-        children = MLMTree.objects.filter(parent=user, status='active', is_show=True)
-        count = children.count()
-
-        for child in children:
-            count += self.count_all_descendants(child.child)
-
-        return count
-
     def get(self, request):
         """
         Get the count of parent and child levels.
@@ -550,8 +533,8 @@ class GetParentLevelCountView(APIView):
         if not user:
             return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        upper_count = self.get_levels_above_count(user)
-        lower_count = self.count_all_descendants(user.child)
+        upper_count = get_levels_above_count(user)
+        lower_count = count_all_descendants(user.child)
 
         return Response({
             "upper_count": upper_count,
@@ -621,3 +604,72 @@ class MyIdValueAPIView(APIView):
             'is_low_balance': is_low_balance,
         }
         return Response(response, status=status.HTTP_200_OK)
+
+
+class GetAppDashboardAggregate(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        mlm_user_entry = MLMTree.objects.filter(is_show=True, child=user).last()
+        referrals = MLMTree.objects.filter(is_show=True, referral_by=user).count()
+        total_team_count = get_downline_count(user)
+        investments = Investment.objects.filter(
+            status='active', package__isnull=False, investment_type='p2pmb', user=user
+        )
+        latest_investment = investments.last()
+        latest_amount = latest_investment.amount if latest_investment else Decimal('0.0')
+        total_return_amount = latest_amount * Decimal('4.4' if referrals >= 2 else '2.1')
+
+        commission_agg = Commission.objects.filter(status='active', commission_to=user).aggregate(
+            total=Sum('amount'),
+            level_total=Sum('amount', filter=Q(commission_type='level')),
+            direct_total=Sum('amount', filter=Q(commission_type='direct'))
+        )
+        commission_amount = commission_agg['total'] or 0
+        level_income = commission_agg['level_total'] or 0
+        direct_income = commission_agg['direct_total'] or 0
+
+        earned_reward = RewardEarned.objects.filter(
+            status='active', user=user, reward__applicable_for='p2pmb'
+        ).aggregate(total=Sum('reward__gift_amount'))['total'] or 0
+
+        roi_interest = InvestmentInterest.objects.filter(
+            status='active', investment__user=user
+        ).aggregate(total=Sum('interest_amount'))['total'] or 0
+
+        royalty_earned = RoyaltyEarned.objects.filter(
+            status='active', is_paid=True, user=user
+        ).aggregate(total=Sum('earned_amount'))['total'] or 0
+
+        core_group_income = CoreIncomeEarned.objects.filter(
+            status='active', user=user
+        ).aggregate(total=Sum('income_earned'))['total'] or 0
+
+        extra_income = ExtraRewardEarned.objects.filter(
+            status='active', user=user
+        ).aggregate(total=Sum('amount'))['total'] or 0
+
+        upper_count = get_levels_above_count(mlm_user_entry)
+        lower_count = count_all_descendants(mlm_user_entry.child)
+        team_level_count = upper_count + lower_count
+
+        total_earning = (
+            commission_amount + earned_reward + roi_interest + royalty_earned + core_group_income + extra_income
+        )
+
+        data = {
+            'total_team_member': total_team_count,
+            'total_earning': total_earning,
+            'total_id_value': total_return_amount,
+            'total_direct_user_count': referrals,
+            'team_level_count': team_level_count,
+            'direct_income': direct_income,
+            'level_income': level_income,
+            'royalty_income': royalty_earned,
+            'reward_income': earned_reward,
+            'extra_reward_income': extra_income,
+            'core_group_income': core_group_income,
+            'total_top_up_count': investments.count(),
+        }
+        return Response(data, status=status.HTTP_200_OK)
