@@ -6,8 +6,8 @@ from real_estate import settings
 
 def add_cashfree_beneficiary(bank_detail):
     headers = {
-        "X-Client-Id": 'CF10663123D1N809G8DDIS7388SBG0',
-        "X-Client-Secret": 'cfsk_ma_test_59e520fed1731e70cb6851cb28303ba4_6a9bed3a',
+        "X-Client-Id": settings.PAYOUT_CLIENT_ID,
+        "X-Client-Secret": settings.PAYOUT_SECRET_ID,
         "Content-Type": "application/json",
         'x-api-version': '2024-01-01',
     }
