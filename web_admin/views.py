@@ -29,8 +29,9 @@ from web_admin.serializers import ProfileSerializer, InvestmentSerializer, Manua
     FieldAgentCompanyDetailSerializer, PropertyInterestEnquirySerializer, ContactUsEnquirySerializer, \
     GetPropertySerializer, PropertyDetailSerializer, UserCreateSerializer, LoginSerializer, \
     UserPermissionProfileSerializer, ListWithDrawRequest, UserWithWorkingIDSerializer, GetAllCommissionSerializer, \
-    CompanyInvestmentSerializer, TransactionDetailSerializer, AdminChangeRequestSerializer
-from agency.models import Investment, FundWithdrawal, SuperAgency, Agency, FieldAgent, InvestmentInterest
+    CompanyInvestmentSerializer, TransactionDetailSerializer, AdminChangeRequestSerializer, RewardEarnedAdminSerializer, \
+    GetAllMLMChildSerializer
+from agency.models import Investment, FundWithdrawal, SuperAgency, Agency, FieldAgent, InvestmentInterest, RewardEarned
 from payment_app.models import UserWallet, Transaction
 from web_admin.choices import main_dashboard
 
@@ -1537,3 +1538,57 @@ class ROIAggregateAPIView(APIView):
             'total_user': total_user,
             'total_send_amount': round(total_amount, 2)
         })
+
+
+class RewardEarnedAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        month = int(request.query_params.get("month", datetime.datetime.now().month))
+        year = int(request.query_params.get("year", datetime.datetime.now().year))
+        user_id = request.query_params.get("user")
+        queryset = RewardEarned.objects.filter(status='active')
+        if user_id:
+            queryset = queryset.filter(user=user_id)
+        if month and year:
+            queryset = queryset.filter(earned_at__month=month, earned_at__year=year)
+        paginator = LimitOffsetPagination()
+        paginated_transactions = paginator.paginate_queryset(queryset, request)
+        serializer = RewardEarnedAdminSerializer(paginated_transactions, many=True)
+        return paginator.get_paginated_response(serializer.data)
+
+
+class CommissionEarnedAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        month = int(request.query_params.get("month", datetime.datetime.now().month))
+        year = int(request.query_params.get("year", datetime.datetime.now().year))
+        user_id = request.query_params.get("user")
+        commission_type = request.query_params.get("commission_type")
+        queryset = Commission.objects.filter(status='active')
+        if user_id:
+            queryset = queryset.filter(commission_to=user_id)
+        if commission_type:
+            queryset = queryset.filter(commission_type=commission_type)
+        if month and year:
+            queryset = queryset.filter(date_created__month=month, date_created__year=year)
+        paginator = LimitOffsetPagination()
+        paginated_transactions = paginator.paginate_queryset(queryset, request)
+        serializer = GetAllCommissionSerializer(paginated_transactions, many=True)
+        return paginator.get_paginated_response(serializer.data)
+
+
+class GetMLMUserAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        search = request.query_params.get("search")
+        queryset = MLMTree.objects.filter(status='active', is_show=True)
+        if search:
+            queryset = queryset.filter(Q(child__username=search) | Q(child__first_name=search) |
+                                       Q(child__last_name=search) | Q(child__profile__referral_code=search))
+        paginator = LimitOffsetPagination()
+        paginated_transactions = paginator.paginate_queryset(queryset, request)
+        serializer = GetAllMLMChildSerializer(paginated_transactions, many=True)
+        return paginator.get_paginated_response(serializer.data)

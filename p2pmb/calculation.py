@@ -172,7 +172,7 @@ class DistributeDirectCommission:
     @staticmethod
     def cron_send_monthly_payment_direct_income():
         schedule_commission_instance = ScheduledCommission.objects.filter(scheduled_date__date__lte=datetime.datetime.today(),
-                                                                          is_paid=False)
+                                                                          is_paid=False, remarks__isnull=True)
         for income in schedule_commission_instance:
             user_wallet = UserWallet.objects.filter(user=income.user, status='active').last()
             if not user_wallet:
@@ -188,6 +188,29 @@ class DistributeDirectCommission:
             DistributeDirectCommission.create_transaction_entry(
                 income.user, income.user, income.amount, 'commission', 'approved',
                 f'Direct Income Monthly Installment Added while adding {income.send_by.username}')
+
+            income.is_paid = True
+            income.save()
+
+    @staticmethod
+    def distribute_monthly_commission():
+        schedule_commission_instance = ScheduledCommission.objects.filter(scheduled_date__date__lte=datetime.datetime.today(),
+                                                                          is_paid=False, remarks__isnull=False)
+        for income in schedule_commission_instance:
+            user_wallet = UserWallet.objects.filter(user=income.user, status='active').last()
+            if not user_wallet:
+                continue
+
+            user_wallet.app_wallet_balance += income.amount
+            user_wallet.save()
+
+            DistributeDirectCommission.create_commission_entry(
+                income.user, income.send_by, 'direct', income.amount,
+                income.remarks)
+
+            DistributeDirectCommission.create_transaction_entry(
+                income.user, income.user, income.amount, 'commission', 'approved',
+                income.remarks)
 
             income.is_paid = True
             income.save()
@@ -278,7 +301,7 @@ class DistributeLevelIncome:
     @staticmethod
     def distribute_to_levels_below(user, amount, percent, max_levels):
         """
-        Distribute commission to levels below the user.
+        Distribute commission to levels below the user (one per level, follow deepest path).
         Returns the remaining amount if fewer levels are available.
         """
         current_user = user.child
@@ -287,39 +310,44 @@ class DistributeLevelIncome:
         commission = Decimal(amount) * percent
 
         while distributed_levels < max_levels:
-            # Get all children of the current user
             children = MLMTree.objects.filter(parent=current_user, status='active')
 
             if not children.exists():
                 break
 
+            next_child_user = None
             for child in children:
-                # Update child's wallet balance
-                child_wallet = UserWallet.objects.filter(user=child.child, status='active').last()
-                if child_wallet:
-                    child_wallet.app_wallet_balance += commission
-                    child_wallet.save()
-
-                # Create transaction record for this distribution
-                create_transaction_entry(
-                    base_user.child, child.child, commission, 'commission', 'approved',
-                    f'Level Commission added by {base_user.child.username}'
-                )
-
-                # Create commission record
-                create_commission_entry(child.child, base_user.child, 'level', commission,
-                                        f'Commission added for {base_user.child.username}')
-
-                distributed_levels += 1
-
-                # Break if we have reached the maximum levels to distribute
-                if distributed_levels >= max_levels:
+                has_grandchildren = MLMTree.objects.filter(parent=child.child, status='active').exists()
+                if has_grandchildren:
+                    next_child_user = child.child
                     break
 
-            current_user = children.first().child
+            if not next_child_user:
+                next_child_user = children.first().child
+
+            if not next_child_user:
+                break
+
+            child_wallet = UserWallet.objects.filter(user=next_child_user, status='active').last()
+            if child_wallet:
+                child_wallet.app_wallet_balance += commission
+                child_wallet.save()
+
+            create_transaction_entry(
+                base_user.child, next_child_user, commission, 'commission', 'approved',
+                f'Level Commission added by {base_user.child.username}'
+            )
+
+            create_commission_entry(
+                next_child_user, base_user.child, 'level', commission,
+                f'Commission added for {base_user.child.username}'
+            )
+
+            distributed_levels += 1
+            current_user = next_child_user
 
         remaining_levels = max_levels - distributed_levels
-        return Decimal(amount) * percent * Decimal(remaining_levels)
+        return commission * Decimal(remaining_levels)
 
 
 class LifeTimeRewardIncome:
@@ -365,7 +393,7 @@ class LifeTimeRewardIncome:
                             reward=reward,
                             earned_at=datetime.datetime.now(),
                             turnover_at_earning=parent.turnover,
-                            is_paid=False,
+                            is_paid=True,
                             total_month=reward.total_paid_month,
                             is_p2p=True
                         )
@@ -483,9 +511,8 @@ class RoyaltyClubDistribute:
             star_level = "Not Qualified"
         return {"star_level": star_level, "royalty": royalty}
 
-    # New Working
     @staticmethod
-    def distribute_royalty():
+    def one_star_royalty():
         royalty = P2PMBRoyaltyMaster.objects.filter(
             month__month=datetime.datetime.now().month, month__year=datetime.datetime.now().year,
             is_distributed=False
@@ -553,8 +580,227 @@ class RoyaltyClubDistribute:
             )
         royalty.is_distributed = True
         royalty.save()
+        return total_users
 
-        return {"status": "success", "message": f"Royalty distributed among {total_users} users"}
+    @staticmethod
+    def two_star_royalty():
+        royalty = P2PMBRoyaltyMaster.objects.filter(
+            month__month=datetime.datetime.now().month, month__year=datetime.datetime.now().year,
+            is_two_star_distributed=False
+        ).last()
+
+        if not royalty or royalty.star_income == 0:
+            return 0
+
+        eligible_users = MLMTree.objects.filter(
+            status='active', is_show=True, referral_by__isnull=False
+        ).values_list('referral_by', flat=True).distinct()
+
+        if not eligible_users:
+            return 0
+
+        final_eligible_users = []
+
+        for elg_user in eligible_users:
+            user = User.objects.filter(id=elg_user).last()
+            eligible_users = MLMTree.objects.filter(
+                status='active', is_show=True, referral_by__isnull=False, referral_by=user
+            )
+            if not eligible_users or eligible_users.count() < 10:
+                continue
+
+            # Investment.objects :todo -> Add Amount greater then or equal to logic
+
+            referrer_earnings = RoyaltyEarned.objects.filter(
+                user=user, club_type='2_star'
+            ).aggregate(total_earned=Sum('earned_amount'))["total_earned"] or 0
+
+            if referrer_earnings > 500000:
+                continue
+
+            final_eligible_users.append(user)
+
+        default_user = User.objects.filter(id=33).first()
+        if default_user and default_user not in final_eligible_users:
+            final_eligible_users.append(default_user)
+
+        if not final_eligible_users:
+            return 0
+
+        total_users = len(final_eligible_users)
+        total_income_distributed = royalty.two_star_income / total_users if total_users > 0 else 0
+
+        for user in final_eligible_users:
+            RoyaltyEarned.objects.create(
+                user=user, club_type='2_star', earned_date=datetime.datetime.now(),
+                earned_amount=total_income_distributed, royalty=royalty, is_paid=True
+            )
+            user_wallet = UserWallet.objects.filter(user=user, status='active').last()
+            if user_wallet:
+                user_wallet.app_wallet_balance += total_income_distributed
+                user_wallet.save()
+
+            create_transaction_entry(
+                user, user, total_income_distributed, 'commission', 'approved',
+                'Royalty Commission for 1 Star.'
+            )
+
+            create_commission_entry(
+                user, user, 'royalty', total_income_distributed,
+                'Royalty Commission for 1 Star.'
+            )
+        royalty.is_two_star_distributed = True
+        royalty.save()
+        return total_users
+
+    @staticmethod
+    def three_star_royalty():
+        royalty = P2PMBRoyaltyMaster.objects.filter(
+            month__month=datetime.datetime.now().month, month__year=datetime.datetime.now().year
+        ).last()
+
+        if not royalty or royalty.star_income == 0:
+            return {"status": "error", "message": "No valid royalty to distribute"}
+
+        eligible_users = MLMTree.objects.filter(
+            status='active', is_show=True, referral_by__isnull=False
+        ).values_list('referral_by', flat=True).distinct()
+
+        if not eligible_users:
+            return {"status": "error", "message": "No eligible users for royalty distribution"}
+
+        final_eligible_users = []
+
+        for elg_user in eligible_users:
+            user = User.objects.filter(id=elg_user).last()
+            eligible_users = MLMTree.objects.filter(
+                status='active', is_show=True, referral_by__isnull=False, referral_by=user
+            )
+            if not eligible_users or eligible_users.count() < 5:
+                continue
+
+            # Investment.objects :todo -> Add Amount greater then or equal to logic
+
+            referrer_earnings = RoyaltyEarned.objects.filter(
+                user=user, club_type='star'
+            ).aggregate(total_earned=Sum('earned_amount'))["total_earned"] or 0
+
+            if referrer_earnings > 200000:
+                continue
+
+            final_eligible_users.append(user)
+
+        default_user = User.objects.filter(id=33).first()
+        if default_user and default_user not in final_eligible_users:
+            final_eligible_users.append(default_user)
+
+        if not final_eligible_users:
+            return {"status": "error", "message": "No eligible users after applying earnings filter"}
+
+        total_users = len(final_eligible_users)
+        total_income_distributed = royalty.star_income / total_users if total_users > 0 else 0
+
+        for user in final_eligible_users:
+            RoyaltyEarned.objects.create(
+                user=user, club_type='star', earned_date=datetime.datetime.now(),
+                earned_amount=total_income_distributed, royalty=royalty, is_paid=True
+            )
+            user_wallet = UserWallet.objects.filter(user=user, status='active').last()
+            if user_wallet:
+                user_wallet.app_wallet_balance += total_income_distributed
+                user_wallet.save()
+
+            create_transaction_entry(
+                user, user, total_income_distributed, 'commission', 'approved',
+                'Royalty Commission for 1 Star.'
+            )
+
+            create_commission_entry(
+                user, user, 'royalty', total_income_distributed,
+                'Royalty Commission for 1 Star.'
+            )
+        royalty.is_distributed = True
+        royalty.save()
+        return total_users
+
+    @staticmethod
+    def five_star_royalty():
+        royalty = P2PMBRoyaltyMaster.objects.filter(
+            month__month=datetime.datetime.now().month, month__year=datetime.datetime.now().year,
+            is_distributed=False
+        ).last()
+
+        if not royalty or royalty.star_income == 0:
+            return {"status": "error", "message": "No valid royalty to distribute"}
+
+        eligible_users = MLMTree.objects.filter(
+            status='active', is_show=True, referral_by__isnull=False
+        ).values_list('referral_by', flat=True).distinct()
+
+        if not eligible_users:
+            return {"status": "error", "message": "No eligible users for royalty distribution"}
+
+        final_eligible_users = []
+
+        for elg_user in eligible_users:
+            user = User.objects.filter(id=elg_user).last()
+            eligible_users = MLMTree.objects.filter(
+                status='active', is_show=True, referral_by__isnull=False, referral_by=user
+            )
+            if not eligible_users or eligible_users.count() < 5:
+                continue
+
+            # Investment.objects :todo -> Add Amount greater then or equal to logic
+
+            referrer_earnings = RoyaltyEarned.objects.filter(
+                user=user, club_type='star'
+            ).aggregate(total_earned=Sum('earned_amount'))["total_earned"] or 0
+
+            if referrer_earnings > 200000:
+                continue
+
+            final_eligible_users.append(user)
+
+        default_user = User.objects.filter(id=33).first()
+        if default_user and default_user not in final_eligible_users:
+            final_eligible_users.append(default_user)
+
+        if not final_eligible_users:
+            return {"status": "error", "message": "No eligible users after applying earnings filter"}
+
+        total_users = len(final_eligible_users)
+        total_income_distributed = royalty.star_income / total_users if total_users > 0 else 0
+
+        for user in final_eligible_users:
+            RoyaltyEarned.objects.create(
+                user=user, club_type='star', earned_date=datetime.datetime.now(),
+                earned_amount=total_income_distributed, royalty=royalty, is_paid=True
+            )
+            user_wallet = UserWallet.objects.filter(user=user, status='active').last()
+            if user_wallet:
+                user_wallet.app_wallet_balance += total_income_distributed
+                user_wallet.save()
+
+            create_transaction_entry(
+                user, user, total_income_distributed, 'commission', 'approved',
+                'Royalty Commission for 1 Star.'
+            )
+
+            create_commission_entry(
+                user, user, 'royalty', total_income_distributed,
+                'Royalty Commission for 1 Star.'
+            )
+        royalty.is_distributed = True
+        royalty.save()
+        return total_users
+
+    @staticmethod
+    def distribute_royalty():
+        total_one_star_user = RoyaltyClubDistribute.one_star_royalty()
+        # total_two_star_user = RoyaltyClubDistribute.two_star_royalty()
+        # total_three_star_user = RoyaltyClubDistribute.three_star_royalty()
+        # total_five_star_user = RoyaltyClubDistribute.five_star_royalty()
+        return {"status": "success", "message": f"Royalty distributed among {total_one_star_user} users"}
 
 
 def process_monthly_reward_payments():
@@ -688,7 +934,7 @@ class ProcessMonthlyInterestP2PMB:
                         created_by=user,
                         investment=investment,
                         interest_amount=amount,
-                        interest_send_date=today,
+                        interest_send_date=today.replace(day=1),
                         is_sent=True,
                         end_date=end_date
                     )

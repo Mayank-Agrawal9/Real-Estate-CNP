@@ -9,6 +9,7 @@ from django.core.mail import send_mail
 from django.db.models import Q
 from rest_framework import serializers, exceptions
 
+from accounts.helpers import normalize_gmail
 from accounts.models import Profile, FAQ, ChangeRequest, UserPersonalDocument, BankDetails, OTP
 from master.models import City
 from real_estate import settings
@@ -17,6 +18,19 @@ from real_estate.model_mixin import User
 
 class RequestOTPSerializer(serializers.Serializer):
     email = serializers.EmailField()
+
+    def validate_email(self, value):
+        original_email = value.strip().lower()
+        normalized_email = normalize_gmail(original_email)
+
+        if '+' in original_email.split('@')[0]:
+            raise serializers.ValidationError("Email addresses with '+' are not allowed.")
+
+        blocked_domains = ['tempmail.com', 'mailinator.com', 'yopmail.com']
+        domain = normalized_email.split('@')[-1]
+        if domain in blocked_domains:
+            raise serializers.ValidationError("Disposable email addresses are not allowed.")
+        return normalized_email
 
 
 class LoginSerializer(serializers.Serializer):
@@ -41,16 +55,13 @@ class LoginSerializer(serializers.Serializer):
         domain = email.split('@')[-1]
         if domain in blocked_domains:
             raise exceptions.ValidationError({'username': ['Disposable email addresses are not allowed.']})
+        normalized_email = normalize_gmail(email)
 
-        user = User.objects.filter(Q(username__exact=username) | Q(email__exact=username), is_active=True).last()
-        # profile = Profile.objects.filter(Q(username__exact=username) | Q(email__exact=username), is_active=True).last()
+        user = User.objects.filter(
+            Q(username__iexact=normalized_email) | Q(email__iexact=normalized_email), is_active=True
+        ).last()
         if not user:
-            raise exceptions.ValidationError({'detail': 'No user registered with this credentials.'})
-
-        # opt_verify = OTP.objects.filter(Q(email__exact=username) | Q(email__exact=user.email),
-        #                                 type='register', is_verify=True).last()
-        # if not opt_verify:
-        #     raise exceptions.ValidationError({'detail': 'Please verify otp first.'})
+            raise exceptions.ValidationError({'detail': 'No user registered with these credentials.'})
 
         password = attrs.get('password')
         if not user.check_password(password):

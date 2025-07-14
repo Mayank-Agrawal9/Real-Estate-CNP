@@ -47,4 +47,8 @@ urlpatterns = [
     path('aggregate-transfer-amount', AppTransferSumAmount.as_view(), name='aggregate-transfer-amount'),
     path('add-beneficiary-account', AppBeneficiaryAPI.as_view(), name='add-beneficiary-account'),
     path('roi-aggregate', ROIAggregateAPIView.as_view(), name='roi-aggregate-view'),
+    path('core-group-aggregate', ROIAggregateAPIView.as_view(), name='roi-aggregate-view'),
+    path('reward-earned', RewardEarnedAPIView.as_view(), name='reward-earned'),
+    path('commission-earned', CommissionEarnedAPIView.as_view(), name='commission-earned'),
+    path('get-mlm-user', GetMLMUserAPIView.as_view(), name='mlm-user-list')
 ]

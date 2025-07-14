@@ -34,8 +34,15 @@ class MLMTree(ModelMixin):
 
 
 class ScheduledCommission(ModelMixin):
+    COMMISSION_TYPE_CHOICES = [
+        ('direct', 'Direct Income'),
+        ('level', 'Level Income'),
+        ('reward', 'Life Time Reward Income'),
+        ('royalty', 'Royalty Company Turnover'),
+    ]
     send_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name="commissions_sender", null=True, blank=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="scheduled_commissions")
+    commission_type = models.CharField(max_length=50, default='direct')
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     scheduled_date = models.DateTimeField()
     remarks = models.TextField(null=True, blank=True)
@@ -142,6 +149,10 @@ class P2PMBRoyaltyMaster(ModelMixin):
     eligible_user = models.ManyToManyField(User, blank=True, related_name='royalty_user')
     month = models.DateField()
     is_distributed = models.BooleanField(default=False)
+    is_star_distributed = models.BooleanField(default=False)
+    is_two_star_distributed = models.BooleanField(default=False)
+    is_three_star_distributed = models.BooleanField(default=False)
+    is_five_star_distributed = models.BooleanField(default=False)
 
     def save(self, *args, **kwargs):
         if self.total_turnover:
@@ -176,6 +187,16 @@ class ExtraReward(ModelMixin):
     reward_type = models.CharField(max_length=20, default='leader', choices=EXTRA_REWARD_CHOICES)
     turnover_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.0)
     description = models.TextField()
+
+    def __str__(self):
+        return str(self.id)
+
+
+class ExtraRewardEarned(ModelMixin):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='extra_reward_earned_user')
+    extra_reward = models.ForeignKey(ExtraReward, on_delete=models.CASCADE, related_name='extra_reward')
+    amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.0)
+    description = models.TextField(null=True, blank=True)
 
     def __str__(self):
         return str(self.id)
