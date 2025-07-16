@@ -30,7 +30,7 @@ class RequestOTPSerializer(serializers.Serializer):
         # domain = normalized_email.split('@')[-1]
         if original_email in blocked_domains:
             raise serializers.ValidationError("Disposable email addresses are not allowed.")
-        # return normalized_email
+        return original_email
 
 
 class LoginSerializer(serializers.Serializer):
