@@ -21,6 +21,7 @@ from accounts.models import Profile, BankDetails, UserPersonalDocument, ChangeRe
 from master.models import CoreGroupIncome
 from p2pmb.models import Commission, MLMTree, CoreIncomeEarned
 from property.models import Property
+from web_admin.helpers import add_cashfree_beneficiary
 from web_admin.models import ManualFund, CompanyInvestment, ContactUsEnquiry, PropertyInterestEnquiry, \
     UserFunctionalityAccessPermission
 from web_admin.serializers import ProfileSerializer, InvestmentSerializer, ManualFundSerializer, BankDetailSerializer, \
@@ -28,8 +29,9 @@ from web_admin.serializers import ProfileSerializer, InvestmentSerializer, Manua
     FieldAgentCompanyDetailSerializer, PropertyInterestEnquirySerializer, ContactUsEnquirySerializer, \
     GetPropertySerializer, PropertyDetailSerializer, UserCreateSerializer, LoginSerializer, \
     UserPermissionProfileSerializer, ListWithDrawRequest, UserWithWorkingIDSerializer, GetAllCommissionSerializer, \
-    CompanyInvestmentSerializer, TransactionDetailSerializer, AdminChangeRequestSerializer
-from agency.models import Investment, FundWithdrawal, SuperAgency, Agency, FieldAgent, InvestmentInterest
+    CompanyInvestmentSerializer, TransactionDetailSerializer, AdminChangeRequestSerializer, RewardEarnedAdminSerializer, \
+    GetAllMLMChildSerializer
+from agency.models import Investment, FundWithdrawal, SuperAgency, Agency, FieldAgent, InvestmentInterest, RewardEarned
 from payment_app.models import UserWallet, Transaction
 from web_admin.choices import main_dashboard
 
@@ -1133,6 +1135,17 @@ class ApproveRejectWithDrawAPIView(APIView):
                 taxable_amount=taxable_amount
             )
             wallet = UserWallet.objects.filter(user=withdraw.user).last()
+            # bank_details = BankDetails.objects.filter(user=withdraw.user).last()
+            # if not bank_details or bank_details.account_number or bank_details.ifsc_code:
+            #     return Response({"detail": f"Need to update account number or ifsc code of the user."},
+            #                     status=status.HTTP_400_BAD_REQUEST)
+            # elif not bank_details.beneficiary_id:
+            #     err, beneficiary_id = add_cashfree_beneficiary(bank_details)
+            #     if err:
+            #         return Response({"detail": beneficiary_id}, status=status.HTTP_400_BAD_REQUEST)
+            # else:
+            #     beneficiary_id = bank_details.beneficiary_id
+
             wallet.main_wallet_balance -= withdraw.withdrawal_amount
             wallet.save()
             withdraw.withdrawal_status = "approved"
@@ -1493,3 +1506,89 @@ class AggregateChangeRequestAPIView(APIView):
             rejected_request=Count("id", filter=Q(request_status='rejected')),
         )
         return Response(change_request_count, status=status.HTTP_200_OK)
+
+
+class AppBeneficiaryAPI(APIView):
+
+    def get(self, request):
+        bank_details = BankDetails.objects.filter(id=25).last()
+        err, res = add_cashfree_beneficiary(bank_details)
+        return Response({'error': err, 'res': res})
+
+
+class ROIAggregateAPIView(APIView):
+    permission_classes = [IsStaffUser]
+
+    def get(self, request):
+        month = int(request.query_params.get("month", datetime.datetime.now().month))
+        year = int(request.query_params.get("year", datetime.datetime.now().year))
+        user_id = request.query_params.get("user")
+
+        investment = InvestmentInterest.objects.filter(
+            interest_send_date__month=month, interest_send_date__year=year
+        ).select_related('investment', 'investment__user')
+
+        if user_id:
+            investment = investment.filter(investment__user__id=user_id)
+
+        total_user = investment.values('investment__user').distinct().count()
+        total_amount = investment.aggregate(total=Sum('interest_amount'))['total'] or 0
+
+        return Response({
+            'total_user': total_user,
+            'total_send_amount': round(total_amount, 2)
+        })
+
+
+class RewardEarnedAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        month = int(request.query_params.get("month", datetime.datetime.now().month))
+        year = int(request.query_params.get("year", datetime.datetime.now().year))
+        user_id = request.query_params.get("user")
+        queryset = RewardEarned.objects.filter(status='active')
+        if user_id:
+            queryset = queryset.filter(user=user_id)
+        if month and year:
+            queryset = queryset.filter(earned_at__month=month, earned_at__year=year)
+        paginator = LimitOffsetPagination()
+        paginated_transactions = paginator.paginate_queryset(queryset, request)
+        serializer = RewardEarnedAdminSerializer(paginated_transactions, many=True)
+        return paginator.get_paginated_response(serializer.data)
+
+
+class CommissionEarnedAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        month = int(request.query_params.get("month", datetime.datetime.now().month))
+        year = int(request.query_params.get("year", datetime.datetime.now().year))
+        user_id = request.query_params.get("user")
+        commission_type = request.query_params.get("commission_type")
+        queryset = Commission.objects.filter(status='active')
+        if user_id:
+            queryset = queryset.filter(commission_to=user_id)
+        if commission_type:
+            queryset = queryset.filter(commission_type=commission_type)
+        if month and year:
+            queryset = queryset.filter(date_created__month=month, date_created__year=year)
+        paginator = LimitOffsetPagination()
+        paginated_transactions = paginator.paginate_queryset(queryset, request)
+        serializer = GetAllCommissionSerializer(paginated_transactions, many=True)
+        return paginator.get_paginated_response(serializer.data)
+
+
+class GetMLMUserAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        search = request.query_params.get("search")
+        queryset = MLMTree.objects.filter(status='active', is_show=True)
+        if search:
+            queryset = queryset.filter(Q(child__username=search) | Q(child__first_name=search) |
+                                       Q(child__last_name=search) | Q(child__profile__referral_code=search))
+        paginator = LimitOffsetPagination()
+        paginated_transactions = paginator.paginate_queryset(queryset, request)
+        serializer = GetAllMLMChildSerializer(paginated_transactions, many=True)
+        return paginator.get_paginated_response(serializer.data)

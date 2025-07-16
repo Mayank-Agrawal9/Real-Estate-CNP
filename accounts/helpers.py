@@ -277,3 +277,15 @@ def generate_otp_and_send_email(email, user, type):
         fail_silently=False,
     )
     return otp_code
+
+
+def normalize_gmail(email):
+    """
+    Normalize Gmail address by removing dots in the local part
+    and handling googlemail aliasing.
+    """
+    local_part, domain = email.split('@')
+    if domain in ['gmail.com', 'googlemail.com']:
+        local_part = local_part.replace('.', '')
+        email = f"{local_part}@gmail.com"
+    return email

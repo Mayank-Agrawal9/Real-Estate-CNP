@@ -79,6 +79,8 @@ class BankDetails(ModelMixin):
     ifsc_code = models.CharField(max_length=12)
     bank_name = models.CharField(max_length=200)
     bank_address = models.TextField(null=True, blank=True)
+    beneficiary_id = models.TextField(null=True, blank=True)
+    upi_id = models.CharField(max_length=200, null=True, blank=True)
 
 
 class UserPersonalDocument(ModelMixin):

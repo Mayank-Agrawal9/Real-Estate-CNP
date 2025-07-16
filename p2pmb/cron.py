@@ -53,7 +53,8 @@ def distribute_level_income():
         print("🚀 Starting Direct Income Distribution...")
 
         investments = Investment.objects.filter(status='active', is_approved=True, pay_method='main_wallet',
-                                                investment_type='p2pmb', send_level_income=False)
+                                                investment_type='p2pmb', send_level_income=False,
+                                                package__isnull=False)
         for investment_instance in investments:
 
             if investment_instance and investment_instance.user:

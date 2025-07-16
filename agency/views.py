@@ -10,7 +10,7 @@ from dateutil.relativedelta import relativedelta
 from django.db.models import Q
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -576,10 +576,20 @@ class RewardEarnedViewSet(viewsets.ModelViewSet):
 class InvestmentInterestViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     queryset = InvestmentInterest.objects.active()
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['investment__user__username', 'investment__user__email', 'investment__user__first_name',
+                     'investment__user__last_name']
     serializer_class = InvestmentInterestSerializer
 
     def get_queryset(self):
-        return InvestmentInterest.objects.active()
+        queryset = InvestmentInterest.objects.active().select_related('investment', 'investment__user')
+        month = self.request.query_params.get("month")
+        year = self.request.query_params.get("year")
+        if month:
+            queryset = queryset.filter(interest_send_date__month=int(month))
+        if year:
+            queryset = queryset.filter(interest_send_date__year=int(year))
+        return queryset
 
 
 class UserSuperAgencyAPIView(APIView):
