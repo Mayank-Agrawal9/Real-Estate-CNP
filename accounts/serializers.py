@@ -21,16 +21,16 @@ class RequestOTPSerializer(serializers.Serializer):
 
     def validate_email(self, value):
         original_email = value.strip().lower()
-        normalized_email = normalize_gmail(original_email)
+        # normalized_email = normalize_gmail(original_email)
 
         if '+' in original_email.split('@')[0]:
             raise serializers.ValidationError("Email addresses with '+' are not allowed.")
 
         blocked_domains = ['tempmail.com', 'mailinator.com', 'yopmail.com']
-        domain = normalized_email.split('@')[-1]
-        if domain in blocked_domains:
+        # domain = normalized_email.split('@')[-1]
+        if original_email in blocked_domains:
             raise serializers.ValidationError("Disposable email addresses are not allowed.")
-        return normalized_email
+        # return normalized_email
 
 
 class LoginSerializer(serializers.Serializer):
@@ -55,10 +55,10 @@ class LoginSerializer(serializers.Serializer):
         domain = email.split('@')[-1]
         if domain in blocked_domains:
             raise exceptions.ValidationError({'username': ['Disposable email addresses are not allowed.']})
-        normalized_email = normalize_gmail(email)
+        # normalized_email = normalize_gmail(email)
 
         user = User.objects.filter(
-            Q(username__iexact=normalized_email) | Q(email__iexact=normalized_email), is_active=True
+            Q(username__iexact=email) | Q(email__iexact=email), is_active=True
         ).last()
         if not user:
             raise exceptions.ValidationError({'detail': 'No user registered with these credentials.'})
