@@ -41,8 +41,8 @@ class RequestOTPView(APIView):
     def post(self, request):
         serializer = RequestOTPSerializer(data=request.data)
         if serializer.is_valid():
-            raw_email = serializer.validated_data['email'].lower()
-            email = normalize_gmail(raw_email)
+            email = serializer.validated_data['email'].lower()
+            # email = normalize_gmail(raw_email)
             otp_code = str(random.randint(100000, 999999))
             OTP.objects.update_or_create(
                 email=email,
