@@ -304,14 +304,14 @@ class CommissionViewSet(viewsets.ModelViewSet):
         return None
 
     def list(self, request, *args, **kwargs):
-        """ Add MLM levels only if `commission_type` is 'level'. """
         queryset = self.filter_queryset(self.get_queryset())
+        commission_type = request.query_params.get('commission_type')
 
-        is_direct = request.query_params.get('commission_type') == 'direct'
-
-        direct_total = None
-        if is_direct:
-            direct_total = queryset.aggregate(total_amount=Sum('amount'))['total_amount'] or 0
+        total_amount = 0
+        if commission_type:
+            total_amount = queryset.filter(commission_type=commission_type).aggregate(
+                total_amount=Sum('amount')
+            )['total_amount'] or 0
 
         page = self.paginate_queryset(queryset)
         serialized_data = self.get_serializer(page, many=True).data if page is not None else self.get_serializer(
@@ -328,13 +328,13 @@ class CommissionViewSet(viewsets.ModelViewSet):
 
         if page is not None:
             response = self.get_paginated_response(serialized_data)
-            if is_direct:
-                response.data["total_direct_amount"] = direct_total
+            if commission_type:
+                response.data[f"total_{commission_type}_amount"] = total_amount
             return response
 
         response_data = {"results": serialized_data}
-        if is_direct:
-            response_data["total_direct_amount"] = direct_total
+        if commission_type:
+            response_data[f"total_{commission_type}_amount"] = total_amount
 
         return Response(response_data)
 
@@ -673,3 +673,26 @@ class GetAppDashboardAggregate(APIView):
             'total_top_up_count': investments.count(),
         }
         return Response(data, status=status.HTTP_200_OK)
+
+
+class GetUserRoyaltyClubStatusAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    ROYALTY_CLUB_TYPE = (
+        ('star', 'Star Club'),
+        ('2_star', '2-Star Club'),
+        ('3_star', '3-Star Club'),
+        ('5_star', '5-Star Club'),
+    )
+
+    def get(self, request):
+        earned_clubs = set(
+            RoyaltyEarned.objects.filter(user=request.user).values_list('club_type', flat=True).distinct()
+        )
+
+        response_data = {}
+        for club_type, _ in self.ROYALTY_CLUB_TYPE:
+            key = f"{club_type}_royalty"
+            response_data[key] = club_type in earned_clubs
+
+        return Response(response_data)
