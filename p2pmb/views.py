@@ -375,9 +375,12 @@ class RoyaltyEarnedViewSet(viewsets.ModelViewSet):
     }
     default_serializer_class = CreateRoyaltyEarnedSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter]
-    queryset = RoyaltyEarned.objects.active()
+    queryset = RoyaltyEarned.objects.filter(status='active')
     filterset_fields = ['club_type', 'is_paid']
     search_fields = ['user__username', 'user__first_name', 'user__last_name']
+
+    def get_queryset(self):
+        return RoyaltyEarned.objects.filter(user=self.request.user, status='active').order_by('earned_date')
 
     def get_serializer_class(self):
         return self.serializer_classes.get(self.action, self.default_serializer_class)
