@@ -363,6 +363,7 @@ class P2PMBRoyaltyMasterSerializer(serializers.ModelSerializer):
 class RoyaltyEarnedSerializer(serializers.ModelSerializer):
     user = serializers.SerializerMethodField()
     royalty = serializers.SerializerMethodField()
+    club_level = serializers.SerializerMethodField()
 
     def get_user(self, obj):
         return{
@@ -383,6 +384,15 @@ class RoyaltyEarnedSerializer(serializers.ModelSerializer):
             'total_turnover': obj.royalty.total_turnover,
             'calculated_amount_turnover': obj.royalty.calculated_amount_turnover
         }
+
+    def get_club_level(self, obj):
+        mapping = {
+            'star': 1,
+            '2_star': 2,
+            '3_star': 3,
+            '5_star': 5
+        }
+        return mapping.get(obj.club_type)
 
     class Meta:
         model = RoyaltyEarned
