@@ -382,6 +382,25 @@ class RoyaltyEarnedViewSet(viewsets.ModelViewSet):
     def get_serializer_class(self):
         return self.serializer_classes.get(self.action, self.default_serializer_class)
 
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+
+        total_royalty_income = queryset.aggregate(
+            total=Sum('earned_amount'))['total'] or 0
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            response = self.get_paginated_response(serializer.data)
+            response.data['total_royalty_income'] = total_royalty_income
+            return response
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({
+            "results": serializer.data,
+            "total_royalty_income": total_royalty_income
+        })
+
 
 class DistributeLevelIncomeAPIView(APIView):
     """
