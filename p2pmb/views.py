@@ -347,8 +347,13 @@ class ExtraRewardViewSet(viewsets.ModelViewSet):
     filterset_fields = ['reward_type',]
 
     def get_queryset(self):
-        return ExtraReward.objects.filter(status='active', start_date__lte=datetime.datetime.now().date(),
-                                          end_date__gte=datetime.datetime.now().date()).order_by('turnover_amount')
+        return ExtraReward.objects.filter(status='active').order_by('turnover_amount')
+
+    def get_serializer_context(self):
+        """Pass the user context to the serializer"""
+        context = super().get_serializer_context()
+        context['user'] = self.request.user
+        return context
 
 
 class CoreIncomeEarnedViewSet(viewsets.ModelViewSet):

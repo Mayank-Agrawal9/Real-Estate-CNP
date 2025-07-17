@@ -1,3 +1,4 @@
+import datetime
 from collections import deque
 
 from django.db import transaction
@@ -6,7 +7,8 @@ from rest_framework import serializers
 from accounts.models import Profile
 from agency.models import Investment
 from payment_app.models import Transaction, UserWallet
-from .models import MLMTree, User, Package, Commission, ExtraReward, CoreIncomeEarned, P2PMBRoyaltyMaster, RoyaltyEarned
+from .models import MLMTree, User, Package, Commission, ExtraReward, CoreIncomeEarned, P2PMBRoyaltyMaster, \
+    RoyaltyEarned, ExtraRewardEarned
 
 
 class MLMTreeSerializer(serializers.ModelSerializer):
@@ -316,6 +318,20 @@ class GetMyApplyingData(serializers.ModelSerializer):
 
 
 class ExtraRewardSerializer(serializers.ModelSerializer):
+    is_expire = serializers.SerializerMethodField()
+    is_earned = serializers.SerializerMethodField()
+
+    def get_is_expire(self, obj):
+        if obj.end_date:
+            return datetime.datetime.today().date() > obj.end_date
+        return False
+
+    def get_is_earned(self, obj):
+        user = self.context.get('user')
+        if user:
+            return ExtraRewardEarned.objects.filter(user=user, extra_reward=obj).exists()
+        return False
+
     class Meta:
         model = ExtraReward
         fields = '__all__'
