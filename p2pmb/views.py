@@ -363,6 +363,9 @@ class CoreIncomeEarnedViewSet(viewsets.ModelViewSet):
     queryset = CoreIncomeEarned.objects.active()
     filterset_fields = ['income_type', 'core_income', 'user']
 
+    # def get_queryset(self):
+    #     return CoreIncomeEarned.objects.filter(user=self.request.user, status='active').order_by('income_earned')
+
 
 class P2PMBRoyaltyMasterViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
@@ -601,15 +604,16 @@ class MyIdValueAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        get_investment = Investment.objects.filter(status='active', user=self.request.user, package__isnull=False,
-                                                   investment_type='p2pmb').last()
+        total_invested_amount = Investment.objects.filter(status='active', user=self.request.user,
+                                                          package__isnull=False, investment_type='p2pmb').aggregate(
+            total=Sum('amount'))['total'] or Decimal(0)
         check_working_id = MLMTree.objects.filter(referral_by=self.request.user).count()
         if check_working_id and check_working_id >= 2:
             is_working_id = True
-            total_return_amount = (get_investment.amount or 0) * Decimal('4.4')
+            total_return_amount = total_invested_amount * Decimal('4.4')
         else:
             is_working_id = False
-            total_return_amount = (get_investment.amount or 0) * Decimal('2.1')
+            total_return_amount = total_invested_amount * Decimal('2.1')
 
         total_income_earned = Commission.objects.filter(commission_to=request.user).aggregate(
             total_amount=Sum('amount'))['total_amount'] or Decimal(0)
@@ -623,7 +627,7 @@ class MyIdValueAPIView(APIView):
             is_low_balance = True
 
         response = {
-            'investment_amount': get_investment.amount,
+            'investment_amount': total_invested_amount,
             'is_working_id': is_working_id,
             'total_return_amount': total_return_amount,
             'total_income_earned': total_income_earned,
@@ -644,8 +648,8 @@ class GetAppDashboardAggregate(APIView):
         investments = Investment.objects.filter(
             status='active', package__isnull=False, investment_type='p2pmb', user=user
         )
-        latest_investment = investments.last()
-        latest_amount = latest_investment.amount if latest_investment else Decimal('0.0')
+        latest_investment = investments.aggregate(total=Sum('amount'))['total'] or Decimal(0)
+        latest_amount = latest_investment if latest_investment else Decimal('0.0')
         total_return_amount = latest_amount * Decimal('4.4' if referrals >= 2 else '2.1')
 
         commission_agg = Commission.objects.filter(status='active', commission_to=user).aggregate(
