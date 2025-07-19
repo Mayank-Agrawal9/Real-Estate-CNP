@@ -12,6 +12,7 @@ class UserWallet(ModelMixin):
     app_wallet_balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     p2pmb_royalty_income = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     tds_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    admin_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
 
     def __str__(self):
         return f"Wallet for {self.user.username}"

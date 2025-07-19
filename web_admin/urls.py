@@ -47,8 +47,12 @@ urlpatterns = [
     path('aggregate-transfer-amount', AppTransferSumAmount.as_view(), name='aggregate-transfer-amount'),
     path('add-beneficiary-account', AppBeneficiaryAPI.as_view(), name='add-beneficiary-account'),
     path('roi-aggregate', ROIAggregateAPIView.as_view(), name='roi-aggregate-view'),
-    path('core-group-aggregate', ROIAggregateAPIView.as_view(), name='roi-aggregate-view'),
+    path('core-group-aggregate', CoreGroupIncomeAggregateAPIView.as_view(), name='core-group-aggregate'),
     path('reward-earned', RewardEarnedAPIView.as_view(), name='reward-earned'),
     path('commission-earned', CommissionEarnedAPIView.as_view(), name='commission-earned'),
-    path('get-mlm-user', GetMLMUserAPIView.as_view(), name='mlm-user-list')
+    path('get-mlm-user', GetMLMUserAPIView.as_view(), name='mlm-user-list'),
+    path('get-user-app-dashboard', GetAppDashboardAggregate.as_view(), name='user-dashboard-count'),
+    path('get-earned-royalty', RoyaltyEarnedAPIView.as_view(), name='royalty-earned-view'),
+    path('get-earned-extra-reward', ExtraRewardEarnedAPIView.as_view(), name='extra-reward-earned-view'),
+    path('roi-list', ROIEarnedListAPIView.as_view(), name='roi-earned-view'),
 ]

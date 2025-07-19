@@ -1,4 +1,5 @@
 import datetime
+from collections import defaultdict
 from datetime import timedelta, date
 from decimal import Decimal
 
@@ -19,7 +20,8 @@ from rest_framework.views import APIView
 
 from accounts.models import Profile, BankDetails, UserPersonalDocument, ChangeRequest
 from master.models import CoreGroupIncome
-from p2pmb.models import Commission, MLMTree, CoreIncomeEarned
+from p2pmb.helpers import get_downline_count
+from p2pmb.models import Commission, MLMTree, CoreIncomeEarned, RoyaltyEarned, ExtraRewardEarned
 from property.models import Property
 from web_admin.helpers import add_cashfree_beneficiary
 from web_admin.models import ManualFund, CompanyInvestment, ContactUsEnquiry, PropertyInterestEnquiry, \
@@ -30,7 +32,7 @@ from web_admin.serializers import ProfileSerializer, InvestmentSerializer, Manua
     GetPropertySerializer, PropertyDetailSerializer, UserCreateSerializer, LoginSerializer, \
     UserPermissionProfileSerializer, ListWithDrawRequest, UserWithWorkingIDSerializer, GetAllCommissionSerializer, \
     CompanyInvestmentSerializer, TransactionDetailSerializer, AdminChangeRequestSerializer, RewardEarnedAdminSerializer, \
-    GetAllMLMChildSerializer
+    GetAllMLMChildSerializer, RoyaltyEarnedAdminSerializer, ExtraRewardEarnedAdminSerializer, ROIEarnedAdminSerializer
 from agency.models import Investment, FundWithdrawal, SuperAgency, Agency, FieldAgent, InvestmentInterest, RewardEarned
 from payment_app.models import UserWallet, Transaction
 from web_admin.choices import main_dashboard
@@ -135,7 +137,25 @@ class VerifyKycAPIView(APIView):
     permission_classes = [IsStaffUser]
 
     def get(self, request):
-        profiles = Profile.objects.filter(is_kyc=True, is_kyc_verified=False)
+        is_kyc = request.query_params.get('is_kyc')
+        is_kyc_verified = request.query_params.get('is_kyc_verified')
+        is_kyc_rejected = request.query_params.get('is_kyc_rejected')
+
+        if is_kyc is None:
+            is_kyc = True
+        else:
+            is_kyc = is_kyc.lower() == 'true'
+        if is_kyc_verified is None:
+            is_kyc_verified = False
+        else:
+            is_kyc_verified = is_kyc_verified.lower() == 'true'
+        if is_kyc_rejected is None:
+            is_kyc_rejected = False
+        else:
+            is_kyc_rejected = is_kyc_rejected.lower() == 'true'
+
+        profiles = Profile.objects.filter(is_kyc=is_kyc, is_kyc_verified=is_kyc_verified,
+                                          is_kyc_reprocess=is_kyc_rejected).select_related('user')
         paginator = PageNumberPagination()
         paginated_profiles = paginator.paginate_queryset(profiles, request)
         serializer = ProfileSerializer(paginated_profiles, many=True)
@@ -299,42 +319,36 @@ class DeductManualInvestmentAPIView(APIView):
 
     def post(self, request):
         user_id = request.data.get('user_id')
+        wallet_type = request.data.get('wallet_type')
         amount = Decimal(request.data.get('amount'))
-        user_profile = Profile.objects.filter(user=user_id).last()
+        user_profile = Profile.objects.filter(status='active', user=user_id).last()
         if not user_profile:
             return Response({'error': 'User id not found'}, status=status.HTTP_400_BAD_REQUEST)
 
+        if wallet_type not in ['main_wallet', 'app_wallet']:
+            return Response({'error': 'Invalid Payment Type, Please select main_wallet or app_wallet'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
         wallet, _ = UserWallet.objects.get_or_create(user=user_profile.user)
-        wallet.main_wallet_balance -= amount
+        if wallet_type == 'main_wallet':
+            wallet.main_wallet_balance -= amount
+        elif wallet_type == 'app_wallet':
+            wallet.main_wallet_balance -= amount
+        else:
+            return Response({'error': 'Invalid wallet Type, Please select main_wallet or app_wallet'},
+                            status=status.HTTP_400_BAD_REQUEST)
         wallet.save()
 
         Transaction.objects.create(
             created_by=user_profile.user,
-            sender=user_profile.user,
-            receiver=user_profile.user,
-            amount=amount,
-            transaction_type='deduct',
-            transaction_status='approved',
-            verified_by=request.user,
-            verified_on=datetime.datetime.now(),
-            payment_method='wallet'
-        )
-        Investment.objects.create(
-            created_by=user_profile.user,
-            user=user_profile.user,
-            amount=amount,
-            investment_type='deduct',
-            pay_method='new',
-            gst=0,
-            is_approved=True,
-            approved_by=request.user,
-            approved_on=datetime.datetime.now(),
+            sender=user_profile.user, receiver=user_profile.user,
+            amount=amount, transaction_type='deduct',
+            transaction_status='approved', verified_by=request.user,
+            verified_on=datetime.datetime.now(), payment_method='wallet', remarks='Amount Deducted by Admin.'
         )
         ManualFund.objects.create(
-            created_by=user_profile.user,
-            added_to=user_profile.user,
-            amount=amount,
-            fund_type='deduct'
+            created_by=self.request.user, added_to=user_profile.user,
+            amount=amount, fund_type='deduct'
         )
         return Response({'message': 'Fund Deduct successfully.'}, status=status.HTTP_200_OK)
 
@@ -568,7 +582,8 @@ class DashboardCountAPIView(APIView):
             total_withdraw_amount=Sum("withdrawal_amount"),
         )
 
-        admin_paid_amount = ManualFund.objects.filter(status="active").aggregate(Sum("amount"))["amount__sum"]
+        admin_paid_amount = ManualFund.objects.filter(status="active", fund_type='deposit').aggregate(Sum("amount")
+                                                                                                      )["amount__sum"]
         dashboard_count = {
             **user_counts,
             **investment_data,
@@ -1032,55 +1047,92 @@ class CompanyLiabilityStatsAPIView(APIView):
     permission_classes = [IsStaffUser]
 
     def get(self, request):
-        investments = Investment.objects.filter(
-            status='active', investment_type='p2pmb', is_approved=True,
-            package__isnull=False, pay_method='main_wallet'
-        ).values('user_id').annotate(total_amount=Sum('amount'))
+        filter_type = request.query_params.get('type')
+        search_query = request.query_params.get('search', '').strip()
 
-        investment_map = {item['user_id']: item['total_amount'] for item in investments}
+        filtered_investments = Investment.objects.filter(
+            status='active', investment_type='p2pmb',
+            is_approved=True, package__isnull=False, pay_method='main_wallet'
+        ).select_related('user')
+
+        if search_query:
+            filtered_investments = filtered_investments.filter(
+                Q(user__username__icontains=search_query)
+            )
+
+        user_investments = filtered_investments.values('user_id', 'user__username').annotate(
+            total_amount=Sum('amount')
+        )
+        investment_map = {
+            item['user_id']: {
+                'username': item['user__username'], 'amount': item['total_amount']
+            }
+            for item in user_investments
+        }
+
         referrals = MLMTree.objects.filter(is_show=True).values_list('referral_by_id', 'child_id')
-        referral_map = {}
+        referral_map = defaultdict(list)
         for referral_by_id, child_id in referrals:
-            referral_map.setdefault(referral_by_id, []).append(child_id)
+            referral_map[referral_by_id].append(child_id)
 
-        working_ids = set()
-        for user_id, user_investment in investment_map.items():
-            if user_investment == 0:
-                continue
-            referral_ids = referral_map.get(user_id, [])
-            eligible_referrals = [
-                rid for rid in referral_ids
-                if investment_map.get(rid, Decimal('0')) >= user_investment
-            ]
-            if len(eligible_referrals) >= 2:
-                working_ids.add(user_id)
+        working_ids = {
+            user_id for user_id in investment_map
+            if len(referral_map.get(user_id, [])) >= 2
+        }
+
+        if filter_type == 'working':
+            filtered_user_ids = working_ids
+            filtered_investments = filtered_investments.filter(user__in=filtered_user_ids)
+        elif filter_type == 'non-working':
+            filtered_user_ids = set(investment_map.keys()) - working_ids
+            filtered_investments = filtered_investments.filter(user__in=filtered_user_ids)
+        else:
+            filtered_user_ids = set(investment_map.keys())
 
         total_return_amount = Decimal('0')
-        for user_id, amount in investment_map.items():
-            multiplier = 4.4 if user_id in working_ids else 2.1
-            total_return_amount += amount * Decimal(multiplier)
+        for user_id in filtered_user_ids:
+            data = investment_map[user_id]
+            multiplier = Decimal('4.4') if user_id in working_ids else Decimal('2.1')
+            total_return_amount += data['amount'] * multiplier
 
-        total_investment = Investment.objects.filter(status='active').aggregate(
-            total_amount=Sum("amount", filter=Q(
-                is_approved=True, investment_type="p2pmb", package__isnull=False, pay_method='main_wallet'
-            ))
-        )['total_amount'] or Decimal(0)
+        total_investment = filtered_investments.aggregate(
+            total_amount=Sum('amount')
+        )['total_amount'] or Decimal('0')
 
-        total_income_earned = Commission.objects.filter(status='active').aggregate(
-            total_amount=Sum('amount'))['total_amount'] or Decimal(0)
+        total_income_earned = Commission.objects.filter(status='active', commission_to__in=filtered_user_ids).aggregate(
+            total_amount=Sum('amount')
+        )['total_amount'] or Decimal('0')
 
-        total_interest_earned = InvestmentInterest.objects.filter(status='active').aggregate(
-            total_amount=Sum('interest_amount'))['total_amount'] or Decimal(0)
+        total_interest_earned = InvestmentInterest.objects.filter(status='active',
+                                                                  investment__user__in=filtered_user_ids).aggregate(
+            total_amount=Sum('interest_amount')
+        )['total_amount'] or Decimal('0')
 
-        core_group_earned = CoreIncomeEarned.objects.filter(status='active').aggregate(
-            total_amount=Sum('income_earned'))['total_amount'] or Decimal(0)
+        core_group_earned = CoreIncomeEarned.objects.filter(status='active', user__in=filtered_user_ids).aggregate(
+            total_amount=Sum('income_earned')
+        )['total_amount'] or Decimal('0')
 
-        result = {
+        royalty_earned = RoyaltyEarned.objects.filter(status='active', user__in=filtered_user_ids).aggregate(
+            total_amount=Sum('earned_amount')
+        )['total_amount'] or Decimal('0')
+
+        reward_earned = RewardEarned.objects.filter(status='active', user__in=filtered_user_ids).select_related(
+            'reward').aggregate(total_amount=Sum('reward__gift_amount')
+        )['total_amount'] or Decimal('0')
+
+        extra_reward_earned = ExtraRewardEarned.objects.filter(status='active', user__in=filtered_user_ids).aggregate(
+            total_amount=Sum('amount')
+        )['total_amount'] or Decimal('0')
+
+        total_send_amount = (royalty_earned + total_income_earned + total_interest_earned + core_group_earned +
+                             extra_reward_earned + reward_earned)
+        return Response({
             'total_investment': total_investment,
-            'total_return_amount': total_income_earned + total_interest_earned + core_group_earned,
+            'total_return_amount': total_send_amount,
             'total_send_amount': total_return_amount,
-        }
-        return Response(result, status=status.HTTP_200_OK)
+            'working_user_count': len(working_ids),
+            'non_working_user_count': len(investment_map.keys() - working_ids),
+        }, status=status.HTTP_200_OK)
 
 
 class WithDrawRequest(ListAPIView):
@@ -1125,13 +1177,12 @@ class ApproveRejectWithDrawAPIView(APIView):
             return Response({"error": "Invalid withdraw Id."}, status=status.HTTP_400_BAD_REQUEST)
 
         if action == "approved":
-            # Add Logic For Send Money and add interest
             deducted_amount = withdraw.withdrawal_amount * Decimal('0.95')
             taxable_amount = withdraw.withdrawal_amount - deducted_amount
             Transaction.objects.create(
                 sender=withdraw.user, receiver=withdraw.user, amount=deducted_amount,
                 transaction_type='receive', transaction_status='deposit', payment_method='upi',
-                remarks='Added remarks', verified_by=self.request.user, verified_on=datetime.datetime.now(),
+                remarks='Withdraw Request approved.', verified_by=self.request.user, verified_on=datetime.datetime.now(),
                 taxable_amount=taxable_amount
             )
             wallet = UserWallet.objects.filter(user=withdraw.user).last()
@@ -1152,11 +1203,13 @@ class ApproveRejectWithDrawAPIView(APIView):
             withdraw.rejection_reason = None
             withdraw.is_paid = True
             withdraw.action_date = datetime.datetime.now()
+            withdraw.action_taken_by = self.request.user
             withdraw.save()
         elif action == "rejected":
             withdraw.withdrawal_status = "rejected"
             withdraw.rejection_reason = rejection_reason
             withdraw.action_date = datetime.datetime.now()
+            withdraw.action_taken_by = self.request.user
             withdraw.save()
         return Response({"detail": f"Withdraw {action} successfully."})
 
@@ -1166,7 +1219,7 @@ class UserWithWorkingIDListView(ListAPIView):
     serializer_class = UserWithWorkingIDSerializer
 
     def get_queryset(self):
-        queryset = MLMTree.objects.filter(is_show=True).select_related('child', 'parent').all()
+        queryset = MLMTree.objects.filter(is_show=True).select_related('child', 'parent')
         is_working_id = self.request.query_params.get('is_working_id')
         sort_order = self.request.query_params.get('sort', 'desc')
         search = self.request.query_params.get('search', '').strip().lower()
@@ -1197,11 +1250,12 @@ class UserWithWorkingIDListView(ListAPIView):
     def _get_working_ids(self):
         investments = Investment.objects.filter(status='active', investment_type='p2pmb', is_approved=True,
                                                 package__isnull=False, pay_method='main_wallet'
-        ).values('user_id').annotate(total_amount=Sum('amount'))
+        ).values('user_id').select_related('user').annotate(total_amount=Sum('amount'))
 
         investment_map = {item['user_id']: item['total_amount'] for item in investments}
 
-        referrals = MLMTree.objects.filter(is_show=True).values_list('referral_by_id', 'child_id')
+        referrals = MLMTree.objects.filter(is_show=True).select_related('referral_by', 'child').values_list(
+            'referral_by_id', 'child_id')
         referral_map = {}
         for referral_by_id, child_id in referrals:
             referral_map.setdefault(referral_by_id, []).append(child_id)
@@ -1213,7 +1267,8 @@ class UserWithWorkingIDListView(ListAPIView):
             referral_ids = referral_map.get(user_id, [])
             eligible_referrals = [
                 rid for rid in referral_ids
-                if investment_map.get(rid, Decimal('0')) >= user_investment
+                if len(referral_map.get(user_id, [])) >= 2
+                # if investment_map.get(rid, Decimal('0')) >= user_investment
             ]
             if len(eligible_referrals) >= 2:
                 working_ids.add(user_id)
@@ -1252,46 +1307,82 @@ class WithdrawDashboardV2(APIView):
 
     def get(self, request):
         user_id = request.query_params.get('user_id')
-        is_working = request.query_params.get('working', None)
+        is_working = request.query_params.get('working')
+        month = request.query_params.get('month')
+        year = request.query_params.get('year')
 
         if not user_id:
             return Response({'message': 'User ID is required'}, status=status.HTTP_400_BAD_REQUEST)
 
-        get_investment = Investment.objects.filter(status='active', package__isnull=False, investment_type='p2pmb',
-                                                   user=user_id).last()
-        if is_working:
-            is_working_id = True
-            total_return_amount = (get_investment.amount or 0) * Decimal(4.4)
-        else:
-            is_working_id = False
-            total_return_amount = (get_investment.amount or 0) * Decimal(2.1)
+        date_filters = {}
+        if month and year:
+            date_filters['date_created__month'] = month
+            date_filters['date_created__year'] = year
 
-        total_income_earned = Commission.objects.filter(commission_to=user_id, status='active').aggregate(
-            total_amount=Sum('amount'))['total_amount'] or Decimal(0)
+        get_investment = Investment.objects.filter(
+            status='active', investment_type='p2pmb',
+            is_approved=True, package__isnull=False,
+            pay_method='main_wallet'
+        ).aggregate(total=Sum('amount'))['total'] or Decimal(0)
 
-        total_interest_earned = InvestmentInterest.objects.filter(investment__user=user_id, status='active').aggregate(
-            total_amount=Sum('interest_amount'))['total_amount'] or Decimal(0)
+        is_working_id = bool(is_working)
+        total_return_amount = get_investment * (Decimal('4.4') if is_working_id else Decimal('2.1'))
 
-        core_group_earned = CoreIncomeEarned.objects.filter(status='active').aggregate(
-            total_amount=Sum('income_earned'))['total_amount'] or Decimal(0)
+        total_income_earned = Commission.objects.filter(
+            status='active', commission_to=user_id, **date_filters
+        ).aggregate(total=Sum('amount'))['total'] or Decimal(0)
 
-        current_due_value = total_return_amount - total_income_earned - total_interest_earned - core_group_earned
-        twenty_percentage_of_value = total_return_amount * Decimal(0.20)
+        interest_filters = Q(status='active', investment__user=user_id)
+        if month and year:
+            interest_filters &= Q(interest_send_date__month=month, interest_send_date__year=year)
 
-        if current_due_value > twenty_percentage_of_value:
-            is_low_balance = False
-        else:
-            is_low_balance = True
+        total_interest_earned = InvestmentInterest.objects.filter(interest_filters).aggregate(
+            total=Sum('interest_amount'))['total'] or Decimal(0)
 
-        response = {
-            'investment_amount': get_investment.amount,
+        core_income_filters = Q(status='active', user=user_id)
+
+        core_group_earned = CoreIncomeEarned.objects.filter(core_income_filters, **date_filters).aggregate(
+            total=Sum('income_earned'))['total'] or Decimal(0)
+
+        royalty_filters = Q(status='active', user=user_id)
+        if month and year:
+            royalty_filters &= Q(earned_date__month=month, earned_date__year=year)
+
+        royalty_earned = RoyaltyEarned.objects.filter(royalty_filters).aggregate(
+            total=Sum('earned_amount'))['total'] or Decimal(0)
+
+        reward_filters = Q(status='active', user=user_id)
+        if month and year:
+            reward_filters &= Q(earned_at__month=month, earned_at__year=year)
+
+        reward_earned = RewardEarned.objects.filter(reward_filters).select_related('reward').aggregate(
+            total=Sum('reward__gift_amount'))['total'] or Decimal(0)
+
+        extra_reward_earned = ExtraRewardEarned.objects.filter(
+            status='active', user=user_id, **date_filters
+        ).aggregate(total=Sum('amount'))['total'] or Decimal(0)
+
+        total_send_amount = (
+            total_income_earned +
+            total_interest_earned +
+            core_group_earned +
+            royalty_earned +
+            reward_earned +
+            extra_reward_earned
+        )
+
+        current_due_value = total_return_amount - total_send_amount + royalty_earned + reward_earned + extra_reward_earned
+        twenty_percent_value = total_return_amount * Decimal('0.20')
+        is_low_balance = current_due_value <= twenty_percent_value
+
+        return Response({
+            'investment_amount': get_investment,
             'is_working_id': is_working_id,
             'total_return_amount': total_return_amount,
-            'total_income_earned': total_income_earned + total_interest_earned + core_group_earned,
+            'total_income_earned': total_send_amount,
             'current_due_values': current_due_value,
             'is_low_balance': is_low_balance,
-        }
-        return Response(response, status=status.HTTP_200_OK)
+        }, status=status.HTTP_200_OK)
 
 
 class CommissionListView(APIView):
@@ -1383,7 +1474,12 @@ class AppTransferTransaction(APIView):
     permission_classes = [IsStaffUser]
 
     def get(self, request):
-        transactions = Transaction.objects.filter(status='active', transaction_type='transfer').order_by('-id')
+        transaction_type = request.query_params.get('transaction_type', 'transfer')
+
+        transactions = Transaction.objects.filter(
+            status='active', transaction_type=transaction_type
+        ).select_related('sender', 'receiver').order_by('-id')
+
         month = request.query_params.get('month')
         year = request.query_params.get('year')
         if month and year:
@@ -1392,10 +1488,14 @@ class AppTransferTransaction(APIView):
         search = request.query_params.get('search')
         if search:
             transactions = transactions.filter(
-                Q(sender__first_name__icontains=search) | Q(sender__last_name__icontains=search) |
-                Q(sender__email__icontains=search) | Q(sender__username__icontains=search) |
-                Q(receiver__first_name__icontains=search) | Q(receiver__last_name__icontains=search) |
-                Q(receiver__email__icontains=search) | Q(receiver__username__icontains=search)
+                Q(sender__first_name__icontains=search) |
+                Q(sender__last_name__icontains=search) |
+                Q(sender__email__icontains=search) |
+                Q(sender__username__icontains=search) |
+                Q(receiver__first_name__icontains=search) |
+                Q(receiver__last_name__icontains=search) |
+                Q(receiver__email__icontains=search) |
+                Q(receiver__username__icontains=search)
             )
 
         paginator = LimitOffsetPagination()
@@ -1430,7 +1530,8 @@ class AppTransferSumAmount(APIView):
     permission_classes = [IsStaffUser]
 
     def get(self, request):
-        transactions = Transaction.objects.filter(status='active', transaction_type='transfer')
+        transaction_type = request.query_params.get('transaction_type', 'transfer')
+        transactions = Transaction.objects.filter(status='active', transaction_type=transaction_type).order_by('-id')
 
         month = request.query_params.get('month')
         year = request.query_params.get('year')
@@ -1540,6 +1641,30 @@ class ROIAggregateAPIView(APIView):
         })
 
 
+class CoreGroupIncomeAggregateAPIView(APIView):
+    permission_classes = [IsStaffUser]
+
+    def get(self, request):
+        month = int(request.query_params.get("month", datetime.datetime.now().month))
+        year = int(request.query_params.get("year", datetime.datetime.now().year))
+        user_id = request.query_params.get("user")
+
+        investment = CoreIncomeEarned.objects.filter(
+            date_created__month=month, date_created__year=year
+        ).select_related('investment', 'investment__user')
+
+        if user_id:
+            investment = investment.filter(user__id=user_id)
+
+        total_user = investment.values('user').distinct().count()
+        total_amount = investment.aggregate(total=Sum('income_earned'))['total'] or 0
+
+        return Response({
+            'total_user': total_user,
+            'total_send_amount': round(total_amount, 2)
+        })
+
+
 class RewardEarnedAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -1591,4 +1716,124 @@ class GetMLMUserAPIView(APIView):
         paginator = LimitOffsetPagination()
         paginated_transactions = paginator.paginate_queryset(queryset, request)
         serializer = GetAllMLMChildSerializer(paginated_transactions, many=True)
+        return paginator.get_paginated_response(serializer.data)
+
+
+class GetAppDashboardAggregate(APIView):
+    permission_classes = [IsStaffUser]
+
+    def get(self, request):
+        user = request.query_params.get("user_id", None)
+        if not user:
+            return Response({'message': 'User ID is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        referrals = MLMTree.objects.filter(is_show=True, referral_by=user).count()
+        total_team_count = get_downline_count(user)
+        investments = Investment.objects.filter(
+            status='active', package__isnull=False, investment_type='p2pmb', user=user
+        )
+        latest_investment = investments.aggregate(total=Sum('amount'))['total'] or Decimal(0)
+        latest_amount = latest_investment if latest_investment else Decimal('0.0')
+        total_return_amount = latest_amount * Decimal('4.4' if referrals >= 2 else '2.1')
+
+        commission_agg = Commission.objects.filter(status='active', commission_to=user).aggregate(
+            total=Sum('amount'),
+            level_total=Sum('amount', filter=Q(commission_type='level')),
+            direct_total=Sum('amount', filter=Q(commission_type='direct'))
+        )
+        commission_amount = commission_agg['total'] or 0
+        level_income = commission_agg['level_total'] or 0
+        direct_income = commission_agg['direct_total'] or 0
+
+        earned_reward = RewardEarned.objects.filter(
+            status='active', user=user, reward__applicable_for='p2pmb'
+        ).aggregate(total=Sum('reward__gift_amount'))['total'] or 0
+
+        roi_interest = InvestmentInterest.objects.filter(
+            status='active', investment__user=user
+        ).aggregate(total=Sum('interest_amount'))['total'] or 0
+
+        royalty_earned = RoyaltyEarned.objects.filter(
+            status='active', is_paid=True, user=user
+        ).aggregate(total=Sum('earned_amount'))['total'] or 0
+
+        core_group_income = CoreIncomeEarned.objects.filter(
+            status='active', user=user
+        ).aggregate(total=Sum('income_earned'))['total'] or 0
+
+        extra_income = ExtraRewardEarned.objects.filter(
+            status='active', user=user
+        ).aggregate(total=Sum('amount'))['total'] or 0
+
+        total_earning = (
+            commission_amount + earned_reward + roi_interest + royalty_earned + core_group_income + extra_income
+        )
+
+        data = {
+            'total_team_member': total_team_count,
+            'total_earning': total_earning,
+            'total_id_value': total_return_amount,
+            'total_direct_user_count': referrals,
+            'direct_income': direct_income,
+            'level_income': level_income,
+            'royalty_income': royalty_earned,
+            'reward_income': earned_reward,
+            'extra_reward_income': extra_income,
+            'core_group_income': core_group_income,
+            'total_top_up_count': investments.count(),
+        }
+        return Response(data, status=status.HTTP_200_OK)
+
+
+class RoyaltyEarnedAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        month = int(request.query_params.get("month", datetime.datetime.now().month))
+        year = int(request.query_params.get("year", datetime.datetime.now().year))
+        user_id = request.query_params.get("user")
+        queryset = RoyaltyEarned.objects.filter(status='active')
+        if user_id:
+            queryset = queryset.filter(user=user_id)
+        if month and year:
+            queryset = queryset.filter(earned_date__month=month, earned_date__year=year)
+        paginator = LimitOffsetPagination()
+        paginated_transactions = paginator.paginate_queryset(queryset, request)
+        serializer = RoyaltyEarnedAdminSerializer(paginated_transactions, many=True)
+        return paginator.get_paginated_response(serializer.data)
+
+
+class ExtraRewardEarnedAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        month = int(request.query_params.get("month", datetime.datetime.now().month))
+        year = int(request.query_params.get("year", datetime.datetime.now().year))
+        user_id = request.query_params.get("user")
+        queryset = ExtraRewardEarned.objects.filter(status='active')
+        if user_id:
+            queryset = queryset.filter(user=user_id)
+        if month and year:
+            queryset = queryset.filter(date_created__month=month, date_created__year=year)
+        paginator = LimitOffsetPagination()
+        paginated_transactions = paginator.paginate_queryset(queryset, request)
+        serializer = ExtraRewardEarnedAdminSerializer(paginated_transactions, many=True)
+        return paginator.get_paginated_response(serializer.data)
+
+
+class ROIEarnedListAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        month = int(request.query_params.get("month", datetime.datetime.now().month))
+        year = int(request.query_params.get("year", datetime.datetime.now().year))
+        user_id = request.query_params.get("user")
+        queryset = InvestmentInterest.objects.filter(status='active').select_related('investment', 'investment__user')
+        if user_id:
+            queryset = queryset.filter(investment__user=user_id)
+        if month and year:
+            queryset = queryset.filter(interest_send_date__month=month, interest_send_date__year=year)
+        paginator = LimitOffsetPagination()
+        paginated_transactions = paginator.paginate_queryset(queryset, request)
+        serializer = ROIEarnedAdminSerializer(paginated_transactions, many=True)
         return paginator.get_paginated_response(serializer.data)
