@@ -304,14 +304,14 @@ class CommissionViewSet(viewsets.ModelViewSet):
         return None
 
     def list(self, request, *args, **kwargs):
-        """ Add MLM levels only if `commission_type` is 'level'. """
         queryset = self.filter_queryset(self.get_queryset())
+        commission_type = request.query_params.get('commission_type')
 
-        is_direct = request.query_params.get('commission_type') == 'direct'
-
-        direct_total = None
-        if is_direct:
-            direct_total = queryset.aggregate(total_amount=Sum('amount'))['total_amount'] or 0
+        total_amount = 0
+        if commission_type:
+            total_amount = queryset.filter(commission_type=commission_type).aggregate(
+                total_amount=Sum('amount')
+            )['total_amount'] or 0
 
         page = self.paginate_queryset(queryset)
         serialized_data = self.get_serializer(page, many=True).data if page is not None else self.get_serializer(
@@ -328,13 +328,13 @@ class CommissionViewSet(viewsets.ModelViewSet):
 
         if page is not None:
             response = self.get_paginated_response(serialized_data)
-            if is_direct:
-                response.data["total_direct_amount"] = direct_total
+            if commission_type:
+                response.data[f"total_{commission_type}_amount"] = total_amount
             return response
 
         response_data = {"results": serialized_data}
-        if is_direct:
-            response_data["total_direct_amount"] = direct_total
+        if commission_type:
+            response_data[f"total_{commission_type}_amount"] = total_amount
 
         return Response(response_data)
 
@@ -347,8 +347,13 @@ class ExtraRewardViewSet(viewsets.ModelViewSet):
     filterset_fields = ['reward_type',]
 
     def get_queryset(self):
-        return ExtraReward.objects.filter(status='active', start_date__lte=datetime.datetime.now().date(),
-                                          end_date__gte=datetime.datetime.now().date()).order_by('turnover_amount')
+        return ExtraReward.objects.filter(status='active').order_by('turnover_amount')
+
+    def get_serializer_context(self):
+        """Pass the user context to the serializer"""
+        context = super().get_serializer_context()
+        context['user'] = self.request.user
+        return context
 
 
 class CoreIncomeEarnedViewSet(viewsets.ModelViewSet):
@@ -357,6 +362,9 @@ class CoreIncomeEarnedViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend, SearchFilter]
     queryset = CoreIncomeEarned.objects.active()
     filterset_fields = ['income_type', 'core_income', 'user']
+
+    # def get_queryset(self):
+    #     return CoreIncomeEarned.objects.filter(user=self.request.user, status='active').order_by('income_earned')
 
 
 class P2PMBRoyaltyMasterViewSet(viewsets.ModelViewSet):
@@ -375,12 +383,34 @@ class RoyaltyEarnedViewSet(viewsets.ModelViewSet):
     }
     default_serializer_class = CreateRoyaltyEarnedSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter]
-    queryset = RoyaltyEarned.objects.active()
+    queryset = RoyaltyEarned.objects.filter(status='active')
     filterset_fields = ['club_type', 'is_paid']
     search_fields = ['user__username', 'user__first_name', 'user__last_name']
 
+    def get_queryset(self):
+        return RoyaltyEarned.objects.filter(user=self.request.user, status='active').order_by('earned_date')
+
     def get_serializer_class(self):
         return self.serializer_classes.get(self.action, self.default_serializer_class)
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+
+        total_royalty_income = queryset.aggregate(
+            total=Sum('earned_amount'))['total'] or 0
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            response = self.get_paginated_response(serializer.data)
+            response.data['total_royalty_income'] = total_royalty_income
+            return response
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({
+            "results": serializer.data,
+            "total_royalty_income": total_royalty_income
+        })
 
 
 class DistributeLevelIncomeAPIView(APIView):
@@ -574,15 +604,16 @@ class MyIdValueAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        get_investment = Investment.objects.filter(status='active', user=self.request.user, package__isnull=False,
-                                                   investment_type='p2pmb').last()
+        total_invested_amount = Investment.objects.filter(status='active', user=self.request.user,
+                                                          package__isnull=False, investment_type='p2pmb').aggregate(
+            total=Sum('amount'))['total'] or Decimal(0)
         check_working_id = MLMTree.objects.filter(referral_by=self.request.user).count()
         if check_working_id and check_working_id >= 2:
             is_working_id = True
-            total_return_amount = (get_investment.amount or 0) * Decimal('4.4')
+            total_return_amount = total_invested_amount * Decimal('4.4')
         else:
             is_working_id = False
-            total_return_amount = (get_investment.amount or 0) * Decimal('2.1')
+            total_return_amount = total_invested_amount * Decimal('2.1')
 
         total_income_earned = Commission.objects.filter(commission_to=request.user).aggregate(
             total_amount=Sum('amount'))['total_amount'] or Decimal(0)
@@ -596,7 +627,7 @@ class MyIdValueAPIView(APIView):
             is_low_balance = True
 
         response = {
-            'investment_amount': get_investment.amount,
+            'investment_amount': total_invested_amount,
             'is_working_id': is_working_id,
             'total_return_amount': total_return_amount,
             'total_income_earned': total_income_earned,
@@ -617,8 +648,8 @@ class GetAppDashboardAggregate(APIView):
         investments = Investment.objects.filter(
             status='active', package__isnull=False, investment_type='p2pmb', user=user
         )
-        latest_investment = investments.last()
-        latest_amount = latest_investment.amount if latest_investment else Decimal('0.0')
+        latest_investment = investments.aggregate(total=Sum('amount'))['total'] or Decimal(0)
+        latest_amount = latest_investment if latest_investment else Decimal('0.0')
         total_return_amount = latest_amount * Decimal('4.4' if referrals >= 2 else '2.1')
 
         commission_agg = Commission.objects.filter(status='active', commission_to=user).aggregate(
@@ -673,3 +704,26 @@ class GetAppDashboardAggregate(APIView):
             'total_top_up_count': investments.count(),
         }
         return Response(data, status=status.HTTP_200_OK)
+
+
+class GetUserRoyaltyClubStatusAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    ROYALTY_CLUB_TYPE = (
+        ('star', 'Star Club'),
+        ('2_star', '2-Star Club'),
+        ('3_star', '3-Star Club'),
+        ('5_star', '5-Star Club'),
+    )
+
+    def get(self, request):
+        earned_clubs = set(
+            RoyaltyEarned.objects.filter(user=request.user).values_list('club_type', flat=True).distinct()
+        )
+
+        response_data = {}
+        for club_type, _ in self.ROYALTY_CLUB_TYPE:
+            key = f"{club_type}_royalty"
+            response_data[key] = club_type in earned_clubs
+
+        return Response(response_data)
