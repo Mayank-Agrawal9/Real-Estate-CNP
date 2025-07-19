@@ -166,8 +166,7 @@ class GetDirectUserSerializer(serializers.ModelSerializer):
             "id": obj.child.id,
             "username": obj.child.username,
             "email": obj.child.email,
-            "name": obj.child.get_full_name(),
-            "picture": obj.child.profile.picture if obj.child.profile and obj.child.profile.picture else None
+            "name": obj.child.get_full_name()
         }
         return user_data
 
