@@ -3,7 +3,8 @@ from import_export.admin import ImportExportModelAdmin
 
 from accounts.models import *
 from accounts.resources import ProfileResource, OTPResource, EXCLUDE_FOR_API, BankDetailsResource, \
-    UserPersonalDocumentResource, FAQResource, SoftwarePolicyResource, ChangeRequestResource
+    UserPersonalDocumentResource, FAQResource, SoftwarePolicyResource, ChangeRequestResource, DeviceInfoResource, \
+    AppVersionResource
 
 
 # Register your models here.
@@ -60,3 +61,15 @@ class FAQAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
 class ChangeRequestAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
     raw_id_fields = ('created_by', 'updated_by', 'verified_by')
     resource_class = ChangeRequestResource
+
+
+@admin.register(DeviceInfo)
+class DeviceInfoAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
+    raw_id_fields = ('created_by', 'updated_by')
+    resource_class = DeviceInfoResource
+
+
+@admin.register(AppVersion)
+class AppVersionAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
+    raw_id_fields = ('created_by', 'updated_by')
+    resource_class = AppVersionResource

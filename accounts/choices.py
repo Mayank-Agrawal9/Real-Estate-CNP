@@ -61,3 +61,9 @@ CHANGE_REQUEST_CHOICE = (
     ('approved', 'Approved'),
     ('rejected', 'Rejected'),
 )
+
+
+DEVICE_OS_CHOICES = (
+    ('android', 'Android'),
+    ('ios', 'IOS')
+)

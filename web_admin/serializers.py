@@ -31,7 +31,7 @@ class ProfileSerializer(serializers.ModelSerializer):
         }
 
     def get_verified_by(self, obj):
-        if not obj.obj:
+        if not obj.verified_by:
             return None
         return {
             'id': obj.verified_by.id,

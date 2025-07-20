@@ -9,6 +9,7 @@ from django.core.mail import send_mail
 from django.db import transaction
 from django.db.models import Q
 from django_filters.rest_framework import DjangoFilterBackend
+from packaging import version
 from rest_framework import status, viewsets, parsers
 from rest_framework.authtoken.models import Token
 from rest_framework.decorators import action
@@ -22,7 +23,8 @@ from rest_framework.views import APIView
 from accounts.helpers import generate_unique_referral_code, update_super_agency_profile, generate_qr_code_with_email, \
     update_agency_profile, update_field_agent_profile, update_p2pmb_profile, generate_unique_image_code, \
     generate_otp_and_send_email, normalize_gmail
-from accounts.models import OTP, Profile, BankDetails, UserPersonalDocument, SoftwarePolicy, FAQ, ChangeRequest
+from accounts.models import OTP, Profile, BankDetails, UserPersonalDocument, SoftwarePolicy, FAQ, ChangeRequest, \
+    DeviceInfo, AppVersion
 from accounts.serializers import (RequestOTPSerializer, VerifyOTPSerializer, ResendOTPSerializer, ProfileSerializer,
                                   SuperAgencyKycSerializer, BasicDetailsSerializer, CompanyDetailsSerializer,
                                   BankDetailsSerializer, FAQSerializer,
@@ -75,47 +77,76 @@ class LoginAPIView(APIView):
     def post(self, request, *args, **kwargs):
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        token, _ = Token.objects.get_or_create(user=serializer.validated_data['user'])
-        profile = serializer.validated_data['user'].profile
+        user = serializer.validated_data['user']
+        token, _ = Token.objects.get_or_create(user=user)
+        profile = user.profile
+
         if not profile:
-            return Response({'message': 'User Does Not have profile, Please connect to support team'},
-                            status=status.HTTP_400_BAD_REQUEST)
-        # push_data = DeviceInfo.objects.filter(created_by=serializer.validated_data['user']).last()
-        # if push_data:
-        #     push_data.device_uid = self.request.data['device_uid']
-        #     push_data.device_model_name = self.request.data['device_model_name']
-        #     push_data.device_os = self.request.data['device_os']
-        #     push_data.device_version = self.request.data['device_version']
-        #     push_data.device_token = self.request.data['device_token']
-        #     push_data.updated_by = serializer.validated_data['user']
-        #     push_data.save()
-        # else:
-        #     DeviceInfo.objects.create(created_by=serializer.validated_data['user'],
-        #                               device_uid=self.request.data['device_uid'],
-        #                               device_model_name=self.request.data['device_model_name'],
-        #                               device_os=self.request.data['device_os'],
-        #                               device_version=self.request.data['device_version'],
-        #                               device_token=self.request.data['device_token'])
+            return Response(
+                {'message': 'User does not have a profile. Please contact the support team.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        push_data = DeviceInfo.objects.filter(created_by=user).last()
+        device_data = {
+            "device_uid": request.data.get("device_uid"),
+            "device_model_name": request.data.get("device_model_name"),
+            "device_os": request.data.get("device_os"),
+            "device_version": request.data.get("device_version"),
+            "device_token": request.data.get("device_token"),
+        }
+
+        if push_data:
+            for field, value in device_data.items():
+                setattr(push_data, field, value)
+            push_data.updated_by = user
+            push_data.date_updated = datetime.datetime.now()
+            push_data.save()
+        else:
+            DeviceInfo.objects.create(created_by=user, **device_data)
+
+        device_os = request.data.get("device_os", "").lower()
+        device_version = request.data.get("device_version", "")
+        force_update_required = False
+        latest_version = None
+        min_required_version = None
+
+        if device_os and device_version:
+            try:
+                app_version = AppVersion.objects.filter(platform__iexact=device_os).last()
+                if not app_version:
+                    force_update_required = True
+                latest_version = app_version.current_version
+                min_required_version = app_version.min_version
+
+                if app_version.min_version and version.parse(device_version) < version.parse(app_version.min_version):
+                    force_update_required = True
+            except Exception as e:
+                force_update_required = False
+
         res = {
             "message": "Login successful.",
-            'key': token.key,
-            'basic': {
-                'name': profile.user.get_full_name(),
-                'email': profile.user.email,
-                'profile_id': profile.id,
-                'user_id': profile.user.id,
-                'picture': profile.picture.url if profile and profile.picture else None,
+            "key": token.key,
+            "force_update": force_update_required,
+            "min_required_version": min_required_version,
+            "latest_version": latest_version,
+            "basic": {
+                "name": profile.user.get_full_name(),
+                "email": profile.user.email,
+                "profile_id": profile.id,
+                "user_id": profile.user.id,
+                "picture": profile.picture.url if profile.picture else None,
                 "role": profile.role,
                 "referral_code": profile.referral_code,
                 "qr_code_url": profile.qr_code.url if profile.qr_code else None,
-                "is_vendor": profile.is_vendor if profile and profile.is_vendor else None,
-                "is_super_agency": profile.is_super_agency if profile and profile.is_super_agency else None,
-                "is_agency": profile.is_agency if profile and profile.is_agency else None,
-                "is_field_agent": profile.is_field_agent if profile and profile.is_field_agent else None,
-                "is_p2pmb": profile.is_p2pmb if profile and profile.is_p2pmb else None,
+                "is_vendor": profile.is_vendor,
+                "is_super_agency": profile.is_super_agency,
+                "is_agency": profile.is_agency,
+                "is_field_agent": profile.is_field_agent,
+                "is_p2pmb": profile.is_p2pmb,
             }
         }
-        return Response(res)
+        return Response(res, status=status.HTTP_200_OK)
 
 
 class VerifyOptAPI(APIView):

@@ -6,7 +6,7 @@ from django.db import models
 from django_ckeditor_5.fields import CKEditor5Field
 
 from accounts.choices import GENDER_CHOICE, USER_ROLE, DOCUMENT_TYPE, COMPANY_TYPE, OTP_TYPE, ADMIN_ROLE, \
-    CHANGE_REQUEST_CHOICE
+    CHANGE_REQUEST_CHOICE, DEVICE_OS_CHOICES
 from master.models import State, City
 from real_estate.model_mixin import ModelMixin
 
@@ -156,3 +156,28 @@ class ChangeRequest(ModelMixin):
     class Meta:
         verbose_name = "Change Request"
         verbose_name_plural = "Change Requests"
+
+
+class DeviceInfo(ModelMixin):
+    device_uid = models.TextField()
+    device_model_name = models.CharField(max_length=150)
+    device_os = models.CharField(max_length=7, choices=DEVICE_OS_CHOICES)
+    device_version = models.CharField(max_length=10, blank=True, null=True)
+    device_token = models.TextField(blank=True, null=True)
+    app_version = models.CharField(max_length=50, null=True, blank=True)
+
+    def __str__(self):
+        return "{}".format(self.device_uid)
+
+    class Meta:
+        verbose_name = 'Device Information'
+        verbose_name_plural = 'Device Information'
+
+
+class AppVersion(ModelMixin):
+    platform = models.CharField(max_length=50, choices=DEVICE_OS_CHOICES)
+    current_version = models.CharField(max_length=50, null=True, blank=True)
+    min_version = models.CharField(max_length=50, null=True, blank=True)
+
+    def __str__(self):
+        return "{}".format(self.platform)

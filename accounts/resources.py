@@ -52,3 +52,17 @@ class ChangeRequestResource(resources.ModelResource):
         model = ChangeRequest
         import_id_fields = ('id',)
         exclude = EXCLUDE_FOR_API
+
+
+class DeviceInfoResource(resources.ModelResource):
+    class Meta:
+        model = DeviceInfo
+        import_id_fields = ('id',)
+        exclude = EXCLUDE_FOR_API
+
+
+class AppVersionResource(resources.ModelResource):
+    class Meta:
+        model = AppVersion
+        import_id_fields = ('id',)
+        exclude = EXCLUDE_FOR_API
