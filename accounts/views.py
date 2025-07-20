@@ -86,50 +86,26 @@ class LoginAPIView(APIView):
                 {'message': 'User does not have a profile. Please contact the support team.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-
-        push_data = DeviceInfo.objects.filter(created_by=user).last()
-        device_data = {
-            "device_uid": request.data.get("device_uid"),
-            "device_model_name": request.data.get("device_model_name"),
-            "device_os": request.data.get("device_os"),
-            "device_version": request.data.get("device_version"),
-            "device_token": request.data.get("device_token"),
-        }
-
-        if push_data:
-            for field, value in device_data.items():
-                setattr(push_data, field, value)
-            push_data.updated_by = user
-            push_data.date_updated = datetime.datetime.now()
-            push_data.save()
-        else:
-            DeviceInfo.objects.create(created_by=user, **device_data)
-
-        device_os = request.data.get("device_os", "").lower()
-        device_version = request.data.get("device_version", "")
-        force_update_required = False
-        latest_version = None
-        min_required_version = None
-
-        if device_os and device_version:
-            try:
-                app_version = AppVersion.objects.filter(platform__iexact=device_os).last()
-                if not app_version:
-                    force_update_required = True
-                latest_version = app_version.current_version
-                min_required_version = app_version.min_version
-
-                if app_version.min_version and version.parse(device_version) < version.parse(app_version.min_version):
-                    force_update_required = True
-            except Exception as e:
-                force_update_required = False
+        # push_data = DeviceInfo.objects.filter(created_by=serializer.validated_data['user']).last()
+        # if push_data:
+        #     push_data.device_uid = self.request.data['device_uid']
+        #     push_data.device_model_name = self.request.data['device_model_name']
+        #     push_data.device_os = self.request.data['device_os']
+        #     push_data.device_version = self.request.data['device_version']
+        #     push_data.device_token = self.request.data['device_token']
+        #     push_data.updated_by = serializer.validated_data['user']
+        #     push_data.save()
+        # else:
+        #     DeviceInfo.objects.create(created_by=serializer.validated_data['user'],
+        #                               device_uid=self.request.data['device_uid'],
+        #                               device_model_name=self.request.data['device_model_name'],
+        #                               device_os=self.request.data['device_os'],
+        #                               device_version=self.request.data['device_version'],
+        #                               device_token=self.request.data['device_token'])
 
         res = {
             "message": "Login successful.",
             "key": token.key,
-            "force_update": force_update_required,
-            "min_required_version": min_required_version,
-            "latest_version": latest_version,
             "basic": {
                 "name": profile.user.get_full_name(),
                 "email": profile.user.email,
@@ -250,6 +226,45 @@ class VerifyOTPView(APIView):
 
             otp_entry.delete()
             user, created = User.objects.get_or_create(username=email, defaults={"email": email})
+
+            push_data = DeviceInfo.objects.filter(created_by=user).last()
+            device_data = {
+                "device_uid": request.data.get("device_uid"),
+                "device_model_name": request.data.get("device_model_name"),
+                "device_os": request.data.get("device_os"),
+                "device_version": request.data.get("device_version"),
+                "device_token": request.data.get("device_token"),
+            }
+
+            if push_data:
+                for field, value in device_data.items():
+                    setattr(push_data, field, value)
+                push_data.updated_by = user
+                push_data.date_updated = datetime.datetime.now()
+                push_data.save()
+            else:
+                DeviceInfo.objects.create(created_by=user, **device_data)
+
+            device_os = request.data.get("device_os", "").lower()
+            device_version = request.data.get("device_version", "")
+            force_update_required = False
+            latest_version = None
+            min_required_version = None
+
+            if device_os and device_version:
+                try:
+                    app_version = AppVersion.objects.filter(platform__iexact=device_os).last()
+                    if not app_version:
+                        force_update_required = True
+                    latest_version = app_version.current_version
+                    min_required_version = app_version.min_version
+
+                    if app_version.min_version and version.parse(device_version) < version.parse(
+                            app_version.min_version):
+                        force_update_required = True
+                except Exception as e:
+                    force_update_required = False
+
             referral_code = generate_unique_referral_code()
             image_code = generate_unique_image_code()
             qr_code_file = generate_qr_code_with_email(referral_code, user.id)
@@ -279,6 +294,9 @@ class VerifyOTPView(APIView):
                 "name": user.get_full_name(),
                 "email": user.email,
                 "qr_code_url": profile.qr_code.url if profile.qr_code else None,
+                "force_update_required": force_update_required,
+                "latest_version": latest_version,
+                "min_required_version": min_required_version,
             }, status=status.HTTP_200_OK)
 
 
