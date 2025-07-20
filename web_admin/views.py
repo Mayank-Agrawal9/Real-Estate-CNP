@@ -1250,7 +1250,7 @@ class UserWithWorkingIDListView(ListAPIView):
     def _get_working_ids(self):
         investments = Investment.objects.filter(status='active', investment_type='p2pmb', is_approved=True,
                                                 package__isnull=False, pay_method='main_wallet'
-        ).values('user_id').select_related('user').annotate(total_amount=Sum('amount'))
+        ).select_related('user').values('user_id').annotate(total_amount=Sum('amount'))
 
         investment_map = {item['user_id']: item['total_amount'] for item in investments}
 
