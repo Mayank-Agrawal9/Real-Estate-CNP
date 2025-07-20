@@ -506,7 +506,7 @@ class PPDAccountViewSet(viewsets.ModelViewSet):
         return Response({"message": "PPD account created successfully.", "account_id": ppd_account.id},
                         status=status.HTTP_201_CREATED)
 
-    @action(detail=True, methods=['GET'], url_path='withdraw-ppd-amount')
+    @action(detail=True, methods=['post'], url_path='withdraw-ppd-amount')
     def withdraw_ppd_amount(self, request, pk=None):
         try:
             if not (request.user.profile.is_kyc and request.user.profile.is_kyc_verified):
