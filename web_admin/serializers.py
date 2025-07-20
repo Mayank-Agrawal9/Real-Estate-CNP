@@ -350,6 +350,8 @@ class ListWithDrawRequest(serializers.ModelSerializer):
                 'username': obj.user.username}
 
     def get_action_taken_by(self, obj):
+        if not obj.action_taken_by:
+            return None
         return {'id': obj.action_taken_by.id, 'name': obj.action_taken_by.get_full_name(),
                 'email': obj.action_taken_by.email, 'username': obj.action_taken_by.username}
 
