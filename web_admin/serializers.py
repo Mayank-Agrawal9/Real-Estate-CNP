@@ -174,6 +174,18 @@ class PropertyInterestEnquirySerializer(serializers.ModelSerializer):
 
 
 class CompanyInvestmentSerializer(serializers.ModelSerializer):
+    created_by = serializers.SerializerMethodField()
+
+    def get_created_by(self, obj):
+        if not obj.created_by:
+            return None
+        return {
+            'id': obj.created_by.id,
+            'name': obj.created_by.get_full_name(),
+            'email': obj.created_by.email,
+            'username': obj.created_by.username,
+        }
+
     class Meta:
         model = CompanyInvestment
         fields = '__all__'
