@@ -32,7 +32,8 @@ from web_admin.serializers import ProfileSerializer, InvestmentSerializer, Manua
     GetPropertySerializer, PropertyDetailSerializer, UserCreateSerializer, LoginSerializer, \
     UserPermissionProfileSerializer, ListWithDrawRequest, UserWithWorkingIDSerializer, GetAllCommissionSerializer, \
     CompanyInvestmentSerializer, TransactionDetailSerializer, AdminChangeRequestSerializer, RewardEarnedAdminSerializer, \
-    GetAllMLMChildSerializer, RoyaltyEarnedAdminSerializer, ExtraRewardEarnedAdminSerializer, ROIEarnedAdminSerializer
+    GetAllMLMChildSerializer, RoyaltyEarnedAdminSerializer, ExtraRewardEarnedAdminSerializer, ROIEarnedAdminSerializer, \
+    UserWalletSerializer
 from agency.models import Investment, FundWithdrawal, SuperAgency, Agency, FieldAgent, InvestmentInterest, RewardEarned
 from payment_app.models import UserWallet, Transaction
 from web_admin.choices import main_dashboard
@@ -1837,3 +1838,10 @@ class ROIEarnedListAPIView(APIView):
         paginated_transactions = paginator.paginate_queryset(queryset, request)
         serializer = ROIEarnedAdminSerializer(paginated_transactions, many=True)
         return paginator.get_paginated_response(serializer.data)
+
+
+class ActiveUserWalletListView(ListAPIView):
+    serializer_class = UserWalletSerializer
+
+    def get_queryset(self):
+        return UserWallet.objects.active().select_related('user')

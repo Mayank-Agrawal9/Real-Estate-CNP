@@ -8,7 +8,7 @@ from accounts.models import Profile, BankDetails, UserPersonalDocument, ChangeRe
 from agency.models import Investment, SuperAgency, Agency, FieldAgent, FundWithdrawal, RewardEarned, InvestmentInterest
 from master.models import City, State
 from p2pmb.models import Package, MLMTree, Commission, RoyaltyEarned, ExtraRewardEarned
-from payment_app.models import Transaction
+from payment_app.models import Transaction, UserWallet
 from property.models import Property
 from property.serializers import GetMediaDataSerializer, GetNearbyFacilitySerializer, GetPropertyFeatureSerializer
 from web_admin.models import ManualFund, ContactUsEnquiry, PropertyInterestEnquiry, FunctionalityAccessPermissions, \
@@ -630,3 +630,39 @@ class GetAllMLMChildSerializer(serializers.ModelSerializer):
     class Meta:
         model = MLMTree
         fields = ('child', )
+
+
+class UserWalletSerializer(serializers.ModelSerializer):
+    user = serializers.SerializerMethodField()
+    investment = serializers.SerializerMethodField()
+
+    def get_user(self, obj):
+        return {
+            'id': obj.user.id,
+            'name': obj.user.get_full_name(),
+            'email': obj.user.email,
+            'mobile_number': obj.user.profile.mobile_number if obj.user.profile else None,
+            'pan_number': obj.user.profile.pan_number  if obj.user.profile else None
+        }
+
+    def get_investment(self, obj):
+        investments = Investment.objects.filter(
+            status='active', package__isnull=False, investment_type='p2pmb', user=obj.user
+        )
+        if not investments:
+            return {
+                'last_top_up_value': 0,
+                'total_top_up_value': 0,
+            }
+        last_investment = investments.order_by('-date_created').first()
+        last_invested = last_investment.amount if last_investment else Decimal(0)
+        total_invested = investments.aggregate(
+            total=Sum('amount'))['total'] or Decimal(0)
+        return {
+            'last_top_up_value': last_invested,
+            'total_top_up_value': total_invested,
+        }
+
+    class Meta:
+        model = UserWallet
+        fields = ('date_created', 'user', 'investment', 'main_wallet_balance', 'tds_amount', 'admin_amount')

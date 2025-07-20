@@ -55,4 +55,5 @@ urlpatterns = [
     path('get-earned-royalty', RoyaltyEarnedAPIView.as_view(), name='royalty-earned-view'),
     path('get-earned-extra-reward', ExtraRewardEarnedAPIView.as_view(), name='extra-reward-earned-view'),
     path('roi-list', ROIEarnedListAPIView.as_view(), name='roi-earned-view'),
+    path('wallet_list', ActiveUserWalletListView.as_view(), name='user-wallet-list'),
 ]
