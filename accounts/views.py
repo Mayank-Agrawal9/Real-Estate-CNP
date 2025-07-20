@@ -60,7 +60,7 @@ class RequestOTPView(APIView):
                 [email],
                 fail_silently=False,
             )
-            return Response({"message": "OTP sent to your email.", "otp": otp_code}, status=status.HTTP_200_OK)
+            return Response({"message": "OTP sent to your email."}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -1263,4 +1263,33 @@ class GetUserKycBasicDetailAPIView(APIView):
         return Response({
             'profile': profile_data,
             'bank_details': bank_data,
+        })
+
+
+class AppInfoAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        force_update_required = False
+        is_logout_required = False
+        get_user_info = DeviceInfo.objects.filter(created_by=self.request.user).last()
+        app_version = AppVersion.objects.filter(platform='android').last()
+        if not app_version:
+            return Response({'message': 'Android version is not set please update the version'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        latest_version = app_version.current_version
+        min_required_version = app_version.min_version
+        if not get_user_info:
+            force_update_required = True
+            is_logout_required = True
+        else:
+            try:
+                if app_version.min_version and version.parse(get_user_info.app_version) < version.parse(
+                        app_version.min_version):
+                    force_update_required = True
+            except Exception as e:
+                force_update_required = False
+        return Response({
+            'is_logout_required': is_logout_required, 'force_update_required': force_update_required,
+            'latest_version': latest_version, 'min_required_version': min_required_version
         })
