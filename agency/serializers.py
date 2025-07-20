@@ -92,6 +92,7 @@ class CreateInvestmentSerializer(serializers.ModelSerializer):
             transaction_data = {
                 'created_by': user,
                 'sender': user,
+                'receiver': user,
                 'amount': validated_data.pop('amount'),
                 'taxable_amount': validated_data.pop('gst'),
                 'deposit_transaction_id': validated_data.pop('deposit_transaction_id'),
