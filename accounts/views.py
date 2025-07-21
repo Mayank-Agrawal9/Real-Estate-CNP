@@ -224,7 +224,6 @@ class VerifyOTPView(APIView):
             if otp_entry.otp != otp_code:
                 return Response({"error": "Invalid OTP."}, status=status.HTTP_400_BAD_REQUEST)
 
-            otp_entry.delete()
             user, created = User.objects.get_or_create(username=email, defaults={"email": email})
 
             push_data = DeviceInfo.objects.filter(created_by=user).last()
@@ -283,7 +282,7 @@ class VerifyOTPView(APIView):
 
             UserWallet.objects.get_or_create(user=user, created_by=user)
             token, _ = Token.objects.get_or_create(user=user)
-
+            otp_entry.delete()
             return Response({
                 "message": "Login successful.",
                 "token": token.key,
