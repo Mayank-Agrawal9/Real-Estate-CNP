@@ -5,7 +5,7 @@ from django.db import models
 
 from master.choices import ROYALTY_CLUB_TYPE
 from master.models import CoreGroupIncome, State
-from p2pmb.choices import EXTRA_REWARD_CHOICES, INCOME_EARNED_CHOICES
+from p2pmb.choices import EXTRA_REWARD_CHOICES, INCOME_EARNED_CHOICES, RELEASE_LEVEL_INCOME_CHOICES
 from real_estate.model_mixin import ModelMixin
 
 
@@ -212,3 +212,23 @@ class CoreIncomeEarned(ModelMixin):
 
     def __str__(self):
         return str(self.id)
+
+
+class HoldLevelIncome(ModelMixin):
+    LEVEL_CHOICES = [
+        ('up', 'Up'),
+        ('down', 'Down')
+    ]
+    commission_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name="hold_commissions_by", null=True,
+                                      blank=True)
+    commission_to = models.ForeignKey(User, on_delete=models.CASCADE, related_name='hold_p2pmb_commission_to', null=True,
+                                      blank=True)
+    amount = models.DecimalField(max_digits=15, decimal_places=2)
+    description = models.CharField(max_length=255, blank=True, null=True)
+    level_type = models.CharField(max_length=8, choices=LEVEL_CHOICES, null=True, blank=True)
+    direct_user_required = models.IntegerField()
+    on_level = models.IntegerField()
+    release_status = models.CharField(max_length=30, choices=RELEASE_LEVEL_INCOME_CHOICES, default='on_hold')
+
+    def __str__(self):
+        return f"{self.commission_by.username} - {self.amount}"
