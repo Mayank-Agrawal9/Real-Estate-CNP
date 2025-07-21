@@ -1666,6 +1666,103 @@ class CoreGroupIncomeAggregateAPIView(APIView):
         })
 
 
+class RewardAggregateAPIView(APIView):
+    permission_classes = [IsStaffUser]
+
+    def get(self, request):
+        month = int(request.query_params.get("month", datetime.datetime.now().month))
+        year = int(request.query_params.get("year", datetime.datetime.now().year))
+        user_id = request.query_params.get("user")
+
+        rewards = RewardEarned.objects.filter(
+            earned_at__month=month, earned_at__year=year
+        ).select_related('reward', 'user')
+
+        if user_id:
+            rewards = rewards.filter(user__id=user_id)
+
+        total_user = rewards.values('user').distinct().count()
+        total_amount = rewards.aggregate(total=Sum('reward__gift_amount'))['total'] or 0
+
+        return Response({
+            'total_user': total_user,
+            'total_reward_earned': round(total_amount, 2)
+        })
+
+
+class ExtraRewardAggregateAPIView(APIView):
+    permission_classes = [IsStaffUser]
+
+    def get(self, request):
+        month = int(request.query_params.get("month", datetime.datetime.now().month))
+        year = int(request.query_params.get("year", datetime.datetime.now().year))
+        user_id = request.query_params.get("user")
+
+        extra_rewards = ExtraRewardEarned.objects.filter(
+            date_created__month=month, date_created__year=year
+        ).select_related('extra_reward', 'user')
+
+        if user_id:
+            extra_rewards = extra_rewards.filter(user__id=user_id)
+
+        total_user = extra_rewards.values('user').distinct().count()
+        total_amount = extra_rewards.aggregate(total=Sum('amount'))['total'] or 0
+
+        return Response({
+            'total_user': total_user,
+            'total_reward_earned': round(total_amount, 2)
+        })
+
+
+class LevelIncomeEarnedAPIView(APIView):
+    permission_classes = [IsStaffUser]
+
+    def get(self, request):
+        month = int(request.query_params.get("month", datetime.datetime.now().month))
+        year = int(request.query_params.get("year", datetime.datetime.now().year))
+        user_id = request.query_params.get("user")
+        type = request.query_params.get("type")
+
+        commissions = Commission.objects.filter(
+            date_created__month=month, date_created__year=year, commission_type=type
+        ).select_related('commission_to', 'commission_by')
+
+        if user_id:
+            commissions = commissions.filter(commission_to__id=user_id)
+
+        total_user = commissions.values('commission_to').distinct().count()
+        total_amount = commissions.aggregate(total=Sum('amount'))['total'] or 0
+
+        return Response({
+            'total_user': total_user,
+            'total_income_earned': round(total_amount, 2)
+        })
+
+
+class RoyaltyEarnedAggregateAPIView(APIView):
+    permission_classes = [IsStaffUser]
+
+    def get(self, request):
+        month = int(request.query_params.get("month", datetime.datetime.now().month))
+        year = int(request.query_params.get("year", datetime.datetime.now().year))
+        user_id = request.query_params.get("user")
+
+        royaltys = RoyaltyEarned.objects.filter(
+            earned_date__month=month, earned_date__year=year
+        ).select_related('royalty', 'user')
+
+        if user_id:
+            royaltys = royaltys.filter(user__id=user_id)
+
+        total_user = royaltys.values('user').distinct().count()
+        total_amount = royaltys.aggregate(total=Sum('earned_amount'))['total'] or 0
+
+        return Response({
+            'total_user': total_user,
+            'total_amount_earned': round(total_amount, 2)
+        })
+
+
 class RewardEarnedAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
