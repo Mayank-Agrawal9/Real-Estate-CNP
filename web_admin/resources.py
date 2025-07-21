@@ -1,7 +1,7 @@
 from import_export import resources
 from accounts.resources import EXCLUDE_FOR_API
 from web_admin.models import ManualFund, FunctionalityAccessPermissions, UserFunctionalityAccessPermission, \
-    CompanyInvestment, ContactUsEnquiry, PropertyInterestEnquiry
+    CompanyInvestment, ContactUsEnquiry, PropertyInterestEnquiry, ROIUpdateLog
 
 
 class ManualFundResource(resources.ModelResource):
@@ -42,5 +42,12 @@ class ContactUsEnquiryResource(resources.ModelResource):
 class PropertyInterestEnquiryResource(resources.ModelResource):
     class Meta:
         model = PropertyInterestEnquiry
+        import_id_fields = ('id',)
+        exclude = EXCLUDE_FOR_API
+
+
+class ROIUpdateLogResource(resources.ModelResource):
+    class Meta:
+        model = ROIUpdateLog
         import_id_fields = ('id',)
         exclude = EXCLUDE_FOR_API

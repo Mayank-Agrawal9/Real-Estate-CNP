@@ -25,7 +25,7 @@ from p2pmb.models import Commission, MLMTree, CoreIncomeEarned, RoyaltyEarned, E
 from property.models import Property
 from web_admin.helpers import add_cashfree_beneficiary
 from web_admin.models import ManualFund, CompanyInvestment, ContactUsEnquiry, PropertyInterestEnquiry, \
-    UserFunctionalityAccessPermission
+    UserFunctionalityAccessPermission, ROIUpdateLog
 from web_admin.serializers import ProfileSerializer, InvestmentSerializer, ManualFundSerializer, BankDetailSerializer, \
     UserDocumentSerializer, SuperAgencyCompanyDetailSerializer, AgencyCompanyDetailSerializer, \
     FieldAgentCompanyDetailSerializer, PropertyInterestEnquirySerializer, ContactUsEnquirySerializer, \
@@ -1938,7 +1938,46 @@ class ROIEarnedListAPIView(APIView):
 
 
 class ActiveUserWalletListView(ListAPIView):
+    permission_classes = [IsAuthenticated]
     serializer_class = UserWalletSerializer
 
     def get_queryset(self):
         return UserWallet.objects.active().select_related('user')
+
+
+class StopSendingROIListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, user_id):
+        user_profile = Profile.objects.filter(status='active', user=user_id).last()
+
+        if not user_profile:
+            return Response({'message': 'Invalid User ID.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not user_profile.is_roi_send:
+            return Response({'message': 'You cannot perform any action, we already stop ROI to this user.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        user_profile.is_roi_send = False
+        user_profile.save()
+        ROIUpdateLog.objects.create(created_by=self.request.user, action_for=user_profile.user, roi_status='stop')
+        return Response({'message': 'ROI status updated successfully.'}, status=status.HTTP_200_OK)
+
+
+class StartSendingROIListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, user_id):
+        user_profile = Profile.objects.filter(status='active', user=user_id).last()
+
+        if not user_profile:
+            return Response({'message': 'Invalid User ID.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if user_profile.is_roi_send:
+            return Response({'message': 'You cannot perform any action, we already start ROI to this user.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        user_profile.is_roi_send = True
+        user_profile.save()
+        ROIUpdateLog.objects.create(created_by=self.request.user, action_for=user_profile.user, roi_status='start')
+        return Response({'message': 'ROI status updated successfully.'}, status=status.HTTP_200_OK)
