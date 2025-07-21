@@ -1293,3 +1293,33 @@ class AppInfoAPIView(APIView):
             'is_logout_required': is_logout_required, 'force_update_required': force_update_required,
             'latest_version': latest_version, 'min_required_version': min_required_version
         })
+
+
+class UpdateRequiredView(APIView):
+
+    def post(self, request):
+        version_str = request.data.get("version")
+        platform = request.data.get("platform")
+        if (not version_str) or (not platform):
+            return Response({'message': 'App version and platform is required in this API'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        app_version = AppVersion.objects.filter(platform=platform).last()
+        if not app_version:
+            return Response({'message': 'Android version is not set please update the version'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        latest_version = app_version.current_version
+        min_required_version = app_version.min_version
+
+        force_update_required = False
+        try:
+            if min_required_version and version.parse(version_str) < version.parse(min_required_version):
+                force_update_required = True
+        except Exception as e:
+            force_update_required = False
+
+        return Response({
+            'force_update_required': force_update_required,
+            'latest_version': latest_version,
+            'min_required_version': min_required_version
+        })
