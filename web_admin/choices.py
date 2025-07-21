@@ -44,3 +44,9 @@ CONTACT_US_ENQUIRY = [
     ('renting', 'Renting'),
     ('other', 'Other'),
 ]
+
+
+ROI_STATUS_CHOICE = [
+    ('start', 'Start'),
+    ('stop', 'Stop')
+]

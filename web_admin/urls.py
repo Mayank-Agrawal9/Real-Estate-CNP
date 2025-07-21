@@ -60,4 +60,6 @@ urlpatterns = [
     path('get-earned-extra-reward', ExtraRewardEarnedAPIView.as_view(), name='extra-reward-earned-view'),
     path('roi-list', ROIEarnedListAPIView.as_view(), name='roi-earned-view'),
     path('wallet_list', ActiveUserWalletListView.as_view(), name='user-wallet-list'),
+    path('stop-roi/<int:user_id>/', StopSendingROIListView.as_view(), name='stop-sending-roi'),
+    path('start-roi/<int:user_id>/', StartSendingROIListView.as_view(), name='start-sending-roi'),
 ]
