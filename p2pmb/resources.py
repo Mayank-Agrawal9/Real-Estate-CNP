@@ -79,3 +79,10 @@ class ExtraRewardEarnedResource(resources.ModelResource):
         model = ExtraRewardEarned
         import_id_fields = ('id',)
         exclude = ('date_created', 'updated_by', 'date_updated', 'created_by')
+
+
+class HoldLevelIncomeResource(resources.ModelResource):
+    class Meta:
+        model = ExtraRewardEarned
+        import_id_fields = ('id',)
+        exclude = ('date_created', 'updated_by', 'date_updated', 'created_by')
