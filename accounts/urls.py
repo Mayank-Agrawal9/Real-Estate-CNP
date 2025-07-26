@@ -6,12 +6,14 @@ from .views import ResendOTPView, VerifyOTPView, RequestOTPView, LogoutView, Pro
     DeleteUser, GetReferralCode, ChangeRequestViewSet, GetPPDReferralCode, ShowUserDetail, UpdateUserBasicDetailAPIView, \
     UserBankDetailsViewSet, UserPersonalDocumentViewSet, GenerateUniqueNumber, GeneratePreviousUniqueCode, LoginAPIView, \
     VerifyOptAPI, OptResendAPIView, ForgotPasswordChangeAPI, RegisterUserView, UpdateROIStatus, GetUserListByEmail, \
-    SwitchUserAPIView, CreateMultipleAccountAPIView, GetUserKycBasicDetailAPIView, AppInfoAPIView, UpdateRequiredView
+    SwitchUserAPIView, CreateMultipleAccountAPIView, GetUserKycBasicDetailAPIView, AppInfoAPIView, UpdateRequiredView, \
+    AppVersionViewSet
 
 router = DefaultRouter()
 router.register(r'change-request', ChangeRequestViewSet)
 router.register(r'bank-detail', UserBankDetailsViewSet)
 router.register(r'personal-document', UserPersonalDocumentViewSet)
+router.register(r'app-version', AppVersionViewSet)
 
 
 urlpatterns = [

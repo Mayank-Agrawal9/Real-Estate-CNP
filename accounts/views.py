@@ -5,9 +5,10 @@ from decimal import Decimal
 import requests
 
 from django.contrib.auth.models import User
-from django.core.mail import send_mail
+from django.core.mail import send_mail, EmailMultiAlternatives
 from django.db import transaction
 from django.db.models import Q
+from django.template.loader import render_to_string
 from django_filters.rest_framework import DjangoFilterBackend
 from packaging import version
 from rest_framework import status, viewsets, parsers
@@ -30,7 +31,8 @@ from accounts.serializers import (RequestOTPSerializer, VerifyOTPSerializer, Res
                                   BankDetailsSerializer, FAQSerializer,
                                   ChangeRequestSerializer, UserPersonalDocumentSerializer, UpdateUserProfileSerializer,
                                   BankDetailsSerializerV2, LoginSerializer, OTPSerializer, UserRegistrationSerializer,
-                                  UserDetailSerializer, KycProfileSerializer, CreateKycRequestSerializer)
+                                  UserDetailSerializer, KycProfileSerializer, CreateKycRequestSerializer,
+                                  AppVersionSerializer)
 from agency.models import SuperAgency, FieldAgent, Agency, Investment
 from p2pmb.models import MLMTree
 from payment_app.models import UserWallet, Transaction
@@ -53,14 +55,24 @@ class RequestOTPView(APIView):
                     "valid_until": datetime.datetime.now() + datetime.timedelta(minutes=10),
                 },
             )
-            send_mail(
-                "Your OTP Code",
-                f"Your OTP code is {otp_code}. It is valid for 10 minutes.",
-                settings.DEFAULT_FROM_EMAIL,
-                [email],
-                fail_silently=False,
+
+            context = {
+                "otp_code": otp_code,
+                "email": email,
+                "current_year": datetime.datetime.now().year,
+            }
+            subject = "Your OTP Code - Secure Access"
+            text_content = f"Your OTP code is {otp_code}. It is valid for 10 minutes."
+            html_content = render_to_string("emails/otp_send.html", context)
+
+            email_message = EmailMultiAlternatives(
+                subject, text_content, settings.DEFAULT_FROM_EMAIL, [email]
             )
+            email_message.attach_alternative(html_content, "text/html")
+            email_message.send()
+
             return Response({"message": "OTP sent to your email."}, status=status.HTTP_200_OK)
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -1111,6 +1123,21 @@ class UserPersonalDocumentViewSet(viewsets.ModelViewSet):
             return Response({'created': created, 'errors': errors}, status=status.HTTP_207_MULTI_STATUS)
 
         return Response({'message': 'File Uploaded Successfully.'}, status=status.HTTP_201_CREATED)
+
+
+class AppVersionViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    queryset = AppVersion.objects.filter(status='active')
+    serializer_class = AppVersionSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_fields = ['platform', 'min_version']
+    pagination_class = None
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+    def perform_update(self, serializer):
+        serializer.save(updated_by=self.request.user)
 
 
 class ShowUserDetail(APIView):
