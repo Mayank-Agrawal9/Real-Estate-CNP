@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Your One-Time Password</title>
+  <style>
+    body {
+      background-color: #f4f4f4;
+      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+
+    .container {
+      max-width: 600px;
+      background-color: #ffffff;
+      margin: 40px auto;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+
+    .header {
+      font-size: 24px;
+      color: #2c3e50;
+      margin-bottom: 10px;
+    }
+
+    .sub-header {
+      font-size: 16px;
+      color: #7f8c8d;
+      margin-bottom: 30px;
+    }
+
+    .otp-box {
+      background-color: #ecf0f1;
+      border: 1px dashed #2980b9;
+      font-size: 32px;
+      color: #2980b9;
+      padding: 20px;
+      border-radius: 6px;
+      font-weight: bold;
+      letter-spacing: 6px;
+      margin: 20px auto;
+      display: inline-block;
+    }
+
+    .message {
+      color: #2c3e50;
+      font-size: 16px;
+      margin-top: 30px;
+    }
+
+    .footer {
+      font-size: 12px;
+      color: #95a5a6;
+      margin-top: 40px;
+    }
+
+    .logo {
+      width: 100px;
+      margin-bottom: 20px;
+    }
+
+    @media only screen and (max-width: 600px) {
+      .container {
+        padding: 20px;
+        margin: 20px;
+      }
+
+      .otp-box {
+        font-size: 24px;
+        padding: 15px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <img src="	https://clicknpayrealestate.com/logo-removebg-preview.png" alt="CLICKNPAY Real Estate Logo" class="logo">
+    <div class="header">Your One-Time Password</div>
+    <div class="sub-header">To verify your identity on <strong>CLICKNPAY REAL ESTATE</strong></div>
+
+    <div class="otp-box">{{ otp_code }}</div>
+
+    <div class="message">
+      This OTP is valid for the next 10 minutes. <br>
+      Please do not share it with anyone.
+    </div>
+
+    <div class="footer">
+      &copy; {{ current_year }} CLICKNPAY REAL ESTATE. All rights reserved. <br>
+      If you did not request this OTP, please ignore this email.
+    </div>
+  </div>
+
+</body>
+</html>

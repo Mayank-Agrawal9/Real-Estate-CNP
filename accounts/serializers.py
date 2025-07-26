@@ -10,7 +10,7 @@ from django.db.models import Q
 from rest_framework import serializers, exceptions
 
 from accounts.helpers import normalize_gmail
-from accounts.models import Profile, FAQ, ChangeRequest, UserPersonalDocument, BankDetails, OTP
+from accounts.models import Profile, FAQ, ChangeRequest, UserPersonalDocument, BankDetails, OTP, AppVersion
 from master.models import City
 from real_estate import settings
 from real_estate.model_mixin import User
@@ -404,6 +404,12 @@ class BankDetailsSerializerV2(serializers.ModelSerializer):
 class UserPersonalDocumentSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserPersonalDocument
+        fields = '__all__'
+
+
+class AppVersionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AppVersion
         fields = '__all__'
 
 
