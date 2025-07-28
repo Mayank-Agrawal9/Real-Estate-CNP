@@ -201,6 +201,8 @@ class FundWithdrawal(ModelMixin):
     withdrawal_date = models.DateTimeField(auto_now_add=True)
     withdrawal_status = models.CharField(max_length=30, choices=FUND_WITHDRAW_TYPE, default='pending')
     action_date = models.DateTimeField(null=True, blank=True)
+    action_taken_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='withdraw_action_taken',
+                                        null=True, blank=True)
     rejection_reason = models.TextField(null=True, blank=True)
     is_paid = models.BooleanField(default=False)
 

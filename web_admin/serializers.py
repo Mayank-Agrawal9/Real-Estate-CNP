@@ -5,10 +5,10 @@ from django.db.models import Q, Sum
 from rest_framework import serializers, exceptions
 
 from accounts.models import Profile, BankDetails, UserPersonalDocument, ChangeRequest
-from agency.models import Investment, SuperAgency, Agency, FieldAgent, FundWithdrawal, RewardEarned
+from agency.models import Investment, SuperAgency, Agency, FieldAgent, FundWithdrawal, RewardEarned, InvestmentInterest
 from master.models import City, State
-from p2pmb.models import Package, MLMTree, Commission
-from payment_app.models import Transaction
+from p2pmb.models import Package, MLMTree, Commission, RoyaltyEarned, ExtraRewardEarned
+from payment_app.models import Transaction, UserWallet
 from property.models import Property
 from property.serializers import GetMediaDataSerializer, GetNearbyFacilitySerializer, GetPropertyFeatureSerializer
 from web_admin.models import ManualFund, ContactUsEnquiry, PropertyInterestEnquiry, FunctionalityAccessPermissions, \
@@ -19,6 +19,7 @@ class ProfileSerializer(serializers.ModelSerializer):
     user = serializers.SerializerMethodField()
     city = serializers.SerializerMethodField()
     state = serializers.SerializerMethodField()
+    verified_by = serializers.SerializerMethodField()
 
     def get_user(self, obj):
         return {
@@ -27,6 +28,17 @@ class ProfileSerializer(serializers.ModelSerializer):
             'last_name': obj.user.last_name,
             'email': obj.user.email,
             'username': obj.user.username,
+        }
+
+    def get_verified_by(self, obj):
+        if not obj.verified_by:
+            return None
+        return {
+            'id': obj.verified_by.id,
+            'first_name': obj.verified_by.first_name,
+            'last_name': obj.verified_by.last_name,
+            'email': obj.verified_by.email,
+            'username': obj.verified_by.username,
         }
 
     def get_city(self, obj):
@@ -162,6 +174,18 @@ class PropertyInterestEnquirySerializer(serializers.ModelSerializer):
 
 
 class CompanyInvestmentSerializer(serializers.ModelSerializer):
+    created_by = serializers.SerializerMethodField()
+
+    def get_created_by(self, obj):
+        if not obj.created_by:
+            return None
+        return {
+            'id': obj.created_by.id,
+            'name': obj.created_by.get_full_name(),
+            'email': obj.created_by.email,
+            'username': obj.created_by.username,
+        }
+
     class Meta:
         model = CompanyInvestment
         fields = '__all__'
@@ -331,9 +355,17 @@ class UserPermissionProfileSerializer(serializers.ModelSerializer):
 class ListWithDrawRequest(serializers.ModelSerializer):
     user = serializers.SerializerMethodField()
     send_amount = serializers.SerializerMethodField()
+    action_taken_by = serializers.SerializerMethodField()
 
     def get_user(self, obj):
-        return {'id': obj.user.id, 'name': obj.user.get_full_name(), 'email': obj.user.email, 'username': obj.user.username}
+        return {'id': obj.user.id, 'name': obj.user.get_full_name(), 'email': obj.user.email,
+                'username': obj.user.username}
+
+    def get_action_taken_by(self, obj):
+        if not obj.action_taken_by:
+            return None
+        return {'id': obj.action_taken_by.id, 'name': obj.action_taken_by.get_full_name(),
+                'email': obj.action_taken_by.email, 'username': obj.action_taken_by.username}
 
     def get_send_amount(self, obj):
         return (obj.withdrawal_amount - obj.taxable_amount) or 0
@@ -341,7 +373,8 @@ class ListWithDrawRequest(serializers.ModelSerializer):
     class Meta:
         model = FundWithdrawal
         fields = ('id', 'user', 'withdrawal_amount', 'withdrawal_date', 'is_paid', 'date_created',
-                  'withdrawal_status', 'rejection_reason', 'taxable_amount', 'send_amount')
+                  'withdrawal_status', 'rejection_reason', 'taxable_amount', 'send_amount',
+                  'action_taken_by', 'action_date')
 
 
 class UserWithWorkingIDSerializer(serializers.ModelSerializer):
@@ -505,6 +538,82 @@ class RewardEarnedAdminSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class RoyaltyEarnedAdminSerializer(serializers.ModelSerializer):
+    user = serializers.SerializerMethodField()
+    royalty = serializers.SerializerMethodField()
+
+    def get_user(self, obj):
+        if obj.user:
+            return {
+                'id': obj.user.id,
+                'name': obj.user.get_full_name(),
+                'email': obj.user.email
+            }
+        return None
+
+    def get_royalty(self, obj):
+        if obj.royalty:
+            return {
+                'id': obj.royalty.id,
+                'total_turnover': obj.royalty.total_turnover,
+                'star_income': obj.royalty.star_income,
+                'two_star_income': obj.royalty.two_star_income,
+                'three_star_income': obj.royalty.three_star_income,
+                'lifetime_income': obj.royalty.lifetime_income,
+            }
+        return None
+
+    class Meta:
+        model = RoyaltyEarned
+        fields = '__all__'
+
+
+class ExtraRewardEarnedAdminSerializer(serializers.ModelSerializer):
+    user = serializers.SerializerMethodField()
+    extra_reward = serializers.SerializerMethodField()
+
+    def get_user(self, obj):
+        if obj.user:
+            return {
+                'id': obj.user.id,
+                'name': obj.user.get_full_name(),
+                'email': obj.user.email
+            }
+        return None
+
+    def get_extra_reward(self, obj):
+        if obj.extra_reward:
+            return {
+                'id': obj.extra_reward.id,
+                'start_date': obj.extra_reward.start_date,
+                'star_income': obj.extra_reward.end_date,
+                'two_star_income': obj.extra_reward.reward_type,
+                'three_star_income': obj.extra_reward.description,
+            }
+        return None
+
+    class Meta:
+        model = ExtraRewardEarned
+        fields = '__all__'
+
+
+class ROIEarnedAdminSerializer(serializers.ModelSerializer):
+    investment = serializers.SerializerMethodField()
+
+    def get_investment(self, obj):
+        if obj.investment and obj.investment.user:
+            return {
+                'id': obj.investment.user.id,
+                'name': obj.investment.user.get_full_name(),
+                'email': obj.investment.user.email
+            }
+        return None
+
+    class Meta:
+        model = InvestmentInterest
+        fields = '__all__'
+
+
 class GetAllMLMChildSerializer(serializers.ModelSerializer):
     child = serializers.SerializerMethodField()
 
@@ -521,3 +630,39 @@ class GetAllMLMChildSerializer(serializers.ModelSerializer):
     class Meta:
         model = MLMTree
         fields = ('child', )
+
+
+class UserWalletSerializer(serializers.ModelSerializer):
+    user = serializers.SerializerMethodField()
+    investment = serializers.SerializerMethodField()
+
+    def get_user(self, obj):
+        return {
+            'id': obj.user.id,
+            'name': obj.user.get_full_name(),
+            'email': obj.user.email,
+            'mobile_number': obj.user.profile.mobile_number if obj.user.profile else None,
+            'pan_number': obj.user.profile.pan_number  if obj.user.profile else None
+        }
+
+    def get_investment(self, obj):
+        investments = Investment.objects.filter(
+            status='active', package__isnull=False, investment_type='p2pmb', user=obj.user
+        )
+        if not investments:
+            return {
+                'last_top_up_value': 0,
+                'total_top_up_value': 0,
+            }
+        last_investment = investments.order_by('-date_created').first()
+        last_invested = last_investment.amount if last_investment else Decimal(0)
+        total_invested = investments.aggregate(
+            total=Sum('amount'))['total'] or Decimal(0)
+        return {
+            'last_top_up_value': last_invested,
+            'total_top_up_value': total_invested,
+        }
+
+    class Meta:
+        model = UserWallet
+        fields = ('date_created', 'user', 'investment', 'main_wallet_balance', 'tds_amount', 'admin_amount')

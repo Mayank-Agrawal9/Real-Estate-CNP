@@ -506,8 +506,8 @@ class PPDAccountViewSet(viewsets.ModelViewSet):
         return Response({"message": "PPD account created successfully.", "account_id": ppd_account.id},
                         status=status.HTTP_201_CREATED)
 
-    @action(detail=False, methods=['post'], url_path='withdraw-ppd-amount/<int:account_id>')
-    def withdraw_ppd_amount(self, request, account_id):
+    @action(detail=True, methods=['post'], url_path='withdraw-ppd-amount')
+    def withdraw_ppd_amount(self, request, pk=None):
         try:
             if not (request.user.profile.is_kyc and request.user.profile.is_kyc_verified):
                 return Response(
@@ -515,7 +515,7 @@ class PPDAccountViewSet(viewsets.ModelViewSet):
                               "Please first verify your KYC then you are able to withdraw you amount."},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-            ppd_account = PPDAccount.objects.get(id=account_id, user=request.user, is_active=True)
+            ppd_account = PPDAccount.objects.get(id=pk, user=request.user, is_active=True)
             withdrawal_amount = ppd_account.calculate_withdrawal_amount()
             ppd_account.withdrawal_date = datetime.datetime.now().date()
             ppd_account.withdrawal_amount = withdrawal_amount

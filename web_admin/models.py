@@ -92,3 +92,12 @@ class PropertyInterestEnquiry(ModelMixin):
     class Meta:
         verbose_name = 'Property Enquiry'
         verbose_name_plural = 'Property Interested Enquiries'
+
+
+class ROIUpdateLog(ModelMixin):
+    roi_status = models.CharField(max_length=30, choices=ROI_STATUS_CHOICE)
+    action_for = models.ForeignKey(User, on_delete=models.CASCADE, related_name='user_roi_log')
+    remarks = models.TextField(null=True, blank=True)
+
+    def __str__(self):
+        return str(self.id)

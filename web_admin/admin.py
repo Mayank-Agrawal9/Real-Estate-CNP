@@ -3,10 +3,10 @@ from import_export.admin import ImportExportModelAdmin
 
 from accounts.admin import CustomModelAdminMixin
 from web_admin.models import ManualFund, FunctionalityAccessPermissions, UserFunctionalityAccessPermission, \
-    CompanyInvestment, ContactUsEnquiry, PropertyInterestEnquiry
+    CompanyInvestment, ContactUsEnquiry, PropertyInterestEnquiry, ROIUpdateLog
 from web_admin.resources import ManualFundResource, FunctionalityAccessPermissionsResource, \
     UserFunctionalityAccessPermissionResource, CompanyInvestmentResource, ContactUsEnquiryResource, \
-    PropertyInterestEnquiryResource
+    PropertyInterestEnquiryResource, ROIUpdateLogResource
 
 
 # Register your models here.
@@ -47,3 +47,9 @@ class PropertyInterestEnquiryAdmin(CustomModelAdminMixin, ImportExportModelAdmin
     resource_class = PropertyInterestEnquiryResource
     raw_id_fields = ('property', )
     search_fields = ('name', 'phone')
+
+
+@admin.register(ROIUpdateLog)
+class ROIUpdateLogAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
+    resource_class = ROIUpdateLogResource
+    raw_id_fields = ('created_by', 'updated_by', 'action_for')

@@ -18,11 +18,11 @@ from p2pmb.calculation import (RoyaltyClubDistribute, DistributeDirectCommission
 from p2pmb.cron import distribute_level_income, distribute_direct_income
 from p2pmb.helpers import get_downline_count, count_all_descendants, get_levels_above_count
 from p2pmb.models import MLMTree, Package, Commission, ExtraReward, CoreIncomeEarned, P2PMBRoyaltyMaster, RoyaltyEarned, \
-    ExtraRewardEarned
+    ExtraRewardEarned, HoldLevelIncome
 from p2pmb.serializers import MLMTreeSerializer, MLMTreeNodeSerializer, PackageSerializer, CommissionSerializer, \
     ShowInvestmentDetail, GetP2PMBLevelData, GetMyApplyingData, MLMTreeNodeSerializerV2, MLMTreeParentNodeSerializerV2, \
     ExtraRewardSerializer, CoreIncomeEarnedSerializer, RoyaltyEarnedSerializer, P2PMBRoyaltyMasterSerializer, \
-    CreateRoyaltyEarnedSerializer, TransactionSerializer, GetDirectUserSerializer
+    CreateRoyaltyEarnedSerializer, TransactionSerializer, GetDirectUserSerializer, HoldLevelIncomeSerializer
 from payment_app.models import Transaction, UserWallet
 
 
@@ -356,15 +356,27 @@ class ExtraRewardViewSet(viewsets.ModelViewSet):
         return context
 
 
+class HoldLevelIncomeViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    serializer_class = HoldLevelIncomeSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_fields = ['level_type',]
+
+    def get_queryset(self):
+        return HoldLevelIncome.objects.filter(status='active',
+                                              commission_to=self.request.user, release_status='on_hold').order_by(
+            'date_created')
+
+
 class CoreIncomeEarnedViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = CoreIncomeEarnedSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter]
     queryset = CoreIncomeEarned.objects.active()
-    filterset_fields = ['income_type', 'core_income', 'user']
+    filterset_fields = ['income_type', 'core_income', 'user', 'core_income__month', 'core_income__year']
 
-    # def get_queryset(self):
-    #     return CoreIncomeEarned.objects.filter(user=self.request.user, status='active').order_by('income_earned')
+    def get_queryset(self):
+        return CoreIncomeEarned.objects.filter(status='active').order_by('income_earned')
 
 
 class P2PMBRoyaltyMasterViewSet(viewsets.ModelViewSet):

@@ -8,7 +8,7 @@ from accounts.models import Profile
 from agency.models import Investment
 from payment_app.models import Transaction, UserWallet
 from .models import MLMTree, User, Package, Commission, ExtraReward, CoreIncomeEarned, P2PMBRoyaltyMaster, \
-    RoyaltyEarned, ExtraRewardEarned
+    RoyaltyEarned, ExtraRewardEarned, HoldLevelIncome
 
 
 class MLMTreeSerializer(serializers.ModelSerializer):
@@ -333,6 +333,24 @@ class ExtraRewardSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ExtraReward
+        fields = '__all__'
+
+
+class HoldLevelIncomeSerializer(serializers.ModelSerializer):
+    commission_by = serializers.SerializerMethodField()
+
+    def get_commission_by(self, obj):
+        if not obj.commission_by:
+            return None
+        return {
+            'id': obj.commission_by.id,
+            'name': obj.commission_by.get_full_name(),
+            'email': obj.commission_by.email,
+            'username': obj.commission_by.username
+        }
+
+    class Meta:
+        model = HoldLevelIncome
         fields = '__all__'
 
 

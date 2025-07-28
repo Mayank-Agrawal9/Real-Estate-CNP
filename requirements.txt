@@ -29,3 +29,4 @@ django-crontab==0.7.1
 django-multiselectfield==0.1.13
 django_ckeditor_5
 qrcode
+packaging==25.0
