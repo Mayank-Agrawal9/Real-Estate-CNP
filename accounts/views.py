@@ -257,7 +257,7 @@ class VerifyOTPView(APIView):
                 DeviceInfo.objects.create(created_by=user, **device_data)
 
             device_os = request.data.get("device_os", "").lower()
-            device_version = request.data.get("device_version", "")
+            device_version = request.data.get("device_version", "1.0.15")
             force_update_required = False
             latest_version = None
             min_required_version = None
