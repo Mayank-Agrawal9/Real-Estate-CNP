@@ -408,6 +408,11 @@ class UserPersonalDocumentSerializer(serializers.ModelSerializer):
 
 
 class AppVersionSerializer(serializers.ModelSerializer):
+    min_version = serializers.SerializerMethodField()
+
+    def get_min_version(self, obj):
+        return False
+
     class Meta:
         model = AppVersion
         fields = '__all__'
