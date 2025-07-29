@@ -245,6 +245,7 @@ class VerifyOTPView(APIView):
                 "device_os": request.data.get("device_os"),
                 "device_version": request.data.get("device_version"),
                 "device_token": request.data.get("device_token"),
+                "app_version": request.data.get("app_version")
             }
 
             if push_data:
@@ -257,12 +258,14 @@ class VerifyOTPView(APIView):
                 DeviceInfo.objects.create(created_by=user, **device_data)
 
             device_os = request.data.get("device_os", "").lower()
+            app_version = request.data.get("app_version", "")
             device_version = request.data.get("device_version", "1.0.15")
+            
             force_update_required = False
             latest_version = None
             min_required_version = None
 
-            if device_os and device_version:
+            if device_os and app_version:
                 try:
                     app_version = AppVersion.objects.filter(platform__iexact=device_os).last()
                     if not app_version:
@@ -270,7 +273,7 @@ class VerifyOTPView(APIView):
                     latest_version = app_version.current_version
                     min_required_version = app_version.min_version
 
-                    if app_version.min_version and version.parse(device_version) < version.parse(
+                    if app_version.min_version and version.parse(app_version) < version.parse(
                             app_version.min_version):
                         force_update_required = True
                 except Exception as e:
