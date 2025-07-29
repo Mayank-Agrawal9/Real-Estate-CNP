@@ -7,10 +7,10 @@ import uuid
 from django.core.files.base import ContentFile
 from django.core.mail import send_mail
 from django.db.models import Q
+from packaging import version
 from rest_framework import serializers, exceptions
 
-from accounts.helpers import normalize_gmail
-from accounts.models import Profile, FAQ, ChangeRequest, UserPersonalDocument, BankDetails, OTP, AppVersion
+from accounts.models import Profile, FAQ, ChangeRequest, UserPersonalDocument, BankDetails, OTP, AppVersion, DeviceInfo
 from master.models import City
 from real_estate import settings
 from real_estate.model_mixin import User
@@ -408,6 +408,29 @@ class UserPersonalDocumentSerializer(serializers.ModelSerializer):
 
 
 class AppVersionSerializer(serializers.ModelSerializer):
+    min_version = serializers.SerializerMethodField()
+    is_force_update = serializers.SerializerMethodField()
+
+    def get_min_version(self, obj):
+        return False
+
+    def get_is_force_update(self, obj):
+        request = self.context.get('request')
+        user = request.user if request else False
+        get_version = DeviceInfo.objects.filter(created_by=user).last()
+
+        if not get_version:
+            return True
+
+        force_update_required = False
+        try:
+            if obj.min_version and get_version.parse(get_version.app_version) < version.parse(obj.min_version):
+                force_update_required = True
+        except Exception as e:
+            force_update_required = False
+
+        return force_update_required
+
     class Meta:
         model = AppVersion
         fields = '__all__'
