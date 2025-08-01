@@ -1,6 +1,7 @@
 import os
 from agency.models import Investment
 from p2pmb.calculation import DistributeDirectCommission, DistributeLevelIncome, ProcessMonthlyInterestP2PMB
+from p2pmb.helpers import get_level_counts
 from p2pmb.models import MLMTree
 
 
@@ -22,7 +23,7 @@ def distribute_direct_income():
 
         investments = Investment.objects.filter(
             status='active', is_approved=True, pay_method='main_wallet', investment_type='p2pmb',
-            send_direct_income=False
+            send_direct_income=False, package__isnull=False
         ).order_by('id')[:5]
         for investment_instance in investments:
             if investment_instance and investment_instance.user:
