@@ -8,7 +8,7 @@ from accounts.models import Profile
 from agency.models import Investment
 from payment_app.models import Transaction, UserWallet
 from .models import MLMTree, User, Package, Commission, ExtraReward, CoreIncomeEarned, P2PMBRoyaltyMaster, \
-    RoyaltyEarned, ExtraRewardEarned, HoldLevelIncome
+    RoyaltyEarned, ExtraRewardEarned, HoldLevelIncome, ROIOverride, LapsedAmount
 
 
 class MLMTreeSerializer(serializers.ModelSerializer):
@@ -390,6 +390,53 @@ class P2PMBRoyaltyMasterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = P2PMBRoyaltyMaster
+        fields = '__all__'
+
+
+class ROIOverRideSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = ROIOverride
+        fields = '__all__'
+
+
+class ROIOverrideListSerializer(serializers.ModelSerializer):
+    user = serializers.SerializerMethodField()
+    created_by = serializers.SerializerMethodField()
+
+    def get_user(self, obj):
+        return{
+            'id': obj.user.id,
+            'name': obj.user.get_full_name(),
+            'username': obj.user.username,
+            'referral_code': obj.user.profile.referral_code if obj.user.profile else None,
+        }
+
+    def get_created_by(self, obj):
+        return{
+            'id': obj.created_by.id,
+            'name': obj.created_by.get_full_name(),
+            'username': obj.created_by.username
+        }
+
+    class Meta:
+        model = ROIOverride
+        fields = '__all__'
+
+
+class LapsedAmountSerializer(serializers.ModelSerializer):
+    user = serializers.SerializerMethodField()
+
+    def get_user(self, obj):
+        return{
+            'id': obj.user.id,
+            'name': obj.user.get_full_name(),
+            'username': obj.user.username,
+            'referral_code': obj.user.profile.referral_code if obj.user.profile else None,
+        }
+
+    class Meta:
+        model = LapsedAmount
         fields = '__all__'
 
 

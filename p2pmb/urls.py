@@ -1,13 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
-from p2pmb.views import MLMTreeCreateView, MLMTreeView, PackageViewSet, LifeTimeRewardIncomeAPIView, \
-    RoyaltyIncome, DistributeDirectIncome, DistributeLevelIncomeAPIView, CommissionViewSet, PackageBuyView, \
-    GetUserDetailsView, GetParentLevelsView, MyApplying, MLMTreeViewV2, CommissionMessageAPIView, \
-    SendMonthlyInterestIncome, GetParentLevelCountView, ExtraRewardViewSet, CoreIncomeEarnedViewSet, \
-    P2PMBRoyaltyMasterViewSet, RoyaltyEarnedViewSet, GetAllPayout, MonthlyDistributeDirectIncome, MyIdValueAPIView, \
-    GetTopUpInvestment, GetUserDirectTeamAPIView, GetTDSAmountAPIView, DiIncomeAPIView, GetAppDashboardAggregate, \
-    GetUserRoyaltyClubStatusAPIView, HoldLevelIncomeViewSet
+from p2pmb.views import *
 
 router = DefaultRouter()
 router.register(r'package', PackageViewSet)
@@ -17,6 +11,8 @@ router.register(r'core-income-earned', CoreIncomeEarnedViewSet)
 router.register(r'royalty-master', P2PMBRoyaltyMasterViewSet)
 router.register(r'royalty-earned', RoyaltyEarnedViewSet, basename='royalty-earned')
 router.register(r'hold-level-income', HoldLevelIncomeViewSet, basename='hold-level-income')
+router.register(r'roi-override', ROIOverrideViewSet, basename='roi-override')
+router.register(r'lapsed-amount', LapsedAmountViewSet, basename='lapsed-amount')
 
 urlpatterns = [
     path('', include(router.urls)),

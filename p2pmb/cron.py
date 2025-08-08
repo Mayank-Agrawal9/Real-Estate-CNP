@@ -24,7 +24,7 @@ def distribute_direct_income():
         investments = Investment.objects.filter(
             status='active', is_approved=True, pay_method='main_wallet', investment_type='p2pmb',
             send_direct_income=False, package__isnull=False
-        ).order_by('id')[:5]
+        ).order_by('date_created')
         for investment_instance in investments:
             if investment_instance and investment_instance.user:
                 instance = MLMTree.objects.filter(status='active', child=investment_instance.user).last()
@@ -55,14 +55,16 @@ def distribute_level_income():
 
         investments = Investment.objects.filter(status='active', is_approved=True, pay_method='main_wallet',
                                                 investment_type='p2pmb', send_level_income=False,
-                                                package__isnull=False)
+                                                package__isnull=False).order_by('date_created')
         for investment_instance in investments:
 
             if investment_instance and investment_instance.user:
                 instance = MLMTree.objects.filter(status='active', child=investment_instance.user).last()
-                if instance:
+                direct_count = MLMTree.objects.filter(status='active', referral_by=instance.referral_by).count()
+                up_level, down_level = get_level_counts(direct_count)
+                if instance and up_level and down_level:
                     amount = investment_instance.amount if investment_instance.amount else 0
-                    DistributeLevelIncome.distribute_level_income(instance, amount)
+                    DistributeLevelIncome.distribute_level_income(instance, amount, up_level, down_level)
                     investment_instance.send_level_income = True
                     investment_instance.save()
                     print(f"✅ Payment of Direct Income Distributed successfully of user "

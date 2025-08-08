@@ -67,3 +67,19 @@ def get_downline_count(user):
         return count
 
     return count_children(user)
+
+
+def get_level_counts(direct_count):
+    level_map = {
+        5: (20, 10),
+        4: (15, 10),
+        3: (10, 10),
+        2: (5, 5),
+        1: (2, 2),
+        0: (0, 0),
+    }
+
+    return next(
+        (upl, downl) for count, (upl, downl) in level_map.items() if direct_count >= count
+    )
+
