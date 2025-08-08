@@ -55,7 +55,7 @@ class UserWalletViewSet(viewsets.ModelViewSet):
             )
 
         sender_wallet = UserWallet.objects.get(user=sender)
-        recipient_wallet, _ = UserWallet.objects.get_or_create(user=recipient)
+        recipient_wallet, _ = UserWallet.objects.get_or_create(user=recipient.user)
         if wallet_type == "app_wallet":
             taxable_amount = Decimal(amount) * Decimal('0.05')
             payable_amount = Decimal(amount) - taxable_amount
@@ -66,7 +66,7 @@ class UserWalletViewSet(viewsets.ModelViewSet):
             Transaction.objects.create(
                 created_by=request.user,
                 sender=sender,
-                receiver=recipient,
+                receiver=recipient.user,
                 amount=amount,
                 taxable_amount=taxable_amount,
                 transaction_status='approved',
@@ -81,7 +81,7 @@ class UserWalletViewSet(viewsets.ModelViewSet):
             Transaction.objects.create(
                 created_by=request.user,
                 sender=sender,
-                receiver=recipient,
+                receiver=recipient.user,
                 amount=amount,
                 transaction_status='approved',
                 transaction_type='send',

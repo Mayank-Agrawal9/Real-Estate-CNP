@@ -5,7 +5,8 @@ from django.db import models
 
 from master.choices import ROYALTY_CLUB_TYPE
 from master.models import CoreGroupIncome, State
-from p2pmb.choices import EXTRA_REWARD_CHOICES, INCOME_EARNED_CHOICES, RELEASE_LEVEL_INCOME_CHOICES
+from p2pmb.choices import EXTRA_REWARD_CHOICES, INCOME_EARNED_CHOICES, RELEASE_LEVEL_INCOME_CHOICES, \
+    LAPSED_EARNED_CHOICES, ROI_CHOICE
 from real_estate.model_mixin import ModelMixin
 
 
@@ -229,6 +230,27 @@ class HoldLevelIncome(ModelMixin):
     direct_user_required = models.IntegerField()
     on_level = models.IntegerField()
     release_status = models.CharField(max_length=30, choices=RELEASE_LEVEL_INCOME_CHOICES, default='on_hold')
+    released_date = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return f"{self.commission_by.username} - {self.amount}"
+
+
+class LapsedAmount(ModelMixin):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='lapsed_user')
+    earned_type = models.CharField(max_length=20, choices=LAPSED_EARNED_CHOICES, default='level_income')
+    amount = models.DecimalField(max_digits=15, decimal_places=2)
+    remarks = models.CharField(max_length=150, null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.id}"
+
+
+class ROIOverride(ModelMixin):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='roi_user')
+    percentage = models.DecimalField(max_digits=5, decimal_places=2)
+    action_type = models.CharField(max_length=10, choices=ROI_CHOICE)
+    reason = models.CharField(max_length=255, blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.user} - {self.percentage}%"
