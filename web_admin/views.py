@@ -2157,3 +2157,11 @@ class SendRewardAPIView(APIView):
         )
 
         return Response({'message': 'Reward send successfully.'}, status=status.HTTP_200_OK)
+
+
+class InvestmentDelete(APIView):
+    permission_classes = [IsStaffUser]
+
+    def delete(self, request, id):
+        Investment.objects.filter(id=id).delete()
+        return Response({'message': 'Investment deleted successfully.'}, status=status.HTTP_200_OK)
