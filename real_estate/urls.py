@@ -29,6 +29,7 @@ urlpatterns = [
     path("api/master/", include('master.urls')),
     path("api/payment/", include('payment_app.urls')),
     path("api/agency/", include('agency.urls')),
+    path("api/notification/", include('notification.urls')),
     path("api/property/", include('property.urls')),
     path("api/mlm/", include('p2pmb.urls')),
     path("api/admin/", include('web_admin.urls')),

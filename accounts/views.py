@@ -969,6 +969,29 @@ class DeleteUser(APIView):
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
+class DeleteUserByAdmin(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, user_id):
+        try:
+            user_data = User.objects.filter(id=user_id, is_active=True).last()
+            if not user_data:
+                return Response({"error": "This user does not exist"}, status=status.HTTP_400_BAD_REQUEST)
+
+            user_data.is_active = False
+            user_data.save()
+            profile = request.user.profile
+            profile.status = 'inactive'
+            profile.save()
+
+            return Response(
+                {"message": "User account deactivated successfully."},
+                status=status.HTTP_200_OK
+            )
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
 class GenerateUniqueNumber(APIView):
     permission_classes = [IsAuthenticated]
 

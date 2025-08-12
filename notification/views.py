@@ -7,7 +7,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from notification.models import InAppNotification
-from notification.serializers import GetNotificationSerializer
+from notification.serializers import GetNotificationSerializer, NotificationSerializer
 
 
 # Create your views here.
@@ -15,7 +15,7 @@ from notification.serializers import GetNotificationSerializer
 
 class AppNotificationViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
-    serializer_class = GetNotificationSerializer
+    serializer_class = NotificationSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter]
     search_fields = ['message',]
     filterset_fields = ['date_created', ]
@@ -33,7 +33,7 @@ class AppNotificationViewSet(viewsets.ModelViewSet):
             serializer = self.get_serializer(page, many=True)
             return self.get_paginated_response(serializer.data)
 
-        serializer = self.get_serializer(queryset, many=True)
+        serializer = GetNotificationSerializer(queryset, many=True)
         return Response(serializer.data)
 
     @action(detail=False, methods=['get'])
