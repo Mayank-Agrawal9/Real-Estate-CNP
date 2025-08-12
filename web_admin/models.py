@@ -101,3 +101,11 @@ class ROIUpdateLog(ModelMixin):
 
     def __str__(self):
         return str(self.id)
+
+
+class TDSPercentage(ModelMixin):
+    tds_percentage = models.FloatField(default=5.0)
+    admin_percentage = models.FloatField(default=5.0)
+
+    def __str__(self):
+        return str(self.id)

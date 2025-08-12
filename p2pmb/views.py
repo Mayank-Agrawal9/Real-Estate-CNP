@@ -695,8 +695,41 @@ class MyIdValueAPIView(APIView):
             is_working_id = False
             total_return_amount = total_invested_amount * Decimal('2.1')
 
-        total_income_earned = Commission.objects.filter(commission_to=request.user).aggregate(
-            total_amount=Sum('amount'))['total_amount'] or Decimal(0)
+        total_commission_earned = (
+                Commission.objects.filter(status="active", commission_to=request.user,
+                                          commission_type__in=['direct', 'level'])
+                .aggregate(total_amount=Sum("amount"))["total_amount"] or Decimal(0)
+        )
+
+        roi_earned = (
+                InvestmentInterest.objects.filter(status="active", investment__user=request.user)
+                .aggregate(total_amount=Sum("interest_amount"))["total_amount"] or Decimal(0)
+        )
+
+        royalty_earned = (
+                RoyaltyEarned.objects.filter(status="active", user=request.user)
+                .aggregate(total_amount=Sum("earned_amount"))["total_amount"] or Decimal(0)
+        )
+
+        reward_earned = (
+                RewardEarned.objects.filter(status="active", user=request.user)
+                .aggregate(total_amount=Sum("reward__gift_amount"))["total_amount"] or Decimal(0)
+        )
+
+        core_group_income = (
+                CoreIncomeEarned.objects.filter(status="active", user=request.user)
+                .aggregate(total=Sum("income_earned"))["total"] or Decimal(0)
+        )
+
+        extra_income = (
+                ExtraRewardEarned.objects.filter(status="active", user=request.user)
+                .aggregate(total=Sum("amount"))["total"] or Decimal(0)
+        )
+
+        total_income_earned = (
+                total_commission_earned + roi_earned + royalty_earned +
+                reward_earned + core_group_income + extra_income
+        )
 
         current_due_value = total_return_amount - total_income_earned
         twenty_percentage_of_value = total_return_amount * Decimal(0.20)
