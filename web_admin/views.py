@@ -26,7 +26,7 @@ from p2pmb.models import Commission, MLMTree, CoreIncomeEarned, RoyaltyEarned, E
 from property.models import Property
 from web_admin.helpers import add_cashfree_beneficiary
 from web_admin.models import ManualFund, CompanyInvestment, ContactUsEnquiry, PropertyInterestEnquiry, \
-    UserFunctionalityAccessPermission, ROIUpdateLog
+    UserFunctionalityAccessPermission, ROIUpdateLog, TDSPercentage
 from web_admin.serializers import ProfileSerializer, InvestmentSerializer, ManualFundSerializer, BankDetailSerializer, \
     UserDocumentSerializer, SuperAgencyCompanyDetailSerializer, AgencyCompanyDetailSerializer, \
     FieldAgentCompanyDetailSerializer, PropertyInterestEnquirySerializer, ContactUsEnquirySerializer, \
@@ -34,7 +34,7 @@ from web_admin.serializers import ProfileSerializer, InvestmentSerializer, Manua
     UserPermissionProfileSerializer, ListWithDrawRequest, UserWithWorkingIDSerializer, GetAllCommissionSerializer, \
     CompanyInvestmentSerializer, TransactionDetailSerializer, AdminChangeRequestSerializer, RewardEarnedAdminSerializer, \
     GetAllMLMChildSerializer, RoyaltyEarnedAdminSerializer, ExtraRewardEarnedAdminSerializer, ROIEarnedAdminSerializer, \
-    UserWalletSerializer
+    UserWalletSerializer, TDSPercentageSerializer, TDSPercentageListSerializer
 from agency.models import Investment, FundWithdrawal, SuperAgency, Agency, FieldAgent, InvestmentInterest, RewardEarned
 from payment_app.models import UserWallet, Transaction
 from web_admin.choices import main_dashboard
@@ -546,6 +546,20 @@ class CompanyInvestmentViewSet(viewsets.ModelViewSet):
     serializer_class = CompanyInvestmentSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_fields = ['applicable_for', 'investment_type', 'initiated_date']
+
+
+class TDSPercentageViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsStaffUser]
+    queryset = TDSPercentage.objects.all().order_by('date_created')
+    serializer_class = TDSPercentageSerializer
+
+    def get_serializer_class(self):
+        if self.action in ['list', 'retrieve']:
+            return TDSPercentageListSerializer
+        return super().get_serializer_class()
+
+    def perform_update(self, serializer):
+        serializer.save(updated_by=self.request.user)
 
 
 class DashboardCountAPIView(APIView):
@@ -2165,3 +2179,84 @@ class InvestmentDelete(APIView):
     def delete(self, request, id):
         Investment.objects.filter(id=id).delete()
         return Response({'message': 'Investment deleted successfully.'}, status=status.HTTP_200_OK)
+
+
+class GetAllTopUpList(APIView):
+    permission_classes = [IsStaffUser]
+
+    def get(self, request):
+        paginator = PageNumberPagination()
+        paginator.page_size = int(request.query_params.get("page_size", 20))
+
+        users = MLMTree.objects.filter(status='active', is_show=True).order_by('-id')
+        paginated_users = paginator.paginate_queryset(users, request)
+
+        data = []
+        for user in paginated_users:
+            total_invested_amount = (
+                Investment.objects.filter(
+                    status="active", user=user.child,
+                    package__isnull=False, investment_type="p2pmb"
+                )
+                .aggregate(total=Sum("amount"))["total"] or Decimal(0)
+            )
+
+            check_working_id = MLMTree.objects.filter(referral_by=user.child).count()
+            if check_working_id >= 2:
+                is_working_id = True
+                total_return_amount = total_invested_amount * Decimal("4.4")
+            else:
+                is_working_id = False
+                total_return_amount = total_invested_amount * Decimal("2.1")
+
+            total_commission_earned = (
+                Commission.objects.filter(status="active", commission_to=user.child,
+                                          commission_type__in=['direct', 'level'])
+                .aggregate(total_amount=Sum("amount"))["total_amount"] or Decimal(0)
+            )
+
+            roi_earned = (
+                InvestmentInterest.objects.filter(status="active", investment__user=user.child)
+                .aggregate(total_amount=Sum("interest_amount"))["total_amount"] or Decimal(0)
+            )
+
+            royalty_earned = (
+                RoyaltyEarned.objects.filter(status="active", user=user.child)
+                .aggregate(total_amount=Sum("earned_amount"))["total_amount"] or Decimal(0)
+            )
+
+            reward_earned = (
+                RewardEarned.objects.filter(status="active", user=user.child)
+                .aggregate(total_amount=Sum("reward__gift_amount"))["total_amount"] or Decimal(0)
+            )
+
+            core_group_income = (
+                CoreIncomeEarned.objects.filter(status="active", user=user.child)
+                .aggregate(total=Sum("income_earned"))["total"] or Decimal(0)
+            )
+
+            extra_income = (
+                ExtraRewardEarned.objects.filter(status="active", user=user.child)
+                .aggregate(total=Sum("amount"))["total"] or Decimal(0)
+            )
+
+            total_income_earned = (
+                total_commission_earned + roi_earned + royalty_earned +
+                reward_earned + core_group_income + extra_income
+            )
+
+            current_due_value = total_return_amount - total_income_earned
+            fifty_percentage_of_value = total_return_amount * Decimal("0.50")
+
+            is_low_balance = current_due_value <= fifty_percentage_of_value
+
+            data.append({
+                "investment_amount": total_invested_amount,
+                "is_working_id": is_working_id,
+                "total_return_amount": total_return_amount,
+                "total_income_earned": total_income_earned,
+                "current_due_values": current_due_value,
+                "is_low_balance": is_low_balance,
+            })
+
+        return paginator.get_paginated_response(data)
