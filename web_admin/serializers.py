@@ -428,13 +428,7 @@ class UserWithWorkingIDSerializer(serializers.ModelSerializer):
             return False
 
         referrals = self._referral_map.get(user.id, [])
-        eligible_referrals = [
-            referral_id
-            for referral_id in referrals
-            if self._investment_map.get(referral_id, Decimal('0')) >= user_investment
-        ]
-
-        return len(eligible_referrals) >= 2
+        return len(referrals) >= 2
 
     def _load_investment_and_referral_data(self):
         investments = Investment.objects.filter(

@@ -19,9 +19,10 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.models import Profile, BankDetails, UserPersonalDocument, ChangeRequest
-from master.models import CoreGroupIncome
+from master.models import CoreGroupIncome, RewardMaster
+from notification.models import InAppNotification
 from p2pmb.helpers import get_downline_count
-from p2pmb.models import Commission, MLMTree, CoreIncomeEarned, RoyaltyEarned, ExtraRewardEarned
+from p2pmb.models import Commission, MLMTree, CoreIncomeEarned, RoyaltyEarned, ExtraRewardEarned, ExtraReward, Reward
 from property.models import Property
 from web_admin.helpers import add_cashfree_beneficiary
 from web_admin.models import ManualFund, CompanyInvestment, ContactUsEnquiry, PropertyInterestEnquiry, \
@@ -680,79 +681,165 @@ class ManualFundDistributionAPIView(APIView):
 
         filters = {}
         investment_filter = {'applicable_for': 'p2pmb'}
-        commission_filter = {}
 
         if month:
             filters['date_created__month'] = month
             investment_filter['initiated_date__month'] = month
-            commission_filter['date_created__month'] = month
         if year:
             filters['date_created__year'] = year
             investment_filter['initiated_date__year'] = year
-            commission_filter['date_created__year'] = year
 
-        total_fund = Investment.objects.filter(**filters, investment_type='p2pmb', package__isnull=False,
-                                               is_approved=True, pay_method='main_wallet').distinct().aggregate(
-            total_amount=Sum('amount'))['total_amount'] or Decimal(0)
+        total_fund = Investment.objects.filter(
+            **filters, investment_type='p2pmb', package__isnull=False, is_approved=True, pay_method='main_wallet'
+        ).distinct().aggregate(total_amount=Sum('amount'))['total_amount'] or Decimal(0)
 
         fund_initiated = CompanyInvestment.objects.filter(**investment_filter)
-        commissions = Commission.objects.filter(**commission_filter)
-
-        key_to_investment_type = {
-            "direct_income": "direct",
-            "level": "level",
-            "reward": "reward",
-            "royalty": "royalty",
-            "core_team": "core_team",
-            "company_extra_expenses": "company_expense",
-            "diwali_gift": "diwali_gift",
-            "donate": "donation",
-            "interest": "interest",
-            "properties": "property",
-            "crypto": "crypto",
-        }
 
         distribution = {
-            "direct_income": {"name": "Direct Income", "expected_spending": Decimal("4.5")},
-            "level": {"name": "Level Income", "expected_spending": Decimal("4.5")},
-            "reward": {"name": "Reward", "expected_spending": Decimal("2")},
-            "royalty": {"name": "Royalty", "expected_spending": Decimal("1")},
-            "core_team": {"name": "Core Team", "expected_spending": Decimal("1")},
-            "company_extra_expenses": {"name": "Company Extra Expenses", "expected_spending": Decimal("3")},
-            "diwali_gift": {"name": "Diwali Gift", "expected_spending": Decimal("3")},
-            "donate": {"name": "Donation", "expected_spending": Decimal("1")},
-            "interest": {"name": "Interest", "expected_spending": Decimal("20")},
-            "properties": {"name": "Property Investment", "expected_spending": Decimal("50")},
-            "crypto": {"name": "Crypto", "expected_spending": Decimal("10")},
+            "direct_income": {
+                "name": "Direct Income",
+                "expected_spending": Decimal("4.5"),
+                "sum_field": "amount",
+                "model": Commission,
+                "filter": lambda m, y: {
+                    "commission_type": "direct",
+                    **({"date_created__month": m} if m else {}),
+                    **({"date_created__year": y} if y else {}),
+                },
+            },
+            "level": {
+                "name": "Level Income",
+                "expected_spending": Decimal("4.5"),
+                "model": Commission,
+                "sum_field": "amount",
+                "filter": lambda m, y: {
+                    "commission_type": "level",
+                    **({"date_created__month": m} if m else {}),
+                    **({"date_created__year": y} if y else {}),
+                },
+            },
+            "reward": {
+                "name": "Reward",
+                "expected_spending": Decimal("2"),
+                "model": RewardEarned,
+                "sum_field": "reward__gift_amount",
+                "filter": lambda m, y: {
+                    **({"earned_at__month": m} if m else {}),
+                    **({"earned_at__year": y} if y else {}),
+                },
+            },
+            "royalty": {
+                "name": "Royalty",
+                "expected_spending": Decimal("1"),
+                "model": RoyaltyEarned,
+                "sum_field": "earned_amount",
+                "filter": lambda m, y: {
+                    **({"earned_date__month": m} if m else {}),
+                    **({"earned_date__year": y} if y else {}),
+                },
+            },
+            "core_team": {
+                "name": "Core Team",
+                "expected_spending": Decimal("1"),
+                "model": CoreIncomeEarned,
+                "sum_field": "income_earned",
+                "filter": lambda m, y: {
+                    **({"date_created__month": m} if m else {}),
+                    **({"date_created__year": y} if y else {}),
+                },
+            },
+            "company_extra_expenses": {
+                "name": "Company Extra Expenses",
+                "expected_spending": Decimal("3"),
+                "model": CompanyInvestment,
+                "sum_field": "amount",
+                "filter": lambda m, y: {
+                    "investment_type": "company_expense",
+                    **({"initiated_date__month": m} if m else {}),
+                    **({"initiated_date__year": y} if y else {}),
+                },
+            },
+            "diwali_gift": {
+                "name": "Diwali Gift",
+                "expected_spending": Decimal("3"),
+                "model": CompanyInvestment,
+                "sum_field": "amount",
+                "filter": lambda m, y: {
+                    "investment_type": "diwali_gift",
+                    **({"initiated_date__month": m} if m else {}),
+                    **({"initiated_date__year": y} if y else {}),
+                },
+            },
+            "donate": {
+                "name": "Donation",
+                "expected_spending": Decimal("1"),
+                "model": CompanyInvestment,
+                "sum_field": "amount",
+                "filter": lambda m, y: {
+                    "investment_type": "donate",
+                    **({"initiated_date__month": m} if m else {}),
+                    **({"initiated_date__year": y} if y else {}),
+                },
+            },
+            "interest": {
+                "name": "Interest",
+                "expected_spending": Decimal("20"),
+                "model": InvestmentInterest,
+                "sum_field": "interest_amount",
+                "filter": lambda m, y: {
+                    **({"interest_send_date__month": m} if m else {}),
+                    **({"interest_send_date__year": y} if y else {}),
+                },
+            },
+            "properties": {
+                "name": "Property Investment",
+                "expected_spending": Decimal("50"),
+                "model": CompanyInvestment,
+                "sum_field": "amount",
+                "filter": lambda m, y: {
+                    "investment_type": "property",
+                    **({"initiated_date__month": m} if m else {}),
+                    **({"initiated_date__year": y} if y else {}),
+                },
+            },
+            "crypto": {
+                "name": "Crypto",
+                "expected_spending": Decimal("10"),
+                "model": CompanyInvestment,
+                "sum_field": "amount",
+                "filter": lambda m, y: {
+                    "investment_type": "crypto",
+                    **({"initiated_date__month": m} if m else {}),
+                    **({"initiated_date__year": y} if y else {}),
+                },
+            },
         }
 
         response_data = []
 
-        for key, config in distribution.items():
-            investment_type = key_to_investment_type.get(key)
-            expected_spending = (total_fund * config["expected_spending"] / Decimal(100)).quantize(Decimal("0.01"))
+        for key, cfg in distribution.items():
+            expected_spending = (total_fund * cfg["expected_spending"] / Decimal(100)).quantize(Decimal("0.01"))
 
-            investment_amount = fund_initiated.filter(
-                investment_type=investment_type
-            ).aggregate(total=Sum('amount'))['total'] or Decimal(0)
+            investment_amount = fund_initiated.filter(investment_type=key
+                                                      ).aggregate(total=Sum('amount'))['total'] or Decimal(0)
 
-            commission_amount = Decimal(0)
-            if key in ['direct_income', 'level', 'reward', 'royalty']:
-                commission_amount = commissions.filter(
-                    commission_type=investment_type
-                ).aggregate(total=Sum('amount'))['total'] or Decimal(0)
+            income_model = cfg["model"]
+            model_filter = cfg["filter"](month, year)
+
+            commission_amount = income_model.objects.filter(**model_filter).aggregate(
+                total=Sum(cfg["sum_field"])
+            )['total'] or Decimal(0)
 
             total_spend_amount = (investment_amount + commission_amount).quantize(Decimal("0.01"))
-            total_spend_per = ((total_spend_amount / total_fund) * 100).quantize(Decimal("0.01")) if (
-                total_fund) else Decimal("0.00")
+            total_spend_per = ((total_spend_amount / total_fund) * 100).quantize(Decimal("0.01")) if total_fund else Decimal("0.00")
             left_in_bank = (expected_spending - total_spend_amount).quantize(Decimal("0.01"))
 
             response_data.append({
-                "name": config["name"],
+                "name": cfg["name"],
                 "total_spend_amount": float(total_spend_amount),
                 "left_in_bank": float(left_in_bank),
                 "total_spend_per": float(total_spend_per),
-                "expected_spending_per": float(config["expected_spending"]),
+                "expected_spending_per": float(cfg["expected_spending"]),
                 "expected_spending_amount": float(expected_spending),
             })
 
@@ -1266,12 +1353,7 @@ class UserWithWorkingIDListView(ListAPIView):
             if user_investment == 0:
                 continue
             referral_ids = referral_map.get(user_id, [])
-            eligible_referrals = [
-                rid for rid in referral_ids
-                if len(referral_map.get(user_id, [])) >= 2
-                # if investment_map.get(rid, Decimal('0')) >= user_investment
-            ]
-            if len(eligible_referrals) >= 2:
+            if len(referral_ids) >= 2:
                 working_ids.add(user_id)
 
         return working_ids
@@ -1323,7 +1405,7 @@ class WithdrawDashboardV2(APIView):
         get_investment = Investment.objects.filter(
             status='active', investment_type='p2pmb',
             is_approved=True, package__isnull=False,
-            pay_method='main_wallet'
+            pay_method='main_wallet', user=user_id
         ).aggregate(total=Sum('amount'))['total'] or Decimal(0)
 
         is_working_id = bool(is_working)
@@ -1785,17 +1867,23 @@ class CommissionEarnedAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        month = int(request.query_params.get("month", datetime.datetime.now().month))
-        year = int(request.query_params.get("year", datetime.datetime.now().year))
+        month = request.query_params.get("month")
+        year = request.query_params.get("year")
         user_id = request.query_params.get("user")
         commission_type = request.query_params.get("commission_type")
         queryset = Commission.objects.filter(status='active')
+
         if user_id:
             queryset = queryset.filter(commission_to=user_id)
+
         if commission_type:
             queryset = queryset.filter(commission_type=commission_type)
+
         if month and year:
+            month = int(month)
+            year = int(year)
             queryset = queryset.filter(date_created__month=month, date_created__year=year)
+
         paginator = LimitOffsetPagination()
         paginated_transactions = paginator.paginate_queryset(queryset, request)
         serializer = GetAllCommissionSerializer(paginated_transactions, many=True)
@@ -1884,7 +1972,7 @@ class GetAppDashboardAggregate(APIView):
 
 
 class RoyaltyEarnedAPIView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsStaffUser]
 
     def get(self, request):
         month = int(request.query_params.get("month", datetime.datetime.now().month))
@@ -1902,7 +1990,7 @@ class RoyaltyEarnedAPIView(APIView):
 
 
 class ExtraRewardEarnedAPIView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsStaffUser]
 
     def get(self, request):
         month = int(request.query_params.get("month", datetime.datetime.now().month))
@@ -1920,7 +2008,7 @@ class ExtraRewardEarnedAPIView(APIView):
 
 
 class ROIEarnedListAPIView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsStaffUser]
 
     def get(self, request):
         month = int(request.query_params.get("month", datetime.datetime.now().month))
@@ -1938,7 +2026,7 @@ class ROIEarnedListAPIView(APIView):
 
 
 class ActiveUserWalletListView(ListAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsStaffUser]
     serializer_class = UserWalletSerializer
 
     def get_queryset(self):
@@ -1946,7 +2034,7 @@ class ActiveUserWalletListView(ListAPIView):
 
 
 class StopSendingROIListView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsStaffUser]
 
     def post(self, request, user_id):
         user_profile = Profile.objects.filter(status='active', user=user_id).last()
@@ -1965,7 +2053,7 @@ class StopSendingROIListView(APIView):
 
 
 class StartSendingROIListView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsStaffUser]
 
     def post(self, request, user_id):
         user_profile = Profile.objects.filter(status='active', user=user_id).last()
@@ -1981,3 +2069,99 @@ class StartSendingROIListView(APIView):
         user_profile.save()
         ROIUpdateLog.objects.create(created_by=self.request.user, action_for=user_profile.user, roi_status='start')
         return Response({'message': 'ROI status updated successfully.'}, status=status.HTTP_200_OK)
+
+
+class SendExtraRewardAPIView(APIView):
+    permission_classes = [IsStaffUser]
+
+    def post(self, request):
+        user_id = self.request.POST.get('user_id')
+        extra_reward_id = self.request.POST.get('reward_id')
+        amount = self.request.POST.get('amount')
+        description = self.request.POST.get('description')
+
+        get_user = User.objects.filter(id=user_id).last()
+        get_extra_reward = ExtraReward.objects.filter(id=extra_reward_id).last()
+
+        if not get_user:
+            return Response({'message': 'Invalid User ID.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not get_extra_reward:
+            return Response({'message': 'Invalid Reward ID.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        is_already_earned = ExtraRewardEarned.objects.filter(
+            status='active', user=get_user, extra_reward=get_extra_reward
+        ).exists()
+
+        if is_already_earned:
+            return Response({'message': 'User Already earned this extra reward.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        ExtraRewardEarned.objects.create(
+            created_by=self.request.user, extra_reward=get_extra_reward,
+            user=get_user, amount=amount,
+            description=description or f'Congratulation! You earned extra reward worth {amount}'
+        )
+
+        Transaction.objects.create(
+            sender=get_user, receiver=get_user, amount=amount, transaction_type='reward',
+            transaction_status='approved',
+            payment_method='wallet', verified_by=self.request.user, verified_on=datetime.datetime.now()
+        )
+
+        InAppNotification.objects.create(created_by=self.request.user, user=get_user,
+                                         message='Bonus unlocked! Your extra reward has been successfully credited.',
+                                         notification_type='alert')
+
+        return Response({'message': 'Extra Reward send successfully.'}, status=status.HTTP_200_OK)
+
+
+class SendRewardAPIView(APIView):
+    permission_classes = [IsStaffUser]
+
+    def post(self, request):
+        user_id = self.request.POST.get('user_id')
+        extra_reward_id = self.request.POST.get('reward_id')
+        description = self.request.POST.get('description')
+
+        get_user = User.objects.filter(id=user_id).last()
+        get_reward = RewardMaster.objects.filter(id=extra_reward_id).last()
+
+        if not get_user:
+            return Response({'message': 'Invalid User ID.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not get_reward:
+            return Response({'message': 'Invalid Reward ID.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        is_already_earned = RewardEarned.objects.filter(
+            status='active', user=get_user, reward=get_reward
+        ).exists()
+
+        if is_already_earned:
+            return Response({'message': 'User Already earned this reward.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        RewardEarned.objects.create(
+            created_by=self.request.user, reward=get_reward, user=get_user, turnover_at_earning=get_reward.gift_amount,
+            description=description or f'Congratulation! You earned reward worth {get_reward.gift_amount}',
+            earned_at=datetime.datetime.now().today().replace(day=1), is_paid=True, is_p2p=True,
+            total_month=get_reward.total_paid_month,
+            last_payment_send=datetime.datetime.now().today().replace(day=1), total_installment_paid=get_reward.total_paid_month-1
+        )
+
+        wallet, _ = UserWallet.objects.get_or_create(user=get_user)
+        wallet.app_wallet_balance += get_reward.gift_amount
+        wallet.save()
+
+        Transaction.objects.create(
+            sender=get_user, receiver=get_user, amount=get_reward.gift_amount, transaction_type='reward',
+            transaction_status='approved',
+            payment_method='wallet', verified_by=self.request.user, verified_on=datetime.datetime.now(),
+            remarks=f'Congratulation! You earned reward worth {get_reward.gift_amount}'
+        )
+
+        return Response({'message': 'Reward send successfully.'}, status=status.HTTP_200_OK)
+
+
+class InvestmentDelete(APIView):
+    permission_classes = [IsStaffUser]
+
+    def delete(self, request, id):
+        Investment.objects.filter(id=id).delete()
+        return Response({'message': 'Investment deleted successfully.'}, status=status.HTTP_200_OK)

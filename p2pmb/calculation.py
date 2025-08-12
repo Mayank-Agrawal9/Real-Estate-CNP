@@ -10,9 +10,9 @@ from django.db.models import Count, Sum
 
 from agency.models import RewardEarned, Investment, InvestmentInterest
 from master.models import RewardMaster, RoyaltyMaster
-from p2pmb.helpers import create_transaction_entry, create_commission_entry
+from p2pmb.helpers import create_transaction_entry, create_commission_entry, get_level_counts
 from p2pmb.models import MLMTree, ScheduledCommission, Commission, RoyaltyClub, Reward, P2PMBRoyaltyMaster, \
-    RoyaltyEarned
+    RoyaltyEarned, HoldLevelIncome, ROIOverride, LapsedAmount
 from payment_app.models import Transaction, UserWallet
 from real_estate.constant import TURNOVER_DISTRIBUTION
 
@@ -218,142 +218,335 @@ class DistributeDirectCommission:
 
 # Distribute Level Income
 class DistributeLevelIncome:
+
     @staticmethod
-    def distribute_level_income(instance, amount):
+    def get_user_level(direct_count):
+        level_map = {
+            5: 5,
+            4: 4,
+            3: 3,
+            2: 2,
+            1: 1,
+            0: 0,
+        }
+
+        for count, level in level_map.items():
+            if direct_count >= count:
+                return level
+        return 0
+
+    @staticmethod
+    def get_user_down_level(direct_count):
+        level_map = {
+            5: 5,
+            4: 4,
+            3: 3,
+            2: 2,
+            1: 1,
+            0: 0,
+        }
+
+        for count, level in level_map.items():
+            if direct_count >= count:
+                return level
+        return 0
+
+    @staticmethod
+    def get_level_counts(direct_count):
+        """
+        Returns (up_levels, down_levels) based on direct count
+        """
+        level_map = {
+            5: (20, 10),
+            4: (15, 10),
+            3: (10, 10),
+            2: (5, 5),
+            1: (2, 2),
+            0: (0, 0),
+        }
+
+        return next(
+            (upl, downl) for count, (upl, downl) in level_map.items() if direct_count >= count
+        )
+
+    @staticmethod
+    def get_level_by_direct_user_required_counts(level):
+        """
+        Given a level, return the key whose value range includes that level,
+        picking the smallest key that still qualifies.
+        """
+        level_map = {
+            1: 2,
+            2: 5,
+            3: 10,
+            4: 15,
+            5: 20,
+        }
+
+        for key, max_level in sorted(level_map.items()):
+            if level <= max_level:
+                return key
+        return None
+
+    @staticmethod
+    def get_below_level_by_direct_user_required_counts(level):
+        """
+        Given a level, return the key whose value range includes that level,
+        picking the smallest key that still qualifies.
+        """
+        level_map = {
+            1: 2,
+            2: 5,
+            3: 10
+        }
+
+        for key, max_level in sorted(level_map.items()):
+            if level <= max_level:
+                return key
+        return None
+
+    @staticmethod
+    def distribute_level_income(instance, amount, up_max_level, down_max_level):
         """
         Distribute level income over 30 levels:
         - 0.15% for 20 levels above the user
         - 0.15% for 10 levels below the user
         - Remaining amount goes to the top node if levels are not complete.
         """
+        total_up_amount_send = amount * Decimal(0.03)
+        total_down_amount_send = amount * Decimal(0.015)
         level_above_percent = Decimal(0.0015)
         level_below_percent = Decimal(0.0015)
 
         # Distribute to 20 levels above
-        remaining_above = DistributeLevelIncome.distribute_to_levels_above(
-            instance, amount, level_above_percent, 20
+        total_amount_send_above = DistributeLevelIncome.distribute_to_levels_above(
+            instance, amount, level_above_percent, up_max_level
         )
 
         # Distribute to 10 levels below
-        # remaining_below = DistributeLevelIncome.distribute_to_levels_below(
-        #     instance, amount, level_below_percent, 10
-        # )
+        total_amount_send_below = DistributeLevelIncome.distribute_to_levels_below(
+            instance, amount, level_below_percent, down_max_level
+        )
 
-        remaining_below = Decimal(amount) * level_below_percent * Decimal(10)
+        remaining_above = total_up_amount_send - total_amount_send_above
+        remaining_below = total_down_amount_send - total_amount_send_below
 
-        # Send remaining amounts to the top node
-        # instance.send_level_income = True
-        # instance.save()
-        top_node = MLMTree.objects.filter(parent=None).first()
-        if top_node:
-            total_remaining = remaining_above + remaining_below
-            wallet = UserWallet.objects.filter(user=top_node.child, status='active').last()
-            wallet.app_wallet_balance += total_remaining
-            wallet.save()
-            top_node.commission_earned += total_remaining
-            wallet.save()
+        if int(remaining_above) > 0:
+            LapsedAmount.objects.create(user=instance.child, earned_type='level_income', amount=remaining_above,
+                                        remarks=f'Up Level Income Remaining in the top up of {amount}')
 
-            # Create transaction record for this distribution
-            create_transaction_entry(
-                instance.child, top_node.child, total_remaining, 'commission', 'approved',
-                f'Level Commission added by adding {instance.child.username} remaining account.')
-
-            # Create commission record
-            create_commission_entry(top_node.child, instance.child, 'level', total_remaining,
-                                    f'Commission added for {instance.child.username} remaining account.')
+        if int(remaining_below) > 0:
+            LapsedAmount.objects.create(user=instance.child, earned_type='level_income', amount=remaining_below,
+                                        remarks=f'Down Level Income Remaining in the top up of {amount}')
 
     @staticmethod
     def distribute_to_levels_above(user, amount, percent, max_levels):
         """
-        Distribute commission to levels above the user.
-        Returns the remaining amount if fewer levels are available.
+        Distribute commission up to max_levels above the user.
+        Based on the receiver's directs and depth logic.
         """
         current_user = user.parent
         base_user = user
         distributed_levels = 0
         commission = Decimal(amount) * percent
+        total_distributed = Decimal('0')
 
-        while distributed_levels < max_levels:
-            parent = MLMTree.objects.filter(child=current_user).first()
-            if not parent or not parent.parent:
+        level = 1
+
+        while distributed_levels < max_levels and current_user:
+            parent_relation = MLMTree.objects.filter(child=current_user).first()
+
+            if not parent_relation:
                 break
 
-            parent_wallet = UserWallet.objects.filter(user=parent.parent, status='active').last()
-            if parent_wallet:
-                parent_wallet.app_wallet_balance += commission
-                parent_wallet.save()
+            direct_count = MLMTree.objects.filter(referral_by=current_user).count()
+            up_levels, down_levels = DistributeLevelIncome.get_level_counts(direct_count)
+            if direct_count == 0:
+                direct_id_required = DistributeLevelIncome.get_level_by_direct_user_required_counts(level)
+                total_distributed += commission
+                HoldLevelIncome.objects.create(
+                    commission_by=base_user.child,
+                    commission_to=current_user,
+                    level_type='up',
+                    amount=commission,
+                    on_level=parent_relation.show_level or 0,
+                    description=f'Level Commission added for {base_user.child.username}',
+                    direct_user_required=direct_id_required,
+                )
+            else:
+                if level <= up_levels:
+                    total_distributed += commission
+                    parent_wallet = UserWallet.objects.filter(user=current_user, status='active').last()
+                    if parent_wallet:
+                        parent_wallet.app_wallet_balance += commission
+                        parent_wallet.save()
 
-            # Create transaction record for this distribution
-            create_transaction_entry(
-                base_user.child, parent.parent, commission, 'commission', 'approved',
-                f'Level Commission added by adding {base_user.child.username}')
+                    create_transaction_entry(
+                        base_user.child, current_user, commission, 'commission', 'approved',
+                        f'Level Commission added by adding {base_user.child.username}'
+                    )
 
-            # Create commission record
-            create_commission_entry(parent.parent, base_user.child, 'level', commission,
-                                    f'Commission added for {base_user.child.username}')
+                    create_commission_entry(current_user, base_user.child, 'level', commission,
+                                            f'Level Commission added for {base_user.child.username}')
+                else:
+                    direct_id_required = DistributeLevelIncome.get_level_by_direct_user_required_counts(level)
+                    total_distributed += commission
+                    HoldLevelIncome.objects.create(
+                        commission_by=base_user.child,
+                        commission_to=current_user,
+                        level_type='up',
+                        amount=commission,
+                        on_level=parent_relation.show_level or 0,
+                        description=f'Level Commission added for {base_user.child.username}',
+                        direct_user_required=direct_id_required,
+                    )
 
-            current_user = parent.parent
             distributed_levels += 1
+            level += 1
+            current_user = parent_relation.parent
 
-        remaining_levels = max_levels - distributed_levels
-        return Decimal(amount) * percent * Decimal(remaining_levels)
+        return total_distributed
 
     @staticmethod
     def distribute_to_levels_below(user, amount, percent, max_levels):
         """
-        Distribute commission to levels below the user (one per level, follow deepest path).
-        Returns the remaining amount if fewer levels are available.
+        Distribute commission starting from the *first* downline user,
+        going down a single branch only.
         """
-        current_user = user.child
-        base_user = user
-        distributed_levels = 0
+        base_user = user.child
         commission = Decimal(amount) * percent
+        total_distributed = Decimal('0')
 
-        while distributed_levels < max_levels:
-            children = MLMTree.objects.filter(parent=current_user, status='active')
+        distributed_levels = 0
+        level = 1
 
-            if not children.exists():
-                break
+        # Get the very first child of the starting user
+        relation = MLMTree.objects.filter(parent=user.child).select_related('child').first()
+        current_user = relation.child if relation else None
 
-            next_child_user = None
-            for child in children:
-                has_grandchildren = MLMTree.objects.filter(parent=child.child, status='active').exists()
-                if has_grandchildren:
-                    next_child_user = child.child
-                    break
+        while distributed_levels < max_levels and current_user:
+            direct_count = MLMTree.objects.filter(referral_by=current_user).count()
+            up_levels, down_levels = DistributeLevelIncome.get_level_counts(direct_count)
 
-            if not next_child_user:
-                next_child_user = children.first().child
+            if direct_count == 0:
+                direct_id_required = DistributeLevelIncome.get_level_by_direct_user_required_counts(level)
+                HoldLevelIncome.objects.create(
+                    commission_by=base_user,
+                    commission_to=current_user,
+                    level_type='down',
+                    amount=commission,
+                    on_level=level,
+                    description=f'Down Level Commission added for {base_user.username}',
+                    direct_user_required=direct_id_required,
+                )
+                total_distributed += commission
+            else:
+                if level <= down_levels:
+                    parent_wallet = UserWallet.objects.filter(user=current_user, status='active').last()
+                    if parent_wallet:
+                        parent_wallet.app_wallet_balance += commission
+                        parent_wallet.save()
 
-            if not next_child_user:
-                break
+                    create_transaction_entry(
+                        base_user, current_user, commission, 'commission', 'approved',
+                        f'Down Level Commission added by {base_user.username}'
+                    )
 
-            child_wallet = UserWallet.objects.filter(user=next_child_user, status='active').last()
-            if child_wallet:
-                child_wallet.app_wallet_balance += commission
-                child_wallet.save()
+                    create_commission_entry(current_user, base_user, 'level', commission,
+                                            f'Down Level Commission added for {base_user.username}')
+                    total_distributed += commission
+                else:
+                    direct_id_required = DistributeLevelIncome.get_below_level_by_direct_user_required_counts(level)
+                    HoldLevelIncome.objects.create(
+                        commission_by=base_user,
+                        commission_to=current_user,
+                        level_type='down',
+                        amount=commission,
+                        on_level=level,
+                        description=f'Down Level Commission added for {base_user.username}',
+                        direct_user_required=direct_id_required,
+                    )
+                    total_distributed += commission
 
-            create_transaction_entry(
-                base_user.child, next_child_user, commission, 'commission', 'approved',
-                f'Level Commission added by {base_user.child.username}'
-            )
-
-            create_commission_entry(
-                next_child_user, base_user.child, 'level', commission,
-                f'Commission added for {base_user.child.username}'
-            )
+            # Move to that user's first child
+            relation = MLMTree.objects.filter(parent=current_user).select_related('child').first()
+            current_user = relation.child if relation else None
 
             distributed_levels += 1
-            current_user = next_child_user
+            level += 1
 
-        remaining_levels = max_levels - distributed_levels
-        return commission * Decimal(remaining_levels)
+        return total_distributed
+
+
+    # @staticmethod
+    # def distribute_to_levels_below(user, amount, percent, max_levels, direct_id_required):
+    #     """
+    #     Distribute commission to levels below the user (one per level, follow deepest path).
+    #     Returns the remaining amount if fewer levels are available.
+    #     """
+    #     current_user = user.child
+    #     base_user = user
+    #     distributed_levels = 0
+    #     commission = Decimal(amount) * percent
+    #
+    #     while distributed_levels < max_levels:
+    #         children = MLMTree.objects.filter(parent=current_user, status='active')
+    #
+    #         if not children:
+    #             break
+    #
+    #         next_child_user = None
+    #         for child in children:
+    #             if MLMTree.objects.filter(parent=child.child, status='active').exists():
+    #                 next_child_user = child.child
+    #                 break
+    #
+    #         if not next_child_user:
+    #             next_child_user = children.first().child
+    #
+    #         if not next_child_user:
+    #             break
+    #
+    #         child_direct_count = MLMTree.objects.filter(status='active', referral_by=next_child_user).count()
+    #         child_level = DistributeLevelIncome.get_user_level(child_direct_count)
+    #
+    #         if child_level >= direct_id_required:
+    #             child_wallet = UserWallet.objects.filter(user=next_child_user, status='active').last()
+    #             if child_wallet:
+    #                 child_wallet.app_wallet_balance += commission
+    #                 child_wallet.save()
+    #
+    #             create_transaction_entry(
+    #                 base_user.child, next_child_user, commission, 'commission', 'approved',
+    #                 f'Level Commission added by {base_user.child.username}'
+    #             )
+    #
+    #             create_commission_entry(
+    #                 next_child_user, base_user.child, 'level', commission,
+    #                 f'Level Commission added by {base_user.child.username}'
+    #             )
+    #         else:
+    #             HoldLevelIncome.objects.create(
+    #                 commission_by=base_user.child,
+    #                 commission_to=next_child_user,
+    #                 level_type='down',
+    #                 amount=commission,
+    #                 on_level=base_user.show_level or 0,
+    #                 description=f'User not qualified for level {distributed_levels + 1}',
+    #                 direct_user_required=direct_id_required,
+    #             )
+    #
+    #         distributed_levels += 1
+    #         current_user = next_child_user
+    #
+    #     remaining_levels = max_levels - distributed_levels
+    #     return commission * Decimal(remaining_levels)
 
 
 class LifeTimeRewardIncome:
     @staticmethod
     def check_and_allocate_rewards():
-        parents = MLMTree.objects.filter(parent__isnull=False, status='active').select_related('parent')
+        parents = MLMTree.objects.filter(parent__isnull=False, status='active', is_show=True).select_related('parent')
 
         processed_parents = {}
 
@@ -391,26 +584,12 @@ class LifeTimeRewardIncome:
                             user=parent.parent,
                             created_by=parent.parent,
                             reward=reward,
-                            earned_at=datetime.datetime.now(),
+                            earned_at=datetime.datetime.now().today().replace(day=1),
                             turnover_at_earning=parent.turnover,
                             is_paid=True,
                             total_month=reward.total_paid_month,
                             is_p2p=True
                         )
-
-                        commission_entries = [
-                            ScheduledCommission(
-                                created_by=parent.parent,
-                                send_by=parent.parent,
-                                user=parent.parent,
-                                amount=reward.gift_amount,
-                                scheduled_date=datetime.datetime.now() + datetime.timedelta(days=30 * i),
-                                is_paid=False,
-                                remarks=f'Commission added for life time reward earned {reward.name}'
-                            )
-                            for i in range(reward.total_paid_month)
-                        ]
-                        ScheduledCommission.objects.bulk_create(commission_entries)
                         break
 
 
@@ -869,7 +1048,12 @@ class ProcessMonthlyInterestP2PMB:
     @staticmethod
     def calculate_monthly_interest_amount(user, investment_type, invested_amount):
         """Example function to calculate monthly interest."""
-        interest_rate = ProcessMonthlyInterestP2PMB.calculate_interest_rate(user, investment_type)
+        user_updated_percentage = ROIOverride.objects.filter(user=user, status='active').last()
+        if user_updated_percentage:
+            percentage_value = user_updated_percentage.percentage or 0
+            interest_rate = Decimal(str(percentage_value)) / Decimal('100')
+        else:
+            interest_rate = ProcessMonthlyInterestP2PMB.calculate_interest_rate(user, investment_type)
         interest_amount = invested_amount * interest_rate
         return interest_amount
 

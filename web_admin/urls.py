@@ -62,4 +62,8 @@ urlpatterns = [
     path('wallet_list', ActiveUserWalletListView.as_view(), name='user-wallet-list'),
     path('stop-roi/<int:user_id>/', StopSendingROIListView.as_view(), name='stop-sending-roi'),
     path('start-roi/<int:user_id>/', StartSendingROIListView.as_view(), name='start-sending-roi'),
+    path('send-extra-reward/', SendExtraRewardAPIView.as_view(), name='send-extra-reward'),
+    path('send-reward/', SendRewardAPIView.as_view(), name='send-reward'),
+    path('investment/<int:id>/', InvestmentDelete.as_view(), name='investment-delete'),
+
 ]

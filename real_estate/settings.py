@@ -62,6 +62,7 @@ CUSTOM_APPS = [
     'property.apps.PropertyConfig',
     'p2pmb.apps.P2PmbConfig',
     'web_admin.apps.WebAdminConfig',
+    'notification.apps.NotificationConfig',
 ]
 
 INSTALLED_APPS += CUSTOM_APPS

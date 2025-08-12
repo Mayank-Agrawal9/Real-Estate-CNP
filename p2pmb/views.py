@@ -6,6 +6,7 @@ from django.db.models import Sum, Q
 from django.utils.dateparse import parse_date
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import serializers, status, viewsets
+from rest_framework.decorators import action
 from rest_framework.filters import SearchFilter
 from rest_framework.generics import ListAPIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -13,16 +14,18 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from agency.models import Investment, RewardEarned, InvestmentInterest
+from notification.models import InAppNotification
 from p2pmb.calculation import (RoyaltyClubDistribute, DistributeDirectCommission, DistributeLevelIncome,
                                LifeTimeRewardIncome, ProcessMonthlyInterestP2PMB)
 from p2pmb.cron import distribute_level_income, distribute_direct_income
 from p2pmb.helpers import get_downline_count, count_all_descendants, get_levels_above_count
 from p2pmb.models import MLMTree, Package, Commission, ExtraReward, CoreIncomeEarned, P2PMBRoyaltyMaster, RoyaltyEarned, \
-    ExtraRewardEarned, HoldLevelIncome
+    ExtraRewardEarned, HoldLevelIncome, ROIOverride, LapsedAmount
 from p2pmb.serializers import MLMTreeSerializer, MLMTreeNodeSerializer, PackageSerializer, CommissionSerializer, \
     ShowInvestmentDetail, GetP2PMBLevelData, GetMyApplyingData, MLMTreeNodeSerializerV2, MLMTreeParentNodeSerializerV2, \
     ExtraRewardSerializer, CoreIncomeEarnedSerializer, RoyaltyEarnedSerializer, P2PMBRoyaltyMasterSerializer, \
-    CreateRoyaltyEarnedSerializer, TransactionSerializer, GetDirectUserSerializer, HoldLevelIncomeSerializer
+    CreateRoyaltyEarnedSerializer, TransactionSerializer, GetDirectUserSerializer, HoldLevelIncomeSerializer, \
+    ROIOverRideSerializer, LapsedAmountSerializer, ROIOverrideListSerializer
 from payment_app.models import Transaction, UserWallet
 
 
@@ -368,6 +371,71 @@ class HoldLevelIncomeViewSet(viewsets.ModelViewSet):
             'date_created')
 
 
+class ROIOverrideViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    serializer_class = ROIOverRideSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_fields = ['action_type',]
+
+    def get_queryset(self):
+        return ROIOverride.objects.filter(status='active').order_by('date_created')
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return ROIOverrideListSerializer
+        return ROIOverRideSerializer
+
+    def perform_create(self, serializer):
+        instance = serializer.save(created_by=self.request.user)
+        InAppNotification.objects.create(
+            user=instance.user, message=instance.reason, created_by=self.request.user, notification_type='alert'
+        )
+
+    def perform_update(self, serializer):
+        serializer.save(updated_by=self.request.user)
+
+
+class LapsedAmountViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    serializer_class = LapsedAmountSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_fields = ['earned_type', 'user', 'date_created']
+
+    def get_queryset(self):
+        return LapsedAmount.objects.filter(status='active').order_by('date_created')
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+    def perform_update(self, serializer):
+        serializer.save(updated_by=self.request.user)
+
+    @action(detail=False, methods=['get'], url_path='aggregate')
+    def get_agreed_amount(self, request):
+        month = request.query_params.get('month')
+        year = request.query_params.get('year')
+
+        earned_types = ['level_income', 'core_group_income', 'royalty']
+
+        queryset = self.get_queryset().filter(earned_type__in=earned_types)
+
+        if month:
+            queryset = queryset.filter(date_created__month=month)
+        if year:
+            queryset = queryset.filter(date_created__year=year)
+
+        response_data = {
+            "month": month or "All",
+            "year": year or "All"
+        }
+
+        for etype in earned_types:
+            total = queryset.filter(earned_type=etype).aggregate(total_agreed=Sum('amount'))['total_agreed'] or 0
+            response_data[etype] = total
+
+        return Response(response_data)
+
+
 class CoreIncomeEarnedViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = CoreIncomeEarnedSerializer
@@ -376,7 +444,7 @@ class CoreIncomeEarnedViewSet(viewsets.ModelViewSet):
     filterset_fields = ['income_type', 'core_income', 'user', 'core_income__month', 'core_income__year']
 
     def get_queryset(self):
-        return CoreIncomeEarned.objects.filter(status='active').order_by('income_earned')
+        return CoreIncomeEarned.objects.filter(status='active', user=self.request.user).order_by('income_earned')
 
 
 class P2PMBRoyaltyMasterViewSet(viewsets.ModelViewSet):

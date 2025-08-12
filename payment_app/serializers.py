@@ -2,14 +2,16 @@ import datetime
 import uuid
 
 from django.contrib.auth.models import User
+from django.db.models import Q
 from rest_framework import serializers
 
+from accounts.models import Profile
 from payment_app.choices import PAYMENT_METHOD
 from payment_app.models import UserWallet, Transaction
 
 
 class PayUserSerializer(serializers.Serializer):
-    recipient_email = serializers.EmailField(required=True)
+    recipient_email = serializers.CharField(required=True)
     amount = serializers.FloatField(required=False, min_value=0.01)
     wallet_type = serializers.ChoiceField(choices=['main_wallet', 'app_wallet'], default='app_wallet')
 
@@ -20,11 +22,12 @@ class PayUserSerializer(serializers.Serializer):
         wallet_type = data.get('wallet_type')
 
         try:
-            recipient = User.objects.filter(username=recipient_email).last()
+            recipient = Profile.objects.filter(Q(referral_code=recipient_email) | Q(user__username=recipient_email)
+                                               ).last()
         except Exception as e:
             raise serializers.ValidationError("Recipient not found.")
 
-        if sender == recipient:
+        if sender == recipient.user:
             raise serializers.ValidationError("You cannot send money to yourself.")
 
         sender_wallet = UserWallet.objects.filter(user=sender).first()

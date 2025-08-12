@@ -1,7 +1,7 @@
 from import_export import resources
 
 from p2pmb.models import MLMTree, Package, ScheduledCommission, RoyaltyClub, P2PMBRoyaltyMaster, ExtraReward, \
-    RoyaltyEarned, ExtraRewardEarned
+    RoyaltyEarned, ExtraRewardEarned, LapsedAmount, ROIOverride
 
 
 class MLMTreeResource(resources.ModelResource):
@@ -84,5 +84,19 @@ class ExtraRewardEarnedResource(resources.ModelResource):
 class HoldLevelIncomeResource(resources.ModelResource):
     class Meta:
         model = ExtraRewardEarned
+        import_id_fields = ('id',)
+        exclude = ('date_created', 'updated_by', 'date_updated', 'created_by')
+
+
+class LapsedAmountResource(resources.ModelResource):
+    class Meta:
+        model = LapsedAmount
+        import_id_fields = ('id',)
+        exclude = ('date_created', 'updated_by', 'date_updated', 'created_by')
+
+
+class ROIOverrideResource(resources.ModelResource):
+    class Meta:
+        model = ROIOverride
         import_id_fields = ('id',)
         exclude = ('date_created', 'updated_by', 'date_updated', 'created_by')
