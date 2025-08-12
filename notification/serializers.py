@@ -9,3 +9,10 @@ class GetNotificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = InAppNotification
         fields = ['date_created', 'message']
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = InAppNotification
+        fields = '__all__'

@@ -7,7 +7,7 @@ from .views import ResendOTPView, VerifyOTPView, RequestOTPView, LogoutView, Pro
     UserBankDetailsViewSet, UserPersonalDocumentViewSet, GenerateUniqueNumber, GeneratePreviousUniqueCode, LoginAPIView, \
     VerifyOptAPI, OptResendAPIView, ForgotPasswordChangeAPI, RegisterUserView, UpdateROIStatus, GetUserListByEmail, \
     SwitchUserAPIView, CreateMultipleAccountAPIView, GetUserKycBasicDetailAPIView, AppInfoAPIView, UpdateRequiredView, \
-    AppVersionViewSet
+    AppVersionViewSet, DeleteUserByAdmin
 
 router = DefaultRouter()
 router.register(r'change-request', ChangeRequestViewSet)
@@ -42,6 +42,7 @@ urlpatterns = [
     path('software-policy/', SoftwarePolicyAPIView.as_view(), name='software-policy'),
     path('faqs/', FAQAPIView.as_view(), name='faqs'),
     path('deactivate-user/', DeleteUser.as_view(), name='delete-user'),
+    path('deactivate-user/<int:user_id>/', DeleteUserByAdmin.as_view(), name='delete-user-by-admin'),
     path('generate-unique-number/', GenerateUniqueNumber.as_view(), name='unique-code'),
     path('generate-previous-unique-number/', GeneratePreviousUniqueCode.as_view(), name='previous-unique-code'),
     path('get-user-list-by-email/', GetUserListByEmail.as_view(), name='get-user-list-by-email'),
