@@ -20,3 +20,9 @@ class ProfileAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
 class TransactionAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
     resource_class = TransactionResource
     raw_id_fields = ('created_by', 'updated_by', 'sender', 'receiver', 'verified_by')
+
+
+@admin.register(TDSSubmissionLog)
+class TDSSubmissionLogAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
+    resource_class = TDSSubmissionLogResource
+    raw_id_fields = ('created_by', 'updated_by', 'submitted_for', 'submitted_by')

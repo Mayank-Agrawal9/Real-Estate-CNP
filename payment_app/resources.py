@@ -16,3 +16,10 @@ class TransactionResource(resources.ModelResource):
         model = Transaction
         import_id_fields = ('sender', 'receiver')
         exclude = ('date_created', 'updated_by', 'date_updated', 'created_by')
+
+
+class TDSSubmissionLogResource(resources.ModelResource):
+    class Meta:
+        model = TDSSubmissionLog
+        import_id_fields = ('created_by', 'updated_by', 'submitted_for', 'submitted_by')
+        exclude = ('date_created', 'updated_by', 'date_updated', 'created_by')
