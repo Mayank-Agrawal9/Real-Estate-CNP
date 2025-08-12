@@ -40,6 +40,23 @@ class UserWallet(ModelMixin):
         return False
 
 
+class TDSSubmissionLog(ModelMixin):
+    submitted_for = models.ForeignKey(User, on_delete=models.CASCADE, related_name='tds_submissions')
+    submitted_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name='tds_submissions_made'
+    )
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    submission_date = models.DateTimeField(auto_now_add=True)
+    remarks = models.TextField(blank=True, null=True)
+    evidence = models.FileField(upload_to='tds_submission', null=True, blank=True)
+
+    class Meta:
+        ordering = ['-submission_date']
+
+    def __str__(self):
+        return f"TDS of {self.amount}"
+
+
 class Transaction(ModelMixin):
     transaction_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     sender = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
