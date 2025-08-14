@@ -139,12 +139,19 @@ class TDSAmountSubmissionSerializer(serializers.ModelSerializer):
 
 class ListTDSSubmissionLogSerializer(serializers.ModelSerializer):
     submitted_by = serializers.SerializerMethodField()
+    submitted_for = serializers.SerializerMethodField()
 
     def get_submitted_by(self, obj):
         if not obj.submitted_by:
             return None
         return {'id': obj.submitted_by.id, 'name': obj.submitted_by.get_full_name(),
                 'username': obj.submitted_by.username, 'email': obj.submitted_by.email}
+
+    def get_submitted_for(self, obj):
+        if not obj.submitted_for:
+            return None
+        return {'id': obj.submitted_for.id, 'name': obj.submitted_for.get_full_name(),
+                'username': obj.submitted_for.username, 'email': obj.submitted_for.email}
 
     class Meta:
         model = TDSSubmissionLog

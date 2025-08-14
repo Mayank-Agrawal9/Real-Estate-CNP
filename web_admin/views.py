@@ -2257,6 +2257,13 @@ class GetAllTopUpList(APIView):
                 "total_income_earned": total_income_earned,
                 "current_due_values": current_due_value,
                 "is_low_balance": is_low_balance,
+                "user": {
+                    'id': user.child.id,
+                    'name': user.child.get_full_name(),
+                    'username': user.child.username,
+                    'referral_code': user.child.profile.referral_code,
+                    'email': user.child.email
+                },
             })
 
         return paginator.get_paginated_response(data)
