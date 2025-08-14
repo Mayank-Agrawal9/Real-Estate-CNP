@@ -1,19 +1,24 @@
+import csv
 import datetime
 from decimal import Decimal
 
+from django.db import transaction
 from django.db.models import Q
+from django.http import HttpResponse
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import SearchFilter
+from rest_framework.generics import ListAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from agency.models import Investment, FundWithdrawal
-from payment_app.models import Transaction, UserWallet
+from payment_app.models import Transaction, UserWallet, TDSSubmissionLog
 from payment_app.serializers import WithdrawRequestSerializer, ApproveTransactionSerializer, PayUserSerializer, \
-    UserWalletSerializer, TransactionSerializer, AddMoneyToWalletSerializer
+    UserWalletSerializer, TransactionSerializer, AddMoneyToWalletSerializer, ListTDSSubmissionLogSerializer, \
+    ListTDSAmountWalletSerializer
 
 
 # Create your views here.
@@ -297,3 +302,116 @@ class ApproveTransactionView(APIView):
 
         return Response({"message": f"Transaction {serializer.validated_data['action']}ed successfully."}, status=status.HTTP_200_OK)
 
+
+class ListTDSAmountListView(ListAPIView):
+    serializer_class = ListTDSAmountWalletSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = UserWallet.objects.filter(tds_amount__gt=0)
+        return queryset.order_by("-date_created")
+
+
+class TDSSubmissionAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        submitted_for_id = request.data.get("submitted_for")
+        amount = request.data.get("amount")
+        remarks = request.data.get("remarks", "")
+        evidence = request.FILES.get("evidence")
+
+        if not submitted_for_id or not amount:
+            return Response(
+                {"error": "submitted_for and amount are required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            amount = float(amount)
+            if amount <= 0:
+                return Response({"error": "Amount must be greater than zero."},
+                                status=status.HTTP_400_BAD_REQUEST)
+        except ValueError:
+            return Response({"error": "Invalid amount format."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
+            wallet = UserWallet.objects.filter(user=submitted_for_id).last()
+
+            amount_decimal = Decimal(str(amount))
+
+            if amount_decimal > wallet.tds_amount:
+                return Response({'message': f"You cannot submit more than the available TDS amount "
+                                            f"({wallet.tds_amount})."}, status=status.HTTP_400_BAD_REQUEST)
+
+            wallet.tds_amount -= amount_decimal
+            wallet.save()
+
+            TDSSubmissionLog.objects.create(
+                submitted_for=wallet.user, submitted_by=request.user,
+                amount=amount_decimal, remarks=remarks, evidence=evidence
+            )
+
+        return Response({"message": "TDS amount submitted successfully."},
+                        status=status.HTTP_200_OK)
+
+
+class TDSSubmissionLogListAPIView(ListAPIView):
+    serializer_class = ListTDSSubmissionLogSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user_id = self.request.query_params.get("user_id")
+        month = self.request.query_params.get("month")
+        year = self.request.query_params.get("year")
+
+        queryset = TDSSubmissionLog.objects.all()
+
+        if user_id:
+            queryset = queryset.filter(submitted_for_id=user_id)
+
+        if month:
+            try:
+                month = int(month)
+                queryset = queryset.filter(submission_date__month=month)
+            except ValueError:
+                pass
+
+        if year:
+            try:
+                year = int(year)
+                queryset = queryset.filter(submission_date__year=year)
+            except ValueError:
+                pass
+
+        return queryset.order_by("-submission_date")
+
+
+class ExportTDSAmountCSVView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        queryset = UserWallet.objects.filter(tds_amount__gt=0).order_by("-date_created")
+        serializer = ListTDSAmountWalletSerializer(queryset, many=True)
+
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="tds_amount_report_{datetime.datetime.now().date()}.csv"'
+        writer = csv.writer(response)
+
+        writer.writerow(["Name", "Username", "Email",  "Referral Code", "Phone", "PAN", "TDS Amount", "Last Submit On"])
+
+        for item in serializer.data:
+            user = item['user']
+            writer.writerow([
+                user['name'],
+                user['username'],
+                user['email'],
+                user['referral_code'],
+                user['phone_no'],
+                user['pan_number'],
+                item['tds_amount'],
+                item['last_submit_on'].date() if item['last_submit_on'] else ""
+            ])
+
+        return response

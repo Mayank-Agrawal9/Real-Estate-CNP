@@ -12,7 +12,7 @@ from payment_app.models import Transaction, UserWallet
 from property.models import Property
 from property.serializers import GetMediaDataSerializer, GetNearbyFacilitySerializer, GetPropertyFeatureSerializer
 from web_admin.models import ManualFund, ContactUsEnquiry, PropertyInterestEnquiry, FunctionalityAccessPermissions, \
-    UserFunctionalityAccessPermission, CompanyInvestment
+    UserFunctionalityAccessPermission, CompanyInvestment, TDSPercentage
 
 
 class ProfileSerializer(serializers.ModelSerializer):
@@ -170,6 +170,33 @@ class ContactUsEnquirySerializer(serializers.ModelSerializer):
 class PropertyInterestEnquirySerializer(serializers.ModelSerializer):
     class Meta:
         model = PropertyInterestEnquiry
+        fields = '__all__'
+
+
+class TDSPercentageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TDSPercentage
+        fields = '__all__'
+
+
+class TDSPercentageListSerializer(serializers.ModelSerializer):
+    created_by = serializers.SerializerMethodField()
+    updated_by = serializers.SerializerMethodField()
+
+    def get_created_by(self, obj):
+        if not obj.created_by:
+            return None
+        return {'id': obj.created_by.id,
+                'name': obj.created_by.get_full_name(), 'email': obj.created_by.email}
+
+    def get_updated_by(self, obj):
+        if not obj.updated_by:
+            return None
+        return {'id': obj.updated_by.id,
+                'name': obj.updated_by.get_full_name(), 'email': obj.updated_by.email}
+
+    class Meta:
+        model = TDSPercentage
         fields = '__all__'
 
 

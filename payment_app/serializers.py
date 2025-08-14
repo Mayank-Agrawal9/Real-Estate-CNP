@@ -7,7 +7,7 @@ from rest_framework import serializers
 
 from accounts.models import Profile
 from payment_app.choices import PAYMENT_METHOD
-from payment_app.models import UserWallet, Transaction
+from payment_app.models import UserWallet, Transaction, TDSSubmissionLog
 
 
 class PayUserSerializer(serializers.Serializer):
@@ -129,3 +129,56 @@ class AddMoneyToWalletSerializer(serializers.Serializer):
     def validate(self, data):
         data['deposit_transaction_id'] = str(uuid.uuid4())
         return data
+
+
+class TDSAmountSubmissionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TDSSubmissionLog
+        fields = '__all__'
+
+
+class ListTDSSubmissionLogSerializer(serializers.ModelSerializer):
+    submitted_by = serializers.SerializerMethodField()
+    submitted_for = serializers.SerializerMethodField()
+
+    def get_submitted_by(self, obj):
+        if not obj.submitted_by:
+            return None
+        return {'id': obj.submitted_by.id, 'name': obj.submitted_by.get_full_name(),
+                'username': obj.submitted_by.username, 'email': obj.submitted_by.email}
+
+    def get_submitted_for(self, obj):
+        if not obj.submitted_for:
+            return None
+        return {'id': obj.submitted_for.id, 'name': obj.submitted_for.get_full_name(),
+                'username': obj.submitted_for.username, 'email': obj.submitted_for.email}
+
+    class Meta:
+        model = TDSSubmissionLog
+        fields = '__all__'
+
+
+class ListTDSAmountWalletSerializer(serializers.ModelSerializer):
+    user = serializers.SerializerMethodField()
+    last_submit_on = serializers.SerializerMethodField()
+
+    def get_user(self, obj):
+        return {
+            'id': obj.user.id,
+            'name': obj.user.get_full_name(),
+            'username': obj.user.username,
+            'email': obj.user.email,
+            'referral_code': obj.user.profile.referral_code,
+            'phone_no': obj.user.profile.mobile_number,
+            'pan_number': obj.user.profile.pan_number,
+        }
+
+    def get_last_submit_on(self, obj):
+        last_submit = TDSSubmissionLog.objects.filter(submitted_for=obj.user).last()
+        if not last_submit:
+            return None
+        return last_submit.submission_date
+
+    class Meta:
+        model = UserWallet
+        fields = ('id', 'user', 'tds_amount', 'last_submit_on')
