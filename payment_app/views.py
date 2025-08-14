@@ -1,8 +1,10 @@
+import csv
 import datetime
 from decimal import Decimal
 
 from django.db import transaction
 from django.db.models import Q
+from django.http import HttpResponse
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -384,3 +386,32 @@ class TDSSubmissionLogListAPIView(ListAPIView):
                 pass
 
         return queryset.order_by("-submission_date")
+
+
+class ExportTDSAmountCSVView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        queryset = UserWallet.objects.filter(tds_amount__gt=0).order_by("-date_created")
+        serializer = ListTDSAmountWalletSerializer(queryset, many=True)
+
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="tds_amount_report_{datetime.datetime.now().date()}.csv"'
+        writer = csv.writer(response)
+
+        writer.writerow(["Name", "Username", "Email",  "Referral Code", "Phone", "PAN", "TDS Amount", "Last Submit On"])
+
+        for item in serializer.data:
+            user = item['user']
+            writer.writerow([
+                user['name'],
+                user['username'],
+                user['email'],
+                user['referral_code'],
+                user['phone_no'],
+                user['pan_number'],
+                item['tds_amount'],
+                item['last_submit_on'].date() if item['last_submit_on'] else ""
+            ])
+
+        return response

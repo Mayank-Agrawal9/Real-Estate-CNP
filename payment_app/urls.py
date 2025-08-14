@@ -13,4 +13,5 @@ urlpatterns = [
     path('tds-list/', ListTDSAmountListView.as_view()),
     path('tds-submit/', TDSSubmissionAPIView.as_view()),
     path('tds-submitted-log/', TDSSubmissionLogListAPIView.as_view()),
+    path('export-tds-report/', ExportTDSAmountCSVView.as_view()),
 ]
