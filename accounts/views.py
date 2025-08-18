@@ -1324,7 +1324,8 @@ class AppInfoAPIView(APIView):
     def get(self, request):
         force_update_required = False
         is_logout_required = False
-        get_user_info = DeviceInfo.objects.filter(created_by=self.request.user).last()
+        get_user_info = DeviceInfo.objects.filter(Q(created_by=self.request.user) |
+                                                  Q(created_by=self.request.user.profile.parent_user)).last()
         app_version = AppVersion.objects.filter(platform='android').last()
         if not app_version:
             return Response({'message': 'Android version is not set please update the version'},

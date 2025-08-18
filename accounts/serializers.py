@@ -417,7 +417,7 @@ class AppVersionSerializer(serializers.ModelSerializer):
     def get_is_force_update(self, obj):
         request = self.context.get('request')
         user = request.user if request else False
-        get_version = DeviceInfo.objects.filter(created_by=user).last()
+        get_version = DeviceInfo.objects.filter(Q(created_by=user) | Q(created_by=user.profile.parent_user)).last()
 
         if not get_version:
             return True
