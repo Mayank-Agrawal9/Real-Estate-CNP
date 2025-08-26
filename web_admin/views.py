@@ -2299,20 +2299,65 @@ class GetAllTopUpList(APIView):
         paginator = PageNumberPagination()
         paginator.page_size = int(request.query_params.get("page_size", 20))
 
-        users = MLMTree.objects.filter(status='active', is_show=True).order_by('-id')
-        paginated_users = paginator.paginate_queryset(users, request)
+        users = (
+            MLMTree.objects.filter(status="active", is_show=True)
+            .select_related("child", "child__profile")
+            .order_by("-id")
+        )
+
+        investments = (
+            Investment.objects.filter(status="active", package__isnull=False, investment_type="p2pmb")
+            .values("user").annotate(total=Sum("amount"))
+        )
+        investment_map = {i["user"]: i["total"] or Decimal(0) for i in investments}
+
+        commissions = (
+            Commission.objects.filter(status="active", commission_type__in=["direct", "level"])
+            .values("commission_to").annotate(total=Sum("amount"))
+        )
+        commission_map = {c["commission_to"]: c["total"] or Decimal(0) for c in commissions}
+
+        rois = (
+            InvestmentInterest.objects.filter(status="active")
+            .values("investment__user").annotate(total=Sum("interest_amount"))
+        )
+        roi_map = {r["investment__user"]: r["total"] or Decimal(0) for r in rois}
+
+        royalties = (
+            RoyaltyEarned.objects.filter(status="active")
+            .values("user").annotate(total=Sum("earned_amount"))
+        )
+        royalty_map = {r["user"]: r["total"] or Decimal(0) for r in royalties}
+
+        rewards = (
+            RewardEarned.objects.filter(status="active")
+            .values("user").annotate(total=Sum("reward__gift_amount"))
+        )
+        reward_map = {r["user"]: r["total"] or Decimal(0) for r in rewards}
+
+        core_incomes = (
+            CoreIncomeEarned.objects.filter(status="active")
+            .values("user").annotate(total=Sum("income_earned"))
+        )
+        core_map = {c["user"]: c["total"] or Decimal(0) for c in core_incomes}
+
+        extras = (
+            ExtraRewardEarned.objects.filter(status="active")
+            .values("user").annotate(total=Sum("amount"))
+        )
+        extra_map = {e["user"]: e["total"] or Decimal(0) for e in extras}
+
+        working_ids = (
+            MLMTree.objects.values("referral_by").annotate(total=Count("id"))
+        )
+        working_map = {w["referral_by"]: w["total"] for w in working_ids}
 
         data = []
-        for user in paginated_users:
-            total_invested_amount = (
-                Investment.objects.filter(
-                    status="active", user=user.child,
-                    package__isnull=False, investment_type="p2pmb"
-                )
-                .aggregate(total=Sum("amount"))["total"] or Decimal(0)
-            )
+        for user in users:
+            child_id = user.child.id
+            total_invested_amount = investment_map.get(child_id, Decimal(0))
 
-            check_working_id = MLMTree.objects.filter(referral_by=user.child).count()
+            check_working_id = working_map.get(child_id, 0)
             if check_working_id >= 2:
                 is_working_id = True
                 total_return_amount = total_invested_amount * Decimal("4.4")
@@ -2320,61 +2365,40 @@ class GetAllTopUpList(APIView):
                 is_working_id = False
                 total_return_amount = total_invested_amount * Decimal("2.1")
 
-            total_commission_earned = (
-                Commission.objects.filter(status="active", commission_to=user.child,
-                                          commission_type__in=['direct', 'level'])
-                .aggregate(total_amount=Sum("amount"))["total_amount"] or Decimal(0)
-            )
-
-            roi_earned = (
-                InvestmentInterest.objects.filter(status="active", investment__user=user.child)
-                .aggregate(total_amount=Sum("interest_amount"))["total_amount"] or Decimal(0)
-            )
-
-            royalty_earned = (
-                RoyaltyEarned.objects.filter(status="active", user=user.child)
-                .aggregate(total_amount=Sum("earned_amount"))["total_amount"] or Decimal(0)
-            )
-
-            reward_earned = (
-                RewardEarned.objects.filter(status="active", user=user.child)
-                .aggregate(total_amount=Sum("reward__gift_amount"))["total_amount"] or Decimal(0)
-            )
-
-            core_group_income = (
-                CoreIncomeEarned.objects.filter(status="active", user=user.child)
-                .aggregate(total=Sum("income_earned"))["total"] or Decimal(0)
-            )
-
-            extra_income = (
-                ExtraRewardEarned.objects.filter(status="active", user=user.child)
-                .aggregate(total=Sum("amount"))["total"] or Decimal(0)
-            )
+            total_commission_earned = commission_map.get(child_id, Decimal(0))
+            roi_earned = roi_map.get(child_id, Decimal(0))
+            royalty_earned = royalty_map.get(child_id, Decimal(0))
+            reward_earned = reward_map.get(child_id, Decimal(0))
+            core_group_income = core_map.get(child_id, Decimal(0))
+            extra_income = extra_map.get(child_id, Decimal(0))
 
             total_income_earned = (
-                total_commission_earned + roi_earned + royalty_earned +
-                reward_earned + core_group_income + extra_income
+                    total_commission_earned + roi_earned + royalty_earned + reward_earned + core_group_income
+                    + extra_income
             )
 
             current_due_value = total_return_amount - total_income_earned
             fifty_percentage_of_value = total_return_amount * Decimal("0.25")
-
             is_low_balance = current_due_value <= fifty_percentage_of_value
 
-            data.append({
-                "investment_amount": total_invested_amount,
-                "is_working_id": is_working_id,
-                "total_return_amount": total_return_amount,
-                "total_income_earned": total_income_earned,
-                "current_due_values": current_due_value,
-                "is_low_balance": is_low_balance,
-                "user": {
-                    'id': user.child.id,
-                    'name': user.child.get_full_name(),
-                    'username': user.child.username,
-                    'referral_code': user.child.profile.referral_code,
-                    'email': user.child.email
-                },
-            })
+            data.append(
+                {
+                    "investment_amount": total_invested_amount,
+                    "is_working_id": is_working_id,
+                    "total_return_amount": total_return_amount,
+                    "total_income_earned": total_income_earned,
+                    "current_due_values": current_due_value,
+                    "is_low_balance": is_low_balance,
+                    "user": {
+                        "id": child_id,
+                        "name": user.child.get_full_name(),
+                        "username": user.child.username,
+                        "referral_code": user.child.profile.referral_code,
+                        "email": user.child.email,
+                    },
+                }
+            )
+
         data.sort(key=lambda x: x["total_income_earned"], reverse=True)
-        return paginator.get_paginated_response(data)
+        paginated_data = paginator.paginate_queryset(data, request)
+        return paginator.get_paginated_response(paginated_data)
