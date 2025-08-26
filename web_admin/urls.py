@@ -67,5 +67,6 @@ urlpatterns = [
     path('send-reward/', SendRewardAPIView.as_view(), name='send-reward'),
     path('investment/<int:id>/', InvestmentDelete.as_view(), name='investment-delete'),
     path('top-up-list/', GetAllTopUpList.as_view(), name='top-up-list'),
+    path('core-income-earned/', CoreIncomeEarnedAPIView.as_view(), name='core-income-earned'),
 
 ]

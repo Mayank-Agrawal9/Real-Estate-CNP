@@ -75,7 +75,7 @@ class PPDAccountAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
 class FundWithdrawalAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
     resource_class = FundWithdrawalResource
     search_fields = ['user__username', 'user__email']
-    raw_id_fields = ('created_by', 'updated_by', 'user')
+    raw_id_fields = ('created_by', 'updated_by', 'user', 'transaction', 'action_taken_by')
     list_filter = ('status', )
 
 

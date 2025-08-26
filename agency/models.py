@@ -203,6 +203,8 @@ class FundWithdrawal(ModelMixin):
     action_date = models.DateTimeField(null=True, blank=True)
     action_taken_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='withdraw_action_taken',
                                         null=True, blank=True)
+    transaction = models.ForeignKey(Transaction, on_delete=models.CASCADE, related_name='withdraw_transaction',
+                                    null=True, blank=True)
     rejection_reason = models.TextField(null=True, blank=True)
     is_paid = models.BooleanField(default=False)
 

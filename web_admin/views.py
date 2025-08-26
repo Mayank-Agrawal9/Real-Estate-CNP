@@ -23,6 +23,7 @@ from master.models import CoreGroupIncome, RewardMaster
 from notification.models import InAppNotification
 from p2pmb.helpers import get_downline_count
 from p2pmb.models import Commission, MLMTree, CoreIncomeEarned, RoyaltyEarned, ExtraRewardEarned, ExtraReward, Reward
+from p2pmb.serializers import CoreIncomeEarnedSerializer
 from property.models import Property
 from web_admin.helpers import add_cashfree_beneficiary
 from web_admin.models import ManualFund, CompanyInvestment, ContactUsEnquiry, PropertyInterestEnquiry, \
@@ -1279,15 +1280,15 @@ class ApproveRejectWithDrawAPIView(APIView):
             return Response({"error": "Invalid withdraw Id."}, status=status.HTTP_400_BAD_REQUEST)
 
         if action == "approved":
-            deducted_amount = withdraw.withdrawal_amount * Decimal('0.95')
-            taxable_amount = withdraw.withdrawal_amount - deducted_amount
-            Transaction.objects.create(
-                sender=withdraw.user, receiver=withdraw.user, amount=deducted_amount,
-                transaction_type='receive', transaction_status='deposit', payment_method='upi',
-                remarks='Withdraw Request approved.', verified_by=self.request.user, verified_on=datetime.datetime.now(),
-                taxable_amount=taxable_amount
-            )
-            wallet = UserWallet.objects.filter(user=withdraw.user).last()
+            # deducted_amount = withdraw.withdrawal_amount * Decimal('0.95')
+            # taxable_amount = withdraw.withdrawal_amount - deducted_amount
+            # Transaction.objects.create(
+            #     sender=withdraw.user, receiver=withdraw.user, amount=deducted_amount,
+            #     transaction_type='receive', transaction_status='deposit', payment_method='upi',
+            #     remarks='Withdraw Request approved.', verified_by=self.request.user, verified_on=datetime.datetime.now(),
+            #     taxable_amount=taxable_amount
+            # )
+            # wallet = UserWallet.objects.filter(user=withdraw.user).last()
             # bank_details = BankDetails.objects.filter(user=withdraw.user).last()
             # if not bank_details or bank_details.account_number or bank_details.ifsc_code:
             #     return Response({"detail": f"Need to update account number or ifsc code of the user."},
@@ -1299,8 +1300,14 @@ class ApproveRejectWithDrawAPIView(APIView):
             # else:
             #     beneficiary_id = bank_details.beneficiary_id
 
-            wallet.main_wallet_balance -= withdraw.withdrawal_amount
-            wallet.save()
+            # wallet.main_wallet_balance -= withdraw.withdrawal_amount
+            # wallet.save()
+            if withdraw.transaction:
+                transaction = Transaction.objects.filter(id=withdraw.transaction).last()
+                if transaction:
+                    transaction.transaction_status = 'approved'
+                    transaction.save()
+
             withdraw.withdrawal_status = "approved"
             withdraw.rejection_reason = None
             withdraw.is_paid = True
@@ -1718,13 +1725,21 @@ class ROIAggregateAPIView(APIView):
     permission_classes = [IsStaffUser]
 
     def get(self, request):
-        month = int(request.query_params.get("month", datetime.datetime.now().month))
-        year = int(request.query_params.get("year", datetime.datetime.now().year))
+        month = request.query_params.get("month")
+        year = request.query_params.get("year")
         user_id = request.query_params.get("user")
 
-        investment = InvestmentInterest.objects.filter(
-            interest_send_date__month=month, interest_send_date__year=year
-        ).select_related('investment', 'investment__user')
+        month = int(month) if month else None
+        year = int(year) if year else None
+
+        investment = InvestmentInterest.objects.select_related('investment', 'investment__user')
+
+        if month and year:
+            investment = investment.filter(
+                interest_send_date__month=month, interest_send_date__year=year
+            )
+        elif year:
+            investment = investment.filter(interest_send_date__year=year)
 
         if user_id:
             investment = investment.filter(investment__user__id=user_id)
@@ -1742,13 +1757,19 @@ class CoreGroupIncomeAggregateAPIView(APIView):
     permission_classes = [IsStaffUser]
 
     def get(self, request):
-        month = int(request.query_params.get("month", datetime.datetime.now().month))
-        year = int(request.query_params.get("year", datetime.datetime.now().year))
+        month = request.query_params.get("month")
+        year = request.query_params.get("year")
         user_id = request.query_params.get("user")
 
-        investment = CoreIncomeEarned.objects.filter(
-            date_created__month=month, date_created__year=year
-        ).select_related('investment', 'investment__user')
+        month = int(month) if month else None
+        year = int(year) if year else None
+
+        investment = CoreIncomeEarned.objects.select_related('investment', 'investment__user')
+
+        if month and year:
+            investment = investment.filter(date_created__month=month, date_created__year=year)
+        elif year:
+            investment = investment.filter(date_created__year=year)
 
         if user_id:
             investment = investment.filter(user__id=user_id)
@@ -1766,13 +1787,19 @@ class RewardAggregateAPIView(APIView):
     permission_classes = [IsStaffUser]
 
     def get(self, request):
-        month = int(request.query_params.get("month", datetime.datetime.now().month))
-        year = int(request.query_params.get("year", datetime.datetime.now().year))
+        month = request.query_params.get("month")
+        year = request.query_params.get("year")
         user_id = request.query_params.get("user")
 
-        rewards = RewardEarned.objects.filter(
-            earned_at__month=month, earned_at__year=year
-        ).select_related('reward', 'user')
+        month = int(month) if month else None
+        year = int(year) if year else datetime.datetime.now().year
+
+        rewards = RewardEarned.objects.select_related('reward', 'user')
+
+        if month and year:
+            rewards = rewards.filter(earned_at__month=month, earned_at__year=year)
+        elif year:
+            rewards = rewards.filter(earned_at__year=year)
 
         if user_id:
             rewards = rewards.filter(user__id=user_id)
@@ -1790,13 +1817,19 @@ class ExtraRewardAggregateAPIView(APIView):
     permission_classes = [IsStaffUser]
 
     def get(self, request):
-        month = int(request.query_params.get("month", datetime.datetime.now().month))
-        year = int(request.query_params.get("year", datetime.datetime.now().year))
+        month = request.query_params.get("month")
+        year = request.query_params.get("year")
         user_id = request.query_params.get("user")
 
-        extra_rewards = ExtraRewardEarned.objects.filter(
-            date_created__month=month, date_created__year=year
-        ).select_related('extra_reward', 'user')
+        month = int(month) if month else None
+        year = int(year) if year else None
+
+        extra_rewards = ExtraRewardEarned.objects.select_related('extra_reward', 'user')
+
+        if month and year:
+            extra_rewards = extra_rewards.filter(date_created__month=month, date_created__year=year)
+        elif year:
+            extra_rewards = extra_rewards.filter(date_created__year=year)
 
         if user_id:
             extra_rewards = extra_rewards.filter(user__id=user_id)
@@ -1814,14 +1847,23 @@ class LevelIncomeEarnedAPIView(APIView):
     permission_classes = [IsStaffUser]
 
     def get(self, request):
-        month = int(request.query_params.get("month", datetime.datetime.now().month))
-        year = int(request.query_params.get("year", datetime.datetime.now().year))
+        month = request.query_params.get("month")
+        year = request.query_params.get("year")
         user_id = request.query_params.get("user")
         type = request.query_params.get("type")
 
-        commissions = Commission.objects.filter(
-            date_created__month=month, date_created__year=year, commission_type=type
-        ).select_related('commission_to', 'commission_by')
+        month = int(month) if month else None
+        year = int(year) if year else None
+
+        commissions = Commission.objects.select_related('commission_to', 'commission_by')
+
+        if type:
+            commissions = commissions.filter(commission_type=type)
+
+        if month and year:
+            commissions = commissions.filter(date_created__month=month, date_created__year=year)
+        elif year:
+            commissions = commissions.filter(date_created__year=year)
 
         if user_id:
             commissions = commissions.filter(commission_to__id=user_id)
@@ -1839,13 +1881,19 @@ class RoyaltyEarnedAggregateAPIView(APIView):
     permission_classes = [IsStaffUser]
 
     def get(self, request):
-        month = int(request.query_params.get("month", datetime.datetime.now().month))
-        year = int(request.query_params.get("year", datetime.datetime.now().year))
+        month = request.query_params.get("month")
+        year = request.query_params.get("year")
         user_id = request.query_params.get("user")
 
-        royaltys = RoyaltyEarned.objects.filter(
-            earned_date__month=month, earned_date__year=year
-        ).select_related('royalty', 'user')
+        month = int(month) if month else None
+        year = int(year) if year else None
+
+        royaltys = RoyaltyEarned.objects.select_related('royalty', 'user')
+
+        if month and year:
+            royaltys = royaltys.filter(earned_date__month=month, earned_date__year=year)
+        elif year:
+            royaltys = royaltys.filter(earned_date__year=year)
 
         if user_id:
             royaltys = royaltys.filter(user__id=user_id)
@@ -1863,14 +1911,23 @@ class RewardEarnedAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        month = int(request.query_params.get("month", datetime.datetime.now().month))
-        year = int(request.query_params.get("year", datetime.datetime.now().year))
+        month = request.query_params.get("month")
+        year = request.query_params.get("year")
         user_id = request.query_params.get("user")
+
+        month = int(month) if month else None
+        year = int(year) if year else None
+
         queryset = RewardEarned.objects.filter(status='active')
+
         if user_id:
             queryset = queryset.filter(user=user_id)
+
         if month and year:
             queryset = queryset.filter(earned_at__month=month, earned_at__year=year)
+        elif year:
+            queryset = queryset.filter(earned_at__year=year)
+
         paginator = LimitOffsetPagination()
         paginated_transactions = paginator.paginate_queryset(queryset, request)
         serializer = RewardEarnedAdminSerializer(paginated_transactions, many=True)
@@ -1989,17 +2046,53 @@ class RoyaltyEarnedAPIView(APIView):
     permission_classes = [IsStaffUser]
 
     def get(self, request):
-        month = int(request.query_params.get("month", datetime.datetime.now().month))
-        year = int(request.query_params.get("year", datetime.datetime.now().year))
+        month = request.query_params.get("month")
+        year = request.query_params.get("year")
         user_id = request.query_params.get("user")
+
+        month = int(month) if month else None
+        year = int(year) if year else None
+
         queryset = RoyaltyEarned.objects.filter(status='active')
+
         if user_id:
             queryset = queryset.filter(user=user_id)
+
         if month and year:
             queryset = queryset.filter(earned_date__month=month, earned_date__year=year)
+        elif year:
+            queryset = queryset.filter(earned_date__year=year)
+
         paginator = LimitOffsetPagination()
         paginated_transactions = paginator.paginate_queryset(queryset, request)
         serializer = RoyaltyEarnedAdminSerializer(paginated_transactions, many=True)
+        return paginator.get_paginated_response(serializer.data)
+
+
+class CoreIncomeEarnedAPIView(APIView):
+    permission_classes = [IsStaffUser]
+
+    def get(self, request):
+        month = request.query_params.get("month")
+        year = request.query_params.get("year")
+        user_id = request.query_params.get("user")
+
+        month = int(month) if month else None
+        year = int(year) if year else None
+
+        queryset = CoreIncomeEarned.objects.filter(status='active')
+
+        if user_id:
+            queryset = queryset.filter(user=user_id)
+
+        if month and year:
+            queryset = queryset.filter(date_created__month=month, date_created__year=year)
+        elif year:
+            queryset = queryset.filter(date_created__year=year)
+
+        paginator = LimitOffsetPagination()
+        paginated_transactions = paginator.paginate_queryset(queryset, request)
+        serializer = CoreIncomeEarnedSerializer(paginated_transactions, many=True)
         return paginator.get_paginated_response(serializer.data)
 
 
@@ -2007,14 +2100,23 @@ class ExtraRewardEarnedAPIView(APIView):
     permission_classes = [IsStaffUser]
 
     def get(self, request):
-        month = int(request.query_params.get("month", datetime.datetime.now().month))
-        year = int(request.query_params.get("year", datetime.datetime.now().year))
+        month = request.query_params.get("month")
+        year = request.query_params.get("year")
         user_id = request.query_params.get("user")
+
+        month = int(month) if month else None
+        year = int(year) if year else None
+
         queryset = ExtraRewardEarned.objects.filter(status='active')
+
         if user_id:
             queryset = queryset.filter(user=user_id)
+
         if month and year:
             queryset = queryset.filter(date_created__month=month, date_created__year=year)
+        elif year:
+            queryset = queryset.filter(date_created__year=year)
+
         paginator = LimitOffsetPagination()
         paginated_transactions = paginator.paginate_queryset(queryset, request)
         serializer = ExtraRewardEarnedAdminSerializer(paginated_transactions, many=True)
@@ -2025,14 +2127,23 @@ class ROIEarnedListAPIView(APIView):
     permission_classes = [IsStaffUser]
 
     def get(self, request):
-        month = int(request.query_params.get("month", datetime.datetime.now().month))
-        year = int(request.query_params.get("year", datetime.datetime.now().year))
+        month = request.query_params.get("month")
+        year = request.query_params.get("year")
         user_id = request.query_params.get("user")
+
+        month = int(month) if month else None
+        year = int(year) if year else None
+
         queryset = InvestmentInterest.objects.filter(status='active').select_related('investment', 'investment__user')
+
         if user_id:
             queryset = queryset.filter(investment__user=user_id)
+
         if month and year:
             queryset = queryset.filter(interest_send_date__month=month, interest_send_date__year=year)
+        elif year:
+            queryset = queryset.filter(interest_send_date__year=year)
+
         paginator = LimitOffsetPagination()
         paginated_transactions = paginator.paginate_queryset(queryset, request)
         serializer = ROIEarnedAdminSerializer(paginated_transactions, many=True)
@@ -2246,7 +2357,7 @@ class GetAllTopUpList(APIView):
             )
 
             current_due_value = total_return_amount - total_income_earned
-            fifty_percentage_of_value = total_return_amount * Decimal("0.50")
+            fifty_percentage_of_value = total_return_amount * Decimal("0.25")
 
             is_low_balance = current_due_value <= fifty_percentage_of_value
 
@@ -2265,5 +2376,5 @@ class GetAllTopUpList(APIView):
                     'email': user.child.email
                 },
             })
-
+        data.sort(key=lambda x: x["total_income_earned"], reverse=True)
         return paginator.get_paginated_response(data)
