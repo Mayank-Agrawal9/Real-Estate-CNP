@@ -217,12 +217,23 @@ class UserWalletViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         amount = serializer.validated_data['amount']
         taxable_amount = (Decimal(amount) * Decimal('0.05'))
-        Transaction.objects.create(
+
+        user_wallet = UserWallet.objects.filter(status='active', user=self.request.user).last()
+
+        if not user_wallet:
+            return Response({"error": "You are not linked with wallet, please connect to admin."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        user_wallet.main_wallet_balance -= amount
+        user_wallet.tds_amount += taxable_amount
+        user_wallet.save()
+
+        transaction_history = Transaction.objects.create(
             created_by=request.user, sender=request.user,
-            receiver=request.user, amount=amount,
-            taxable_amount=taxable_amount, transaction_type='withdraw', transaction_status='pending'
+            receiver=request.user, amount=amount, taxable_amount=taxable_amount,
+            transaction_type='withdraw', transaction_status='pending', remarks=f'Your withdraw request of Rs. {amount}'
         )
-        FundWithdrawal.objects.create(user=request.user, withdrawal_amount=amount,
+        FundWithdrawal.objects.create(user=request.user, withdrawal_amount=amount, transaction=transaction_history,
                                       withdrawal_date=datetime.datetime.now(), taxable_amount=taxable_amount)
         return Response({"message": "Your withdrawal will be credited to your account within 48 hours. "
                                     "Thank you for your patience."}, status=status.HTTP_201_CREATED)
