@@ -1047,13 +1047,23 @@ class ProcessMonthlyInterestP2PMB:
 
     @staticmethod
     def calculate_monthly_interest_amount(user, investment_type, invested_amount):
-        """Example function to calculate monthly interest."""
-        user_updated_percentage = ROIOverride.objects.filter(user=user, status='active').last()
-        if user_updated_percentage:
-            percentage_value = user_updated_percentage.percentage or 0
-            interest_rate = Decimal(str(percentage_value)) / Decimal('100')
-        else:
-            interest_rate = ProcessMonthlyInterestP2PMB.calculate_interest_rate(user, investment_type)
+        """Calculate monthly interest with all ROI overrides applied."""
+        interest_rate = ProcessMonthlyInterestP2PMB.calculate_interest_rate(user, investment_type)
+
+        overrides = ROIOverride.objects.filter(user=user, status='active')
+
+        for override in overrides:
+            percentage_value = override.percentage or 0
+            adjustment = Decimal(str(percentage_value)) / Decimal('100')
+
+            if override.action_type == 'increase':
+                interest_rate += adjustment
+            elif override.action_type == 'decrease':
+                interest_rate -= adjustment
+
+        if interest_rate < Decimal('0'):
+            interest_rate = Decimal('0')
+
         interest_amount = invested_amount * interest_rate
         return interest_amount
 
