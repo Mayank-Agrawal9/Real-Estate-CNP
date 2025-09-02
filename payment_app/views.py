@@ -3,7 +3,8 @@ import datetime
 from decimal import Decimal
 
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Q, Sum
+from django.db.models.functions import TruncMonth
 from django.http import HttpResponse
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status, viewsets
@@ -321,6 +322,35 @@ class ListTDSAmountListView(ListAPIView):
     def get_queryset(self):
         queryset = UserWallet.objects.filter(tds_amount__gt=0)
         return queryset.order_by("-date_created")
+
+
+class MonthWiseTDSAmountListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user_id = request.query_params.get("user_id")
+        month = request.query_params.get("month")
+        year = request.query_params.get("year")
+
+        if not user_id:
+            return Response({"error": "user_id is required"}, status=400)
+
+        queryset = Transaction.objects.filter(
+            created_by=user_id, transaction_type__in=["send", "transfer", "withdraw"]
+        )
+
+        if year:
+            queryset = queryset.filter(date_created__year=year)
+        if month:
+            queryset = queryset.filter(date_created__month=month)
+
+        data = (
+            queryset.annotate(month=TruncMonth("date_created")).values("month")
+            .annotate(total_amount=Sum("taxable_amount"))
+            .order_by("month")
+        )
+
+        return Response(data)
 
 
 class TDSSubmissionAPIView(APIView):
