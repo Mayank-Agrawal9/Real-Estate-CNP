@@ -5,7 +5,7 @@ from django.db import transaction
 from rest_framework import serializers
 
 from accounts.models import Profile
-from agency.models import Investment
+from agency.models import Investment, InvestmentInterest
 from payment_app.models import Transaction, UserWallet
 from .models import MLMTree, User, Package, Commission, ExtraReward, CoreIncomeEarned, P2PMBRoyaltyMaster, \
     RoyaltyEarned, ExtraRewardEarned, HoldLevelIncome, ROIOverride, LapsedAmount
@@ -391,6 +391,17 @@ class P2PMBRoyaltyMasterSerializer(serializers.ModelSerializer):
     class Meta:
         model = P2PMBRoyaltyMaster
         fields = '__all__'
+
+
+class InvestmentInterestSerializer(serializers.ModelSerializer):
+    invested_amount = serializers.SerializerMethodField()
+
+    def get_invested_amount(self, obj):
+        return obj.investment.amount if obj.investment else 0
+
+    class Meta:
+        model = InvestmentInterest
+        fields = ('id', 'invested_amount', 'interest_amount', 'interest_send_date')
 
 
 class ROIOverRideSerializer(serializers.ModelSerializer):

@@ -25,7 +25,7 @@ from p2pmb.serializers import MLMTreeSerializer, MLMTreeNodeSerializer, PackageS
     ShowInvestmentDetail, GetP2PMBLevelData, GetMyApplyingData, MLMTreeNodeSerializerV2, MLMTreeParentNodeSerializerV2, \
     ExtraRewardSerializer, CoreIncomeEarnedSerializer, RoyaltyEarnedSerializer, P2PMBRoyaltyMasterSerializer, \
     CreateRoyaltyEarnedSerializer, TransactionSerializer, GetDirectUserSerializer, HoldLevelIncomeSerializer, \
-    ROIOverRideSerializer, LapsedAmountSerializer, ROIOverrideListSerializer
+    ROIOverRideSerializer, LapsedAmountSerializer, ROIOverrideListSerializer, InvestmentInterestSerializer
 from payment_app.models import Transaction, UserWallet
 
 
@@ -627,6 +627,47 @@ class GetAllPayout(ListAPIView):
             queryset = queryset.filter(created_at__date__lte=parse_date(end_date))
 
         return queryset
+
+
+class ROIListView(ListAPIView):
+    '''
+    This API is used to get all the payout which we send to user.
+    '''
+    serializer_class = InvestmentInterestSerializer
+    permission_classes = [IsAuthenticated]
+    filterset_fields = ['interest_send_date', ]
+
+    def get_queryset(self):
+        interest = InvestmentInterest.objects.filter(status='active', investment__user=self.request.user)
+
+        month = self.request.query_params.get("month")
+        year = self.request.query_params.get("year")
+
+        if month:
+            interest = interest.filter(interest_send_date__month=month)
+        if year:
+            interest = interest.filter(interest_send_date__year=year)
+
+        return interest
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+
+        total_interest_income = queryset.aggregate(
+            total=Sum('interest_amount'))['total'] or 0
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            response = self.get_paginated_response(serializer.data)
+            response.data['total_interest_amount'] = total_interest_income
+            return response
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({
+            "results": serializer.data,
+            "total_interest_amount": total_interest_income
+        })
 
 
 class GetParentLevelCountView(APIView):
