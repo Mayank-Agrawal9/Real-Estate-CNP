@@ -32,6 +32,7 @@ urlpatterns = [
     path('life-time-reward/', LifeTimeRewardIncomeAPIView.as_view()),
     path('royalty-income/', RoyaltyIncome.as_view()),
     path('monthly-interest/', SendMonthlyInterestIncome.as_view()),
+    path('roi-list/', ROIListView.as_view()),
     path('get-payout/', GetAllPayout.as_view()),
     path('my-top-up/', GetTopUpInvestment.as_view()),
     path('my-id-value/', MyIdValueAPIView.as_view()),
