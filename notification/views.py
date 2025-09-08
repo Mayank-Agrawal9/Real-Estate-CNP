@@ -26,15 +26,19 @@ class AppNotificationViewSet(viewsets.ModelViewSet):
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
 
-        queryset.filter(is_read=False).update(is_read=True)
-
         page = self.paginate_queryset(queryset)
         if page is not None:
             serializer = self.get_serializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
+            response = self.get_paginated_response(serializer.data)
+        else:
+            serializer = GetNotificationSerializer(queryset, many=True)
+            response = Response(serializer.data)
 
-        serializer = GetNotificationSerializer(queryset, many=True)
-        return Response(serializer.data)
+        def mark_as_read_callback(response):
+            queryset.filter(is_read=False).update(is_read=True)
+
+        response.add_post_render_callback(mark_as_read_callback)
+        return response
 
     @action(detail=False, methods=['get'])
     def unread_count(self, request):
