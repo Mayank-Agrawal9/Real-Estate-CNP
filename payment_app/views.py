@@ -225,7 +225,7 @@ class UserWalletViewSet(viewsets.ModelViewSet):
             return Response({"error": "You are not linked with wallet, please connect to admin."},
                             status=status.HTTP_400_BAD_REQUEST)
 
-        user_wallet.main_wallet_balance -= amount
+        user_wallet.main_wallet_balance -= Decimal(str(amount))
         user_wallet.tds_amount += taxable_amount
         user_wallet.save()
 
