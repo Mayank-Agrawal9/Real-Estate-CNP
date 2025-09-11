@@ -1303,7 +1303,7 @@ class ApproveRejectWithDrawAPIView(APIView):
             # wallet.main_wallet_balance -= withdraw.withdrawal_amount
             # wallet.save()
             if withdraw.transaction:
-                transaction = Transaction.objects.filter(id=withdraw.transaction).last()
+                transaction = Transaction.objects.filter(id=withdraw.transaction.id).last()
                 if transaction:
                     transaction.transaction_status = 'approved'
                     transaction.save()
