@@ -1,6 +1,9 @@
 import datetime
 
-from p2pmb.models import Commission, MLMTree
+import django_filters
+from django.db.models import Q
+
+from p2pmb.models import Commission, MLMTree, ExtraReward
 from payment_app.models import Transaction
 
 
@@ -83,3 +86,20 @@ def get_level_counts(direct_count):
         (upl, downl) for count, (upl, downl) in level_map.items() if direct_count >= count
     )
 
+
+class ExtraRewardFilter(django_filters.FilterSet):
+    is_expire = django_filters.BooleanFilter(method="filter_is_expire")
+
+    class Meta:
+        model = ExtraReward
+        fields = ["reward_type", "status", "is_expire"]
+
+    def filter_is_expire(self, queryset, name, value):
+        today = datetime.date.today()
+        if value is True:
+            return queryset.filter(end_date__lt=today)
+        elif value is False:
+            return queryset.filter(
+                Q(end_date__gte=today) | Q(end_date__isnull=True)
+            )
+        return queryset

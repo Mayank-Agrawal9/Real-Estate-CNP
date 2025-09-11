@@ -18,7 +18,7 @@ from notification.models import InAppNotification
 from p2pmb.calculation import (RoyaltyClubDistribute, DistributeDirectCommission, DistributeLevelIncome,
                                LifeTimeRewardIncome, ProcessMonthlyInterestP2PMB)
 from p2pmb.cron import distribute_level_income, distribute_direct_income
-from p2pmb.helpers import get_downline_count, count_all_descendants, get_levels_above_count
+from p2pmb.helpers import get_downline_count, count_all_descendants, get_levels_above_count, ExtraRewardFilter
 from p2pmb.models import MLMTree, Package, Commission, ExtraReward, CoreIncomeEarned, P2PMBRoyaltyMaster, RoyaltyEarned, \
     ExtraRewardEarned, HoldLevelIncome, ROIOverride, LapsedAmount
 from p2pmb.serializers import MLMTreeSerializer, MLMTreeNodeSerializer, PackageSerializer, CommissionSerializer, \
@@ -347,7 +347,7 @@ class ExtraRewardViewSet(viewsets.ModelViewSet):
     serializer_class = ExtraRewardSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter]
     queryset = ExtraReward.objects.all()
-    filterset_fields = ['reward_type',]
+    filterset_class = ExtraRewardFilter
 
     def get_queryset(self):
         return ExtraReward.objects.filter(status='active').order_by('turnover_amount')
@@ -835,6 +835,10 @@ class GetAppDashboardAggregate(APIView):
             status='active', user=user
         ).aggregate(total=Sum('amount'))['total'] or 0
 
+        total_roi_interest = InvestmentInterest.objects.filter(
+            status='active', investment__user=user
+        ).aggregate(total=Sum('interest_amount'))['total'] or 0
+
         upper_count = get_levels_above_count(mlm_user_entry)
         lower_count = count_all_descendants(mlm_user_entry.child)
         team_level_count = upper_count + lower_count
@@ -856,6 +860,7 @@ class GetAppDashboardAggregate(APIView):
             'extra_reward_income': extra_income,
             'core_group_income': core_group_income,
             'total_top_up_count': investments.count(),
+            'roi_income': total_roi_interest
         }
         return Response(data, status=status.HTTP_200_OK)
 
