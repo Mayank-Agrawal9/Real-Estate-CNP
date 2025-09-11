@@ -114,6 +114,14 @@ class UserWalletSerializer(serializers.ModelSerializer):
 
 
 class TransactionSerializer(serializers.ModelSerializer):
+    receiver = serializers.SerializerMethodField()
+
+    def get_receiver(self, obj):
+        return {
+            'id': obj.receiver.id,
+            'referral_code': obj.receiver.profile.referral_code
+        }
+
     class Meta:
         model = Transaction
         fields = '__all__'
