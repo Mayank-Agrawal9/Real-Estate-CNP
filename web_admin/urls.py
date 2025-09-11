@@ -59,6 +59,8 @@ urlpatterns = [
     path('get-user-app-dashboard', GetAppDashboardAggregate.as_view(), name='user-dashboard-count'),
     path('get-earned-royalty', RoyaltyEarnedAPIView.as_view(), name='royalty-earned-view'),
     path('get-earned-extra-reward', ExtraRewardEarnedAPIView.as_view(), name='extra-reward-earned-view'),
+    path('earned-extra-reward-user/<int:extra_reward_id>/', GetExtraRewardEarnedUser.as_view(),
+         name='extra-reward-user-earned'),
     path('roi-list', ROIEarnedListAPIView.as_view(), name='roi-earned-view'),
     path('wallet_list', ActiveUserWalletListView.as_view(), name='user-wallet-list'),
     path('stop-roi/<int:user_id>/', StopSendingROIListView.as_view(), name='stop-sending-roi'),

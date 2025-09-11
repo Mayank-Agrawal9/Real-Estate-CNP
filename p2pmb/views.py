@@ -18,7 +18,7 @@ from notification.models import InAppNotification
 from p2pmb.calculation import (RoyaltyClubDistribute, DistributeDirectCommission, DistributeLevelIncome,
                                LifeTimeRewardIncome, ProcessMonthlyInterestP2PMB)
 from p2pmb.cron import distribute_level_income, distribute_direct_income
-from p2pmb.helpers import get_downline_count, count_all_descendants, get_levels_above_count
+from p2pmb.helpers import get_downline_count, count_all_descendants, get_levels_above_count, ExtraRewardFilter
 from p2pmb.models import MLMTree, Package, Commission, ExtraReward, CoreIncomeEarned, P2PMBRoyaltyMaster, RoyaltyEarned, \
     ExtraRewardEarned, HoldLevelIncome, ROIOverride, LapsedAmount
 from p2pmb.serializers import MLMTreeSerializer, MLMTreeNodeSerializer, PackageSerializer, CommissionSerializer, \
@@ -347,7 +347,7 @@ class ExtraRewardViewSet(viewsets.ModelViewSet):
     serializer_class = ExtraRewardSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter]
     queryset = ExtraReward.objects.all()
-    filterset_fields = ['reward_type',]
+    filterset_class = ExtraRewardFilter
 
     def get_queryset(self):
         return ExtraReward.objects.filter(status='active').order_by('turnover_amount')
