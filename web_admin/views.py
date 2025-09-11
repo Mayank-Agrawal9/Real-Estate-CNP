@@ -35,7 +35,7 @@ from web_admin.serializers import ProfileSerializer, InvestmentSerializer, Manua
     UserPermissionProfileSerializer, ListWithDrawRequest, UserWithWorkingIDSerializer, GetAllCommissionSerializer, \
     CompanyInvestmentSerializer, TransactionDetailSerializer, AdminChangeRequestSerializer, RewardEarnedAdminSerializer, \
     GetAllMLMChildSerializer, RoyaltyEarnedAdminSerializer, ExtraRewardEarnedAdminSerializer, ROIEarnedAdminSerializer, \
-    UserWalletSerializer, TDSPercentageSerializer, TDSPercentageListSerializer
+    UserWalletSerializer, TDSPercentageSerializer, TDSPercentageListSerializer, ExtraRewardEarnedUserSerializer
 from agency.models import Investment, FundWithdrawal, SuperAgency, Agency, FieldAgent, InvestmentInterest, RewardEarned
 from payment_app.models import UserWallet, Transaction
 from web_admin.choices import main_dashboard
@@ -2120,6 +2120,29 @@ class ExtraRewardEarnedAPIView(APIView):
         paginator = LimitOffsetPagination()
         paginated_transactions = paginator.paginate_queryset(queryset, request)
         serializer = ExtraRewardEarnedAdminSerializer(paginated_transactions, many=True)
+        return paginator.get_paginated_response(serializer.data)
+
+
+class GetExtraRewardEarnedUser(APIView):
+    permission_classes = [IsStaffUser]
+
+    def get(self, request, extra_reward_id):
+        month = request.query_params.get("month")
+        year = request.query_params.get("year")
+
+        month = int(month) if month else None
+        year = int(year) if year else None
+
+        queryset = ExtraRewardEarned.objects.filter(extra_reward=extra_reward_id)
+
+        if month and year:
+            queryset = queryset.filter(date_created__month=month, date_created__year=year)
+        elif year:
+            queryset = queryset.filter(date_created__year=year)
+
+        paginator = LimitOffsetPagination()
+        paginated_transactions = paginator.paginate_queryset(queryset, request)
+        serializer = ExtraRewardEarnedUserSerializer(paginated_transactions, many=True)
         return paginator.get_paginated_response(serializer.data)
 
 

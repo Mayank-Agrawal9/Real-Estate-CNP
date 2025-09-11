@@ -618,6 +618,24 @@ class ExtraRewardEarnedAdminSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class ExtraRewardEarnedUserSerializer(serializers.ModelSerializer):
+    user = serializers.SerializerMethodField()
+
+    def get_user(self, obj):
+        if obj.user:
+            return {
+                'id': obj.user.id,
+                'name': obj.user.get_full_name(),
+                'referral_code': obj.user.profile.referral_code,
+                'email': obj.user.email
+            }
+        return None
+
+    class Meta:
+        model = ExtraRewardEarned
+        fields = '__all__'
+
+
 class ROIEarnedAdminSerializer(serializers.ModelSerializer):
     investment = serializers.SerializerMethodField()
 

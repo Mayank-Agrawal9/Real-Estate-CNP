@@ -177,15 +177,15 @@ class UserWalletViewSet(viewsets.ModelViewSet):
             return Response(
                 {"error": "Insufficient balance in app wallet."}, status=status.HTTP_400_BAD_REQUEST)
 
-        admin_charge = transfer_amount * Decimal('0.05')
-        fee = transfer_amount * Decimal('0.05')
-        taxable_amount = admin_charge + fee
-        amount_after_fee = transfer_amount - admin_charge - fee
+        charge = transfer_amount * Decimal('0.05')
+        net_charge = charge * 2
+        amount_after_fee = transfer_amount - net_charge
 
         # Update wallet balances
         user_wallet.app_wallet_balance -= transfer_amount
         user_wallet.main_wallet_balance += amount_after_fee
-        user_wallet.tds_amount += taxable_amount if taxable_amount else 0
+        user_wallet.tds_amount += charge if charge else 0
+        user_wallet.admin_amount += charge if charge else 0
         user_wallet.save()
 
         Transaction.objects.create(
@@ -196,13 +196,14 @@ class UserWalletViewSet(viewsets.ModelViewSet):
             transaction_status='approved',
             transaction_type='transfer',
             status='active',
-            taxable_amount=taxable_amount if taxable_amount else 0,
+            tds_amount=charge if charge else 0,
+            taxable_amount=net_charge if net_charge else 0,
             payment_method='wallet'
         )
 
         return Response(
             {"message": "Transfer successful.", "transfer_amount": f"{transfer_amount:.2f}",
-                "fee_deducted": f"{fee:.2f}", "admin_charges": f"{admin_charge:.2f}",
+                "fee_deducted": f"{charge:.2f}", "admin_charges": f"{charge:.2f}",
              "amount_transferred_to_main_wallet": f"{amount_after_fee:.2f}",
                 "app_wallet_balance": f"{user_wallet.app_wallet_balance:.2f}",
              "main_wallet_balance": f"{user_wallet.main_wallet_balance:.2f}",
@@ -226,7 +227,7 @@ class UserWalletViewSet(viewsets.ModelViewSet):
                             status=status.HTTP_400_BAD_REQUEST)
 
         user_wallet.main_wallet_balance -= Decimal(str(amount))
-        user_wallet.tds_amount += taxable_amount
+        user_wallet.admin_amount += taxable_amount
         user_wallet.save()
 
         transaction_history = Transaction.objects.create(
