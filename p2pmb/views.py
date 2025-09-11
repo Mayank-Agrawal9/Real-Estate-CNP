@@ -836,7 +836,7 @@ class GetAppDashboardAggregate(APIView):
         ).aggregate(total=Sum('amount'))['total'] or 0
 
         total_roi_interest = InvestmentInterest.objects.filter(
-            status='active', interest_amount__user=user
+            status='active', investment__user=user
         ).aggregate(total=Sum('interest_amount'))['total'] or 0
 
         upper_count = get_levels_above_count(mlm_user_entry)
