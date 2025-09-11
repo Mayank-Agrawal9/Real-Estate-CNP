@@ -835,6 +835,10 @@ class GetAppDashboardAggregate(APIView):
             status='active', user=user
         ).aggregate(total=Sum('amount'))['total'] or 0
 
+        total_roi_interest = InvestmentInterest.objects.filter(
+            status='active', interest_amount__user=user
+        ).aggregate(total=Sum('interest_amount'))['total'] or 0
+
         upper_count = get_levels_above_count(mlm_user_entry)
         lower_count = count_all_descendants(mlm_user_entry.child)
         team_level_count = upper_count + lower_count
@@ -856,6 +860,7 @@ class GetAppDashboardAggregate(APIView):
             'extra_reward_income': extra_income,
             'core_group_income': core_group_income,
             'total_top_up_count': investments.count(),
+            'roi_income': total_roi_interest
         }
         return Response(data, status=status.HTTP_200_OK)
 
