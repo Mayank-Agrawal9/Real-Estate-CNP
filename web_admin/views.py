@@ -1652,7 +1652,7 @@ class AppTransferSumAmount(APIView):
             )
 
         totals = transactions.aggregate(
-            total_transaction_amount=Sum('amount'), total_taxable_amount=Sum('taxable_amount')
+            total_transaction_amount=Sum('amount'), total_taxable_amount=Sum('tds_amount')
         )
 
         total_transaction_amount = totals['total_transaction_amount'] or 0
@@ -1660,8 +1660,8 @@ class AppTransferSumAmount(APIView):
 
         response_data = {
             "total_transaction_amount": total_transaction_amount,
-            "taxable_amount": total_taxable_amount / 2,
-            "admin_amount": total_taxable_amount / 2
+            "taxable_amount": total_taxable_amount,
+            "admin_amount": total_taxable_amount
         }
 
         return Response(response_data, status=status.HTTP_200_OK)
