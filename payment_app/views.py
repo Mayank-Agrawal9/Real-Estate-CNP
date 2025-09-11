@@ -337,7 +337,7 @@ class MonthWiseTDSAmountListView(APIView):
             return Response({"error": "user_id is required"}, status=400)
 
         queryset = Transaction.objects.filter(
-            created_by=user_id, transaction_type__in=["send", "transfer", "withdraw"]
+            created_by=user_id, transaction_type="transfer", status='active', transaction_status='approved'
         )
 
         if year:
@@ -347,7 +347,7 @@ class MonthWiseTDSAmountListView(APIView):
 
         data = (
             queryset.annotate(month=TruncMonth("date_created")).values("month")
-            .annotate(total_amount=Sum("taxable_amount"))
+            .annotate(total_amount=Sum("tds_amount"))
             .order_by("month")
         )
 
