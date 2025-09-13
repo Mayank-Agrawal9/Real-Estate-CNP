@@ -40,4 +40,5 @@ urlpatterns = [
     path('dashboard-aggregate/', GetAppDashboardAggregate.as_view()),
     path('royalty-club-status/', GetUserRoyaltyClubStatusAPIView.as_view()),
     path('di/', DiIncomeAPIView.as_view()),
+    path('user-tds/', UserTDSAPIView.as_view()),
 ]
