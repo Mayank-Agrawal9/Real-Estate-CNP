@@ -3,12 +3,14 @@ from collections import deque
 from decimal import Decimal
 
 from django.db.models import Sum, Q
+from django.db.models.functions import TruncMonth
 from django.utils.dateparse import parse_date
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import SearchFilter
 from rest_framework.generics import ListAPIView
+from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -26,7 +28,7 @@ from p2pmb.serializers import MLMTreeSerializer, MLMTreeNodeSerializer, PackageS
     ExtraRewardSerializer, CoreIncomeEarnedSerializer, RoyaltyEarnedSerializer, P2PMBRoyaltyMasterSerializer, \
     CreateRoyaltyEarnedSerializer, TransactionSerializer, GetDirectUserSerializer, HoldLevelIncomeSerializer, \
     ROIOverRideSerializer, LapsedAmountSerializer, ROIOverrideListSerializer, InvestmentInterestSerializer
-from payment_app.models import Transaction, UserWallet
+from payment_app.models import Transaction, UserWallet, TDSSubmissionLog
 
 
 # Create your views here.
@@ -886,3 +888,59 @@ class GetUserRoyaltyClubStatusAPIView(APIView):
             response_data[key] = club_type in earned_clubs
 
         return Response(response_data)
+
+
+class UserTDSAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        month = request.query_params.get("month")
+        year = request.query_params.get("year")
+
+        base_filters = {
+            'created_by': user, 'transaction_type': 'transfer',
+            'status': 'active', 'transaction_status': 'approved'
+        }
+
+        total_queryset = Transaction.objects.filter(**base_filters)
+
+        total_tds_amount = total_queryset.aggregate(total_tds_amount=Sum('tds_amount'))['total_tds_amount'] or 0
+
+        total_tds_submitted = (
+                TDSSubmissionLog.objects.filter(submitted_for=user)
+                .aggregate(total_paid_amount=Sum('amount'))['total_paid_amount'] or 0
+        )
+
+        total_tds_pending = total_tds_amount - total_tds_submitted
+
+        monthly_queryset = Transaction.objects.filter(**base_filters)
+
+        date_filters = {}
+        if year:
+            date_filters['date_created__year'] = year
+        if month:
+            date_filters['date_created__month'] = month
+
+        if date_filters:
+            monthly_queryset = monthly_queryset.filter(**date_filters)
+
+        monthly_data = (
+            monthly_queryset.annotate(month=TruncMonth('date_created'))
+            .values('month').annotate(total_tds=Sum('tds_amount'))
+            .order_by('month')
+        )
+
+        monthly_data_list = list(monthly_data)
+
+        paginator = LimitOffsetPagination()
+        paginated_data = paginator.paginate_queryset(monthly_data_list, request)
+
+        response_data = {
+            'total_tds_amount': total_tds_amount,
+            'total_tds_submitted': total_tds_submitted,
+            'total_tds_pending': total_tds_pending,
+            'data': paginated_data,
+        }
+
+        return paginator.get_paginated_response(response_data)
