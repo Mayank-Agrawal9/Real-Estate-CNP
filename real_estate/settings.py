@@ -171,11 +171,10 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # EMAIL_USE_TLS = True
 # EMAIL_USE_SSL = False
 
-EMAIL_HOST = 'smtp.zoho.in'
-EMAIL_HOST_USER = 'noreply@clicknpaydigital.com'
-DEFAULT_FROM_EMAIL = 'noreply@clicknpaydigital.com'
-# EMAIL_HOST_PASSWORD = 'WHkxQ8J6KZhE2rTv'
-EMAIL_HOST_PASSWORD = 'FhWkxC1yDdna'
+EMAIL_HOST = 'smtp.zeptomail.in'
+EMAIL_HOST_USER = 'noreply@clicknpayrealestate.com'
+DEFAULT_FROM_EMAIL = 'noreply@clicknpayrealestate.com'
+EMAIL_HOST_PASSWORD = 'PHtE6r1fQbu+3TZ5+hYJsPCwE5GjZol99e9gKQERtIpAD/YDSU1drNouwGLj+B4sB/EQR6aZyoNr4L2ctLrQLDnoMWYdWmqyqK3sx/VYSPOZsbq6x00bs1oddkbcUIbmddJo0CPVs9bSNA=='
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_USE_SSL = False
