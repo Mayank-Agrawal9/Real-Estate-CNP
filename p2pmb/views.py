@@ -928,7 +928,7 @@ class UserTDSAPIView(APIView):
         monthly_data = (
             monthly_queryset.annotate(month=TruncMonth('date_created'))
             .values('month').annotate(total_tds=Sum('tds_amount'))
-            .order_by('month')
+            .order_by('-month')
         )
 
         monthly_data_list = list(monthly_data)
