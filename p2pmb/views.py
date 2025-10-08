@@ -20,7 +20,8 @@ from notification.models import InAppNotification
 from p2pmb.calculation import (RoyaltyClubDistribute, DistributeDirectCommission, DistributeLevelIncome,
                                LifeTimeRewardIncome, ProcessMonthlyInterestP2PMB)
 from p2pmb.cron import distribute_level_income, distribute_direct_income
-from p2pmb.helpers import get_downline_count, count_all_descendants, get_levels_above_count, ExtraRewardFilter
+from p2pmb.helpers import get_downline_count, count_all_descendants, get_levels_above_count, ExtraRewardFilter, \
+    PackagePagination
 from p2pmb.models import MLMTree, Package, Commission, ExtraReward, CoreIncomeEarned, P2PMBRoyaltyMaster, RoyaltyEarned, \
     ExtraRewardEarned, HoldLevelIncome, ROIOverride, LapsedAmount
 from p2pmb.serializers import MLMTreeSerializer, MLMTreeNodeSerializer, PackageSerializer, CommissionSerializer, \
@@ -248,9 +249,10 @@ class PackageViewSet(viewsets.ModelViewSet):
     search_fields = ['name', 'applicable_for']
     filterset_fields = ['applicable_for', ]
     queryset = Package.objects.all()
+    pagination_class = PackagePagination
 
     def get_queryset(self):
-        return Package.objects.filter(status='active')
+        return Package.objects.filter(status='active').order_by('amount')
 
     def get_serializer_context(self):
         """Pass the user context to the serializer"""
