@@ -248,6 +248,7 @@ class PackageViewSet(viewsets.ModelViewSet):
     search_fields = ['name', 'applicable_for']
     filterset_fields = ['applicable_for', ]
     queryset = Package.objects.all()
+    pagination_class = None
 
     def get_queryset(self):
         return Package.objects.filter(status='active')
