@@ -2,6 +2,7 @@ import datetime
 
 import django_filters
 from django.db.models import Q
+from rest_framework.pagination import PageNumberPagination
 
 from p2pmb.models import Commission, MLMTree, ExtraReward
 from payment_app.models import Transaction
@@ -103,3 +104,9 @@ class ExtraRewardFilter(django_filters.FilterSet):
                 Q(end_date__gte=today) | Q(end_date__isnull=True)
             )
         return queryset
+
+
+class PackagePagination(PageNumberPagination):
+    page_size = 30
+    page_size_query_param = 'page_size'
+    max_page_size = 100
