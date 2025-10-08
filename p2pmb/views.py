@@ -2,7 +2,7 @@ import datetime
 from collections import deque
 from decimal import Decimal
 
-from django.db.models import Sum, Q
+from django.db.models import Sum, Q, Max
 from django.db.models.functions import TruncMonth
 from django.utils.dateparse import parse_date
 from django_filters.rest_framework import DjangoFilterBackend
@@ -247,7 +247,7 @@ class PackageViewSet(viewsets.ModelViewSet):
     serializer_class = PackageSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter]
     search_fields = ['name', 'applicable_for']
-    filterset_fields = ['applicable_for', ]
+    filterset_fields = ['applicable_for']
     queryset = Package.objects.all()
     pagination_class = PackagePagination
 
@@ -257,7 +257,20 @@ class PackageViewSet(viewsets.ModelViewSet):
     def get_serializer_context(self):
         """Pass the user context to the serializer"""
         context = super().get_serializer_context()
-        context['user'] = self.request.user if self.request.user.is_authenticated else None
+        user = self.request.user if self.request.user.is_authenticated else None
+        print(user)
+        context['user'] = user
+
+        if user:
+            max_amount = (
+                Investment.objects.filter(user=user, status='active', package__isnull=False).select_related(
+                    'package').aggregate(max_amount=Max('amount')).get('max_amount') or 0
+            )
+            print(max_amount, "max_amount")
+        else:
+            max_amount = 0
+
+        context['max_bought_amount'] = max_amount
         return context
 
 
