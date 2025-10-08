@@ -218,9 +218,12 @@ class PackageSerializer(serializers.ModelSerializer):
 
     def get_is_buy(self, obj):
         user = self.context.get('user')
-        if user:
-            return Investment.objects.filter(user=user, package=obj).exists()
-        return False
+        max_bought_amount = self.context.get('max_bought_amount', 0)
+
+        if not user:
+            return False
+
+        return obj.amount <= max_bought_amount
 
 
 class CommissionSerializer(serializers.ModelSerializer):
