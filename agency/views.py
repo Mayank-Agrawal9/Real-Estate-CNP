@@ -99,6 +99,15 @@ class InvestmentViewSet(viewsets.ModelViewSet):
             if get_user_by_referral:
                 referral_by = get_user_by_referral.user
 
+        previous_investment = Investment.objects.filter(user=request.user, status='active', package__isnull=False,
+                                                        package__applicable_for='p2pmb').order_by('-amount').first()
+
+        if previous_investment and previous_investment.amount >= amount:
+            return Response({
+                'status': False,
+                'message': f"You cannot buy this package because you already bought ₹{previous_investment.amount} package or higher."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
         filter_condition = Q(user=self.request.user)
         if wallet_type == 'main_wallet':
             filter_condition &= Q(main_wallet_balance__gte=amount)
@@ -189,6 +198,15 @@ class InvestmentViewSet(viewsets.ModelViewSet):
             get_user_by_referral = Profile.objects.filter(referral_code='GAVIRON001166').last()
             if get_user_by_referral:
                 referral_by = get_user_by_referral.user
+
+        previous_investment = Investment.objects.filter(user=request.user, status='active', package__isnull=False,
+                                                        package__applicable_for='p2pmb').order_by('-amount').first()
+
+        if previous_investment and previous_investment.amount >= amount:
+            return Response({
+                'status': False,
+                'message': f"You cannot buy this package because you already bought ₹{previous_investment.amount} package or higher."
+            }, status=status.HTTP_400_BAD_REQUEST)
 
         filter_condition = Q(user=self.request.user)
         if wallet_type == 'main_wallet':
