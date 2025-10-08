@@ -251,7 +251,7 @@ class PackageViewSet(viewsets.ModelViewSet):
     pagination_class = None
 
     def get_queryset(self):
-        return Package.objects.filter(status='active')
+        return Package.objects.filter(status='active').order_by('amount')
 
     def get_serializer_context(self):
         """Pass the user context to the serializer"""
