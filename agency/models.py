@@ -31,6 +31,7 @@ class SuperAgency(ModelMixin):
     max_agencies = models.PositiveIntegerField(default=100)
     max_field_agents = models.PositiveIntegerField(default=10000)
     city = models.ForeignKey(City, on_delete=models.CASCADE, related_name="super_agency_city", null=True, blank=True)
+    is_default = models.BooleanField(default=False)
 
     def __str__(self):
         return f"Created by {self.profile.user.username}"
@@ -49,6 +50,7 @@ class Agency(ModelMixin):
     turnover = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     office_area = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     city = models.ForeignKey(City, on_delete=models.CASCADE, related_name="agency_city", null=True, blank=True)
+    is_default = models.BooleanField(default=False)
 
     def __str__(self):
         return f"Agency Name {self.name}"
@@ -111,6 +113,8 @@ class Commission(ModelMixin):
         ('royalty', 'Royalty Company Turnover'),
         ('rent', 'Rent'),
         ('revenue_by_agency', 'Revenue By Agency'),
+        ('agency_commission', 'Agency Commission'),
+        ('field_agent_commission', 'Field Agent Commission'),
         ('revenue_by_field_agent', 'Revenue By Field Agent'),
         ('turnover_commission', 'Turnover Commission'),
         ('sale_commission', 'Sale Commission'),
@@ -126,6 +130,7 @@ class Commission(ModelMixin):
     commission_amount = models.DecimalField(max_digits=15, decimal_places=2)
     commission_type = models.CharField(max_length=30, choices=COMMISSION_TYPE_CHOICES)
     description = models.TextField(blank=True, null=True)
+    earned_at = models.DateTimeField(null=True, blank=True)
     applicable_for = models.CharField(max_length=15, choices=APPLICABLE_FOR_CHOICES, default='super_agency')
     is_paid = models.BooleanField(default=False)
 
@@ -266,3 +271,33 @@ class InterestEarnings(models.Model):
                 return interest_to_add
 
         return 0
+
+
+class AgencyPackagePurchase(ModelMixin):
+    """Track package purchases"""
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed'),
+        ('refunded', 'Refunded'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='package_purchases')
+    buy_for = models.CharField(max_length=30, choices=INVESTMENT_TYPE_CHOICES)
+    package = models.ForeignKey(Package, on_delete=models.CASCADE, related_name='purchases')
+    amount_paid = models.DecimalField(max_digits=12, decimal_places=2)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    transaction_id = models.CharField(max_length=100, unique=True)
+    purchased_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    super_agency = models.ForeignKey(SuperAgency, on_delete=models.SET_NULL, null=True, blank=True,
+                                     related_name='super_agency_purchases')
+    agency = models.ForeignKey(Agency, on_delete=models.SET_NULL, null=True, blank=True, related_name='agency_purchases')
+    field_agent = models.ForeignKey(FieldAgent, on_delete=models.SET_NULL, null=True, blank=True,
+                                    related_name='field_agent_purchases')
+
+    class Meta:
+        ordering = ['-purchased_at']
+
+    def __str__(self):
+        return f"{self.user.username} - {self.package.name} - {self.status}"

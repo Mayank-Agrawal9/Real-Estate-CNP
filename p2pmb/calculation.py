@@ -1080,7 +1080,7 @@ class ProcessMonthlyInterestP2PMB:
     def generate_interest_for_all_investments():
         """Generate interest for all approved investments that need interest payments."""
         today = datetime.datetime.now().date()
-        if today.day != 1 or (today.month <= 3 and today.year <= 2025):
+        if today.day != 2 or (today.month <= 3 and today.year <= 2025):
             print("Interest calculation skipped. Only runs on the 1st of each month.")
             return
         investments = Investment.objects.filter(

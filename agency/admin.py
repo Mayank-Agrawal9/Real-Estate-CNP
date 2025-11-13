@@ -84,3 +84,10 @@ class RewardEarnedAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
     resource_class = RewardEarnedResource
     raw_id_fields = ('created_by', 'updated_by', 'reward', 'user')
     list_filter = ('status', )
+
+
+@admin.register(AgencyPackagePurchase)
+class AgencyPackagePurchaseAdmin(CustomModelAdminMixin, ImportExportModelAdmin):
+    resource_class = AgencyPackagePurchaseResource
+    raw_id_fields = ('created_by', 'updated_by', 'user', 'package')
+    list_filter = ('status', )
