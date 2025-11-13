@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.db import models
 from django.contrib.auth.models import User
 import uuid
@@ -37,6 +39,26 @@ class UserWallet(ModelMixin):
             receiver_wallet.deposit(amount)
             self.save()
             return True
+        return False
+
+    def has_sufficient_balance(self, amount, wallet_type):
+        if wallet_type == 'main_wallet':
+            return self.main_wallet_balance >= amount
+        elif wallet_type == 'app_wallet':
+            return self.app_wallet_balance >= amount
+        return False
+
+    def deduct_balance(self, amount, wallet_type):
+        if self.has_sufficient_balance(amount, wallet_type):
+            if wallet_type == 'main_wallet':
+                self.main_wallet_balance -= Decimal(str(amount))
+                self.save()
+                return True
+            elif wallet_type == 'app_wallet':
+                self.app_wallet_balance -= Decimal(str(amount))
+                self.save()
+                return True
+            return False
         return False
 
 

@@ -63,6 +63,7 @@ class Package(ModelMixin):
     name = models.CharField(max_length=100)
     description = models.TextField(null=True, blank=True)
     amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.0)
+    gst_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.0)
     applicable_for = models.CharField(max_length=15, choices=APPLICABLE_FOR_CHOICES, default='p2pmb')
     sequence = models.IntegerField(default=0)
 

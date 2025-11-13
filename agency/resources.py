@@ -71,3 +71,10 @@ class InvestmentInterestResource(resources.ModelResource):
         model = InvestmentInterest
         import_id_fields = ('id',)
         exclude = ('date_created', 'updated_by', 'date_updated', 'created_by')
+
+
+class AgencyPackagePurchaseResource(resources.ModelResource):
+    class Meta:
+        model = AgencyPackagePurchase
+        import_id_fields = ('id',)
+        exclude = ('date_created', 'updated_by', 'date_updated', 'created_by')
