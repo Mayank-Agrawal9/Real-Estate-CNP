@@ -381,9 +381,8 @@ class BuyPackageSerializer(serializers.Serializer):
             self._validate_field_agent_data(data)
 
         # Check wallet balance
-        try:
-            wallet = UserWallet.objects.filter(status='active', user=user).last()
-        except Exception as e:
+        wallet = UserWallet.objects.filter(status='active', user=user).last()
+        if not wallet:
             raise serializers.ValidationError("Wallet not found. Please contact support.")
 
         if not wallet.has_sufficient_balance(package.amount, 'main_wallet'):
@@ -404,7 +403,9 @@ class BuyPackageSerializer(serializers.Serializer):
         if super_agency:
             raise serializers.ValidationError({"applicable_for": "You are already enrolled as a Super Agency."})
 
-        required_fields = ['super_agency_name', 'super_agency_type', 'super_agency_city_id']
+        required_fields = ['super_agency_name', 'super_agency_type', 'super_agency_city_id',
+                           'super_agency_phone_number', 'super_agency_pan_number', 'super_agency_gst_number',
+                           'agency_office_address', 'agency_office_area']
         for field in required_fields:
             if not data.get(field):
                 raise serializers.ValidationError({field: f"This field is required for Super Agency enrollment."})
@@ -434,7 +435,8 @@ class BuyPackageSerializer(serializers.Serializer):
         if agency:
             raise serializers.ValidationError({"applicable_for": "You are already enrolled as a Agency."})
 
-        required_fields = ['agency_name', 'agency_type', 'agency_city_id']
+        required_fields = ['agency_name', 'agency_type', 'agency_city_id', 'agency_phone_number',
+                           'agency_pan_number', 'agency_gst_number', 'agency_email', 'agency_office_address']
         for field in required_fields:
             if not data.get(field):
                 raise serializers.ValidationError({field: f"This field is required for Agency enrollment."})
@@ -479,7 +481,7 @@ class BuyPackageSerializer(serializers.Serializer):
         field_agent = self.context['request'].user.profile.is_field_agent if self.context['request'].user.profile \
             else False
         if field_agent:
-            raise serializers.ValidationError({"applicable_for": "You are already enrolled as a Agency."})
+            raise serializers.ValidationError({"applicable_for": "You are already enrolled as a Field Agent."})
         required_fields = ['field_agent_city_id']
         for field in required_fields:
             if not data.get(field):
@@ -537,23 +539,23 @@ class BuyPackageSerializer(serializers.Serializer):
                 amount_paid=package.amount, buy_for=role,
                 transaction_id=transaction_id
             )
-            try:
-                created_entity = None
-                if role == 'super_agency':
-                    created_entity = self._create_super_agency(validated_data, user, purchase)
-                elif role == 'agency':
-                    created_entity = self._create_agency(validated_data, user, purchase)
-                elif role == 'field_agent':
-                    created_entity = self._create_field_agent(validated_data, user, purchase)
+            # try:
+            created_entity = None
+            if role == 'super_agency':
+                created_entity = self._create_super_agency(validated_data, user, purchase)
+            elif role == 'agency':
+                created_entity = self._create_agency(validated_data, user, purchase)
+            elif role == 'field_agent':
+                created_entity = self._create_field_agent(validated_data, user, purchase)
 
-                for doc in document_data:
-                    UserPersonalDocument.objects.create(
-                        user=user,
-                        attachment=doc['attachment'], type=doc['type']
-                    )
+            for doc in document_data:
+                UserPersonalDocument.objects.create(
+                    user=user,
+                    attachment=doc['attachment'], type=doc['type']
+                )
 
-            except Exception as e:
-                raise serializers.ValidationError(f"Failed to create enrollment: {str(e)}")
+            # except Exception as e:
+            #     raise serializers.ValidationError(f"Failed to create enrollment: {str(e)}")
 
             Transaction.objects.create(
                 receiver=user, created_by=user,
@@ -612,7 +614,7 @@ class BuyPackageSerializer(serializers.Serializer):
         purchase.save()
         user.profile.is_agency = True
         user.profile.save()
-        calculate_and_send_super_agency_commission(data['agency_super_agency'], purchase, data['agency_name'])
+        calculate_and_send_super_agency_commission(data['agency_super_agency'].id, purchase, data['agency_name'])
         return agency
 
     def _create_field_agent(self, data, user, purchase):
@@ -629,7 +631,7 @@ class BuyPackageSerializer(serializers.Serializer):
         purchase.save()
         user.profile.is_field_agent = True
         user.profile.save()
-        calculate_and_send_agency_commission(data['field_agent_agency'], purchase)
+        calculate_and_send_agency_commission(data['field_agent_agency'].id, purchase)
         return field_agent
 
     def _save_documents(self, document_files, documents_metadata, user, entity):

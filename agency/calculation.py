@@ -411,13 +411,13 @@ def calculate_and_send_super_agency_commission(super_agency_id, purchase, compan
         return False
 
     commission_amount = purchase.amount_paid * Decimal('0.25')
-    get_wallet = UserWallet.objects.get_or_create(user=super_agency.profile.user)
-    get_wallet += commission_amount
-    get_wallet.save()
+    wallet, created = UserWallet.objects.get_or_create(user=super_agency.profile.user)
+    wallet.app_wallet_balance += commission_amount
+    wallet.save()
 
     Commission.objects.create(
         commission_by=purchase.user, commission_to=super_agency.profile.user, commission_amount=commission_amount,
-        commission_type='agency_commission', description='Commission Added for adding Agency',
+        commission_type='agency_commission', description=f'Commission Added for adding {company_name} Agency',
         earned_at=datetime.today().now(), applicable_for='super_agency'
     )
     Transaction.objects.create(
@@ -434,17 +434,38 @@ def calculate_and_send_agency_commission(super_agency_id, purchase):
         return False
 
     commission_amount = purchase.amount_paid * Decimal('0.25')
-    get_wallet = UserWallet.objects.get_or_create(user=agency.created_by)
-    get_wallet += commission_amount
-    get_wallet.save()
+    wallet, created = UserWallet.objects.get_or_create(user=agency.created_by)
+    wallet.app_wallet_balance += commission_amount
+    wallet.save()
 
     Commission.objects.create(
         commission_by=purchase.user, commission_to=agency.created_by, commission_amount=commission_amount,
-        commission_type='field_agent_commission', description='Commission Added for adding Field Agent',
+        commission_type='field_agent_commission', description=f'Commission Added for adding '
+                                                              f'{purchase.user.get_full_name()} Field Agent',
         earned_at=datetime.today().now(), applicable_for='agency'
     )
     Transaction.objects.create(
         verified_on=datetime.today().now(), receiver=agency.created_by,
         amount=commission_amount, transaction_type='commission', transaction_status='approved',
-        remarks=f'Field Agent Commission added by {agency.created_by.get_full_name()}', payment_method='wallet'
+        remarks=f'Field Agent Commission added by {purchase.user.get_full_name()} Field Agent', payment_method='wallet'
+    )
+    calculate_and_send_field_agent_commission_to_super_agency(agency, purchase)
+
+
+def calculate_and_send_field_agent_commission_to_super_agency(agency, purchase):
+    commission_amount = purchase.amount_paid * Decimal('0.05')
+    wallet, created = UserWallet.objects.get_or_create(user=agency.company.profile.user)
+    wallet.app_wallet_balance += commission_amount
+    wallet.save()
+
+    Commission.objects.create(
+        commission_by=purchase.user, commission_to=agency.company.profile.user, commission_amount=commission_amount,
+        commission_type='field_agent_commission', description=f'Commission Added for adding '
+                                                              f'{purchase.user.get_full_name()} Field Agent',
+        earned_at=datetime.today().now(), applicable_for='agency'
+    )
+    Transaction.objects.create(
+        verified_on=datetime.today().now(), receiver=agency.created_by,
+        amount=commission_amount, transaction_type='commission', transaction_status='approved',
+        remarks=f'Field Agent Commission added by {purchase.user.get_full_name()}', payment_method='wallet'
     )
