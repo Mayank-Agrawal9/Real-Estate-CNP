@@ -119,7 +119,7 @@ class CreateInvestmentSerializer(serializers.ModelSerializer):
 
 
 class CommissionSerializer(serializers.ModelSerializer):
-    commission_by = serializers.ModelSerializer()
+    commission_by = serializers.SerializerMethodField()
 
     def get_commission_by(self, obj):
         if not obj.commission_by:
