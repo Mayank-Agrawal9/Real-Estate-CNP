@@ -591,7 +591,13 @@ class RewardEarnedViewSet(viewsets.ModelViewSet):
         return self.serializer_classes.get(self.action, self.default_serializer_class)
 
     def get_queryset(self):
-        return RewardEarned.objects.filter(user=self.request.user, status='active')
+        qs = RewardEarned.objects.filter(user=self.request.user)
+
+        applicable_for = self.request.query_params.get("applicable_for")
+        if applicable_for:
+            qs = qs.filter(reward__applicable_for=applicable_for)
+
+        return qs
 
 
 class InvestmentInterestViewSet(viewsets.ModelViewSet):
