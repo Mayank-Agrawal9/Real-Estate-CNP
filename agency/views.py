@@ -819,6 +819,58 @@ class SuperAgencyAppCommission(APIView):
         return Response(response, status=status.HTTP_200_OK)
 
 
+class SuperAgencyPackageDetails(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        get_rewards = RewardMaster.objects.filter(
+            status='active', applicable_for='super_agency').order_by('turnover_threshold')
+        response = {
+            'invested_amount': '50,00,000 ₹ + 90,000 ₹ = 50,90,000 ₹',
+            'return_amount': 5000000 * Decimal('3'),
+            'office_rent': '50,000₹/Month for 10 years = 60,00,000₹',
+            'agency_commission': '25% for each agency (5,00,000₹ Each Agency) upto 100 agency',
+            'field_agent_commission': '5% for each field agent upto 10,000 field agent',
+            'turnover_commission': '0.25% of total turnover',
+            'reward_commission': '₹10,000 to ₹100 crore',
+            'rewards': GetRewardSerializer(get_rewards, many=True).data,
+        }
+        return Response(response, status=status.HTTP_200_OK)
+
+
+class AgencyPackageDetails(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        get_rewards = RewardMaster.objects.filter(
+            status='active', applicable_for='agency').order_by('turnover_threshold')
+        response = {
+            'invested_amount': '50,00,00 ₹ + 9000 ₹ = 50,90,00 ₹',
+            'return_amount': 500000 * Decimal('2'),
+            'office_rent': '5000₹/Month for 10 years = 60,00,00₹',
+            'field_agent_commission': '25% for each field agent upto 100 field agent',
+            'turnover_commission': '0.5% of agent generated turnover',
+            'reward_commission': '₹10,000 to ₹10 crore',
+            'rewards': GetRewardSerializer(get_rewards, many=True).data,
+        }
+        return Response(response, status=status.HTTP_200_OK)
+
+
+class FieldAgentPackageDetails(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        get_rewards = RewardMaster.objects.filter(
+            status='active', applicable_for='field_agent').order_by('turnover_threshold')
+        response = {
+            'invested_amount': '25,000 ₹ + 4,500 ₹ = 29,500 ₹',
+            'commission': '3% on every transaction with TDS support',
+            'reward_commission': '₹10,000 to ₹1 Crore',
+            'rewards': GetRewardSerializer(get_rewards, many=True).data,
+        }
+        return Response(response, status=status.HTTP_200_OK)
+
+
 class AgencyAppCommission(APIView):
     permission_classes = [IsAuthenticated]
 
