@@ -5,7 +5,8 @@ from .views import (InvestmentViewSet, CommissionViewSet, RefundViewSet, FundWit
                     PPDAccountViewSet, InvestmentInterestViewSet, UserFieldAgentAPIView, UserAgencyAPIView,
                     UserSuperAgencyAPIView, EarnedRewardAPIView, RemainingRewardAPIView, IncomeDetailsAPIView,
                     CashfreeWebhookView, BuyPackageView, DistributeSuperAgencyRent, DistributeAgencyRent,
-                    AgencyAppCommission, SuperAgencyAppCommission)
+                    AgencyAppCommission, SuperAgencyAppCommission, FieldAgentPackageDetails, AgencyPackageDetails,
+                    SuperAgencyPackageDetails)
 
 router = DefaultRouter()
 router.register(r'super-agency', SuperAgencyViewSet)
@@ -34,4 +35,7 @@ urlpatterns = [
     path('agency-rent/', DistributeAgencyRent.as_view()),
     path('super-agency-commission/', SuperAgencyAppCommission.as_view()),
     path('agency-commission/', AgencyAppCommission.as_view()),
+    path('super-agency-package-details/', SuperAgencyPackageDetails.as_view()),
+    path('agency-package-details/', AgencyPackageDetails.as_view()),
+    path('field-agent-package-details/', FieldAgentPackageDetails.as_view()),
 ]
