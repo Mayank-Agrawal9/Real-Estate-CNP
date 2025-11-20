@@ -833,6 +833,7 @@ class SuperAgencyPackageDetails(APIView):
             'field_agent_commission': '5% for each field agent upto 10,000 field agent',
             'turnover_commission': '0.25% of total turnover',
             'reward_commission': '₹10,000 to ₹100 crore',
+            'area_required': '650 Sq.ft',
             'rewards': GetRewardSerializer(get_rewards, many=True).data,
         }
         return Response(response, status=status.HTTP_200_OK)
@@ -851,6 +852,7 @@ class AgencyPackageDetails(APIView):
             'field_agent_commission': '25% for each field agent upto 100 field agent',
             'turnover_commission': '0.5% of agent generated turnover',
             'reward_commission': '₹10,000 to ₹10 crore',
+            'area_required': '100 Sq.ft',
             'rewards': GetRewardSerializer(get_rewards, many=True).data,
         }
         return Response(response, status=status.HTTP_200_OK)
