@@ -751,11 +751,49 @@ class BuyPackageView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        serializer = BuyPackageSerializer(data=request.data, context={'request': request})
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response({'success': True, 'message': 'Package purchased successfully'},
-                        status=status.HTTP_200_OK)
+        data = request.data.copy()
+        documents = self._parse_documents(request)
+        serializer = BuyPackageSerializer(
+            data=data, context={'request': request, 'documents': documents}
+        )
+
+        if serializer.is_valid():
+            purchase = serializer.save()
+            return Response({
+                'success': True,
+                'message': 'Package purchased successfully',
+                'transaction_id': purchase.transaction_id
+            }, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def _parse_documents(self, request):
+        """Parse documents[0].attachment, documents[0].type format from FormData"""
+        documents = []
+        idx = 0
+
+        while True:
+            attachment_key = f'documents[{idx}].attachment'
+            type_key = f'documents[{idx}].type'
+
+            has_attachment = attachment_key in request.FILES
+            has_type = type_key in request.data
+
+            if not has_attachment and not has_type:
+                break
+
+            doc = {}
+            if has_attachment:
+                doc['attachment'] = request.FILES[attachment_key]
+            if has_type:
+                doc['type'] = request.data[type_key]
+
+            if 'attachment' in doc:
+                documents.append(doc)
+
+            idx += 1
+
+        return documents
 
 
 class DistributeSuperAgencyRent(APIView):
