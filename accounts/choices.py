@@ -53,6 +53,7 @@ DOCUMENT_TYPE = (
     ('shop_image', 'Shop Image'),
     ('shop_agreement', 'Shop Agreement'),
     ('kyc_photo', 'KYC Photo'),
+    ('video', 'Video'),
 )
 
 

@@ -85,6 +85,7 @@ class BankDetails(ModelMixin):
 
 class UserPersonalDocument(ModelMixin):
     attachment = models.ImageField(upload_to='document', blank=True, null=True)
+    attachment_file = models.FileField(upload_to='document_file', blank=True, null=True)
     type = models.CharField(max_length=25, choices=DOCUMENT_TYPE, null=True, blank=True)
     remarks = models.TextField(null=True, blank=True)
     approval_status = models.CharField(

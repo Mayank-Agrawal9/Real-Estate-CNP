@@ -326,7 +326,6 @@ class BuyPackageSerializer(serializers.Serializer):
     """Main serializer for package purchase with FormData support"""
     package_id = serializers.IntegerField()
     applicable_for = serializers.ChoiceField(choices=['super_agency', 'agency', 'field_agent'])
-    documents = UserPersonalDocumentSerializer(many=True, required=False)
 
     # Super Agency fields (optional based on role)
     super_agency_name = serializers.CharField(max_length=250, required=False)
@@ -404,8 +403,8 @@ class BuyPackageSerializer(serializers.Serializer):
             raise serializers.ValidationError({"applicable_for": "You are already enrolled as a Super Agency."})
 
         required_fields = ['super_agency_name', 'super_agency_type', 'super_agency_city_id',
-                           'super_agency_phone_number', 'super_agency_pan_number', 'super_agency_gst_number',
-                           'agency_office_address', 'agency_office_area']
+                           'super_agency_phone_number', 'super_agency_pan_number', 'super_agency_gst_number'
+                           ]
         for field in required_fields:
             if not data.get(field):
                 raise serializers.ValidationError({field: f"This field is required for Super Agency enrollment."})
@@ -436,7 +435,8 @@ class BuyPackageSerializer(serializers.Serializer):
             raise serializers.ValidationError({"applicable_for": "You are already enrolled as a Agency."})
 
         required_fields = ['agency_name', 'agency_type', 'agency_city_id', 'agency_phone_number',
-                           'agency_pan_number', 'agency_gst_number', 'agency_email', 'agency_office_address']
+                           'agency_pan_number', 'agency_gst_number', 'agency_email', 'agency_office_address',
+                           'agency_office_area']
         for field in required_fields:
             if not data.get(field):
                 raise serializers.ValidationError({field: f"This field is required for Agency enrollment."})
@@ -524,7 +524,7 @@ class BuyPackageSerializer(serializers.Serializer):
         package = validated_data['package']
         wallet = validated_data['wallet']
         role = validated_data['applicable_for']
-        document_data = validated_data.pop('documents', [])
+        document_data = self.context.get('documents', [])
 
         with transaction.atomic():
             transaction_id = f"PKG-{uuid.uuid4().hex[:12].upper()}"
@@ -550,8 +550,7 @@ class BuyPackageSerializer(serializers.Serializer):
 
             for doc in document_data:
                 UserPersonalDocument.objects.create(
-                    user=user,
-                    attachment=doc['attachment'], type=doc['type']
+                    created_by=user, attachment_file=doc['attachment'], type=doc['type']
                 )
 
             # except Exception as e:
