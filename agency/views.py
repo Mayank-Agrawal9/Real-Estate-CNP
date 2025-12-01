@@ -7,7 +7,7 @@ from decimal import Decimal
 
 import requests
 from dateutil.relativedelta import relativedelta
-from django.db.models import Q
+from django.db.models import Q, Sum
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework import viewsets, status, filters
@@ -23,14 +23,16 @@ from p2pmb.models import MLMTree
 from payment_app.models import UserWallet, Transaction
 from real_estate import settings
 from .calculation import distribute_monthly_rent_for_super_agency, calculate_super_agency_rewards, \
-    calculate_agency_rewards, calculate_field_agent_rewards, process_monthly_rentals_for_ppd_interest
+    calculate_agency_rewards, calculate_field_agent_rewards, process_monthly_rentals_for_ppd_interest, \
+    distribute_monthly_rent_for_agency
 from .models import Investment, Commission, RefundPolicy, FundWithdrawal, SuperAgency, Agency, FieldAgent, \
-    RewardEarned, PPDAccount, InvestmentInterest
+    RewardEarned, PPDAccount, InvestmentInterest, AgencyPackagePurchase
 from .serializers import (InvestmentSerializer, CommissionSerializer,
                           RefundPolicySerializer, FundWithdrawalSerializer, SuperAgencySerializer, AgencySerializer,
                           FieldAgentSerializer, PPDModelSerializer, RewardEarnedSerializer, CreateInvestmentSerializer,
                           GetAllEarnedReward, InvestmentInterestSerializer, GetSuperAgencySerializer,
-                          GetFieldAgentSerializer, GetAgencySerializer, GetRewardSerializer, IncomeCommissionSerializer)
+                          GetFieldAgentSerializer, GetAgencySerializer, GetRewardSerializer, IncomeCommissionSerializer,
+                          BuyPackageSerializer)
 
 
 class SuperAgencyViewSet(viewsets.ModelViewSet):
@@ -380,6 +382,7 @@ class CommissionViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     queryset = Commission.objects.all()
     serializer_class = CommissionSerializer
+    filterset_fields = ['commission_type', 'applicable_for']
 
     def get_queryset(self):
         return Commission.objects.filter(commission_to=self.request.user, status='active')
@@ -588,7 +591,13 @@ class RewardEarnedViewSet(viewsets.ModelViewSet):
         return self.serializer_classes.get(self.action, self.default_serializer_class)
 
     def get_queryset(self):
-        return RewardEarned.objects.filter(user=self.request.user, status='active')
+        qs = RewardEarned.objects.filter(user=self.request.user)
+
+        applicable_for = self.request.query_params.get("applicable_for")
+        if applicable_for:
+            qs = qs.filter(reward__applicable_for=applicable_for)
+
+        return qs
 
 
 class InvestmentInterestViewSet(viewsets.ModelViewSet):
@@ -680,9 +689,7 @@ class EarnedRewardAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        applicable_for = (
-            request.query_params.get('applicable_for')
-        )
+        applicable_for = (request.query_params.get('applicable_for'))
 
         if not applicable_for or applicable_for not in ['super_agency', 'agency', 'field_agent']:
             return Response(
@@ -737,3 +744,210 @@ class IncomeDetailsAPIView(APIView):
                                                        is_paid=True)
         serializer = IncomeCommissionSerializer(get_income_details, many=True).data
         return Response(serializer, status=status.HTTP_200_OK)
+
+
+class BuyPackageView(APIView):
+    """API to purchase a package using wallet balance"""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        data = request.data.copy()
+        documents = self._parse_documents(request)
+        serializer = BuyPackageSerializer(
+            data=data, context={'request': request, 'documents': documents}
+        )
+
+        if serializer.is_valid():
+            purchase = serializer.save()
+            return Response({
+                'success': True,
+                'message': 'Package purchased successfully',
+                'transaction_id': purchase.transaction_id
+            }, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def _parse_documents(self, request):
+        """Parse documents[0].attachment, documents[0].type format from FormData"""
+        documents = []
+        idx = 0
+
+        while True:
+            attachment_key = f'documents[{idx}].attachment'
+            type_key = f'documents[{idx}].type'
+
+            has_attachment = attachment_key in request.FILES
+            has_type = type_key in request.data
+
+            if not has_attachment and not has_type:
+                break
+
+            doc = {}
+            if has_attachment:
+                doc['attachment'] = request.FILES[attachment_key]
+            if has_type:
+                doc['type'] = request.data[type_key]
+
+            if 'attachment' in doc:
+                documents.append(doc)
+
+            idx += 1
+
+        return documents
+
+
+class DistributeSuperAgencyRent(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        distribute_monthly_rent_for_super_agency()
+        return Response({'message': 'Super Agency Rent Distributed successfully'})
+
+
+class DistributeAgencyRent(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        distribute_monthly_rent_for_agency()
+        return Response({'message': 'Agency Rent Distributed successfully'})
+
+
+class SuperAgencyAppCommission(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+
+        investment_data = (
+            AgencyPackagePurchase.objects.filter(
+                user=user, status='completed', buy_for='super_agency', package__isnull=False
+            ).aggregate(total=Sum('amount_paid'))
+        )
+        invested_amount = investment_data['total'] or Decimal('0')
+
+        commissions = (
+            Commission.objects.filter(status='active', commission_to=user, applicable_for='super_agency')
+            .values('commission_type')
+            .annotate(total=Sum('commission_amount'))
+        )
+
+        commission_totals = {
+            'turnover_commission': Decimal('0'),
+            'rent': Decimal('0'),
+            'agency_commission': Decimal('0'),
+            'field_agent_commission': Decimal('0'),
+            'reward': Decimal('0'),
+        }
+
+        for item in commissions:
+            ctype = item['commission_type']
+            if ctype in commission_totals:
+                commission_totals[ctype] = item['total'] or Decimal('0')
+
+        response = {
+            'invested_amount': invested_amount,
+            'return_amount': invested_amount * Decimal('3'),
+            'office_rent': commission_totals['rent'],
+            'agency_commission': commission_totals['agency_commission'],
+            'field_agent_commission': commission_totals['field_agent_commission'],
+            'turnover_commission': commission_totals['turnover_commission'],
+            'reward_commission': commission_totals['reward'],
+        }
+
+        return Response(response, status=status.HTTP_200_OK)
+
+
+class SuperAgencyPackageDetails(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        get_rewards = RewardMaster.objects.filter(
+            status='active', applicable_for='super_agency').order_by('turnover_threshold')
+        response = {
+            'invested_amount': '50,00,000 ₹ + 90,000 ₹ = 50,90,000 ₹',
+            'return_amount': 5000000 * Decimal('3'),
+            'office_rent': '50,000₹/Month for 10 years = 60,00,000₹',
+            'agency_commission': '25% for each agency (5,00,000₹ Each Agency) upto 100 agency',
+            'field_agent_commission': '5% for each field agent upto 10,000 field agent',
+            'turnover_commission': '0.25% of total turnover',
+            'reward_commission': '₹10,000 to ₹100 crore',
+            'area_required': '650 Sq.ft',
+            'rewards': GetRewardSerializer(get_rewards, many=True).data,
+        }
+        return Response(response, status=status.HTTP_200_OK)
+
+
+class AgencyPackageDetails(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        get_rewards = RewardMaster.objects.filter(
+            status='active', applicable_for='agency').order_by('turnover_threshold')
+        response = {
+            'invested_amount': '50,00,00 ₹ + 9000 ₹ = 50,90,00 ₹',
+            'return_amount': 500000 * Decimal('2'),
+            'office_rent': '5000₹/Month for 10 years = 60,00,00₹',
+            'field_agent_commission': '25% for each field agent upto 100 field agent',
+            'turnover_commission': '0.5% of agent generated turnover',
+            'reward_commission': '₹10,000 to ₹10 crore',
+            'area_required': '100 Sq.ft',
+            'rewards': GetRewardSerializer(get_rewards, many=True).data,
+        }
+        return Response(response, status=status.HTTP_200_OK)
+
+
+class FieldAgentPackageDetails(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        get_rewards = RewardMaster.objects.filter(
+            status='active', applicable_for='field_agent').order_by('turnover_threshold')
+        response = {
+            'invested_amount': '25,000 ₹ + 4,500 ₹ = 29,500 ₹',
+            'commission': '3% on every transaction with TDS support',
+            'reward_commission': '₹10,000 to ₹1 Crore',
+            'rewards': GetRewardSerializer(get_rewards, many=True).data,
+        }
+        return Response(response, status=status.HTTP_200_OK)
+
+
+class AgencyAppCommission(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+
+        investment_data = (
+            AgencyPackagePurchase.objects.filter(
+                user=user, status='completed', buy_for='agency', package__isnull=False
+            ).aggregate(total=Sum('amount_paid'))
+        )
+        invested_amount = investment_data['total'] or Decimal('0')
+
+        commissions = (
+            Commission.objects.filter(status='active', commission_to=user, applicable_for='agency')
+            .values('commission_type').annotate(total=Sum('commission_amount'))
+        )
+
+        commission_totals = {
+            'turnover_commission': Decimal('0'),
+            'rent': Decimal('0'),
+            'field_agent_commission': Decimal('0'),
+            'reward': Decimal('0'),
+        }
+
+        for item in commissions:
+            ctype = item['commission_type']
+            if ctype in commission_totals:
+                commission_totals[ctype] = item['total'] or Decimal('0')
+
+        response = {
+            'invested_amount': invested_amount,
+            'return_amount': invested_amount * Decimal('2'),
+            'office_rent': commission_totals['rent'],
+            'field_agent_commission': commission_totals['field_agent_commission'],
+            'turnover_commission': commission_totals['turnover_commission'],
+            'reward_commission': commission_totals['reward'],
+        }
+
+        return Response(response, status=status.HTTP_200_OK)

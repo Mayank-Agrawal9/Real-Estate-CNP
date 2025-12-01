@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from django.db.models import Sum
 
-from agency.models import SuperAgency, Agency, FieldAgent, PPDAccount, RewardEarned
+from agency.models import SuperAgency, Agency, FieldAgent, PPDAccount, RewardEarned, AgencyPackagePurchase, Commission
 from master.models import RewardMaster
 from p2pmb.models import MLMTree
 from payment_app.models import UserWallet, Transaction
@@ -62,33 +62,34 @@ def distribute_monthly_rent_for_super_agency():
     today = datetime.today().date()
     first_of_month = today.replace(day=1)
 
-    if today != first_of_month:
-        return "Today is not the first of the month. No distribution performed."
+    # if today != first_of_month:
+    #     return "Today is not the first of the month. No distribution performed."
 
-    super_agencies = SuperAgency.objects.filter(profile__is_kyc_verified=True, profile__is_kyc=True, status='active')
+    super_agencies = SuperAgency.objects.filter(status='active')
 
     for agency in super_agencies:
         user = agency.profile.user
 
-        first_transaction = Transaction.objects.filter(
-            receiver=user,
-            transaction_type='rent',
-            transaction_status='approved'
-        ).order_by('verified_on').first()
+        first_transaction = AgencyPackagePurchase.objects.filter(
+            user=user, package__isnull=False, buy_for='super_agency', status='completed', super_agency__isnull=False
+        ).last()
 
-        start_date = first_transaction.verified_on.date() if first_transaction else today
+        paid_amount = first_transaction.amount_paid
+        one_percent = paid_amount * Decimal('0.01')
+
+        if one_percent < 1:
+            continue
+
+        start_date = first_transaction.purchased_at.date() if first_transaction else today
         end_date = start_date + timedelta(days=365 * 10)
 
         if not (start_date <= today <= end_date):
             print(f"Rent payment period has ended for {user.username}. No distribution performed.")
             continue
 
-        rent_sent_this_month = Transaction.objects.filter(
-            receiver=user,
-            transaction_type='rent',
-            verified_on__year=today.year,
-            verified_on__month=today.month,
-            transaction_status='approved'
+        rent_sent_this_month = Commission.objects.filter(
+            commission_to=user, commission_type='rent', earned_at__date=first_of_month,
+            applicable_for='super_agency'
         ).exists()
 
         if rent_sent_this_month:
@@ -96,20 +97,23 @@ def distribute_monthly_rent_for_super_agency():
             continue
 
         wallet, _ = UserWallet.objects.get_or_create(user=user)
-        wallet.app_wallet_balance += 50000
+        wallet.app_wallet_balance += one_percent
         wallet.save()
 
+        Commission.objects.create(
+            commission_by=user, commission_to=user, commission_amount=one_percent, commission_type='rent',
+            description='Super Agency Rent Payment sent by CLICKNPAY REAL ESTATE.', earned_at=first_of_month,
+            applicable_for='super_agency', created_by=user, is_paid=True
+        )
+
         Transaction.objects.create(
-            verified_on=today,
-            receiver=user,
-            amount=50000,
-            transaction_type='rent',
-            transaction_status='approved',
+            verified_on=today, receiver=user,
+            amount=one_percent, transaction_type='rent', transaction_status='approved',
             remarks='Super Agency Rent Payment sent by CLICKNPAY REAL ESTATE.',
             payment_method='wallet'
         )
 
-    return "Monthly rent distributed successfully."
+    return "Monthly Super Agency rent distributed successfully."
 
 
 def distribute_monthly_rent_for_agency():
@@ -119,31 +123,31 @@ def distribute_monthly_rent_for_agency():
     if today != first_of_month:
         return "Today is not the first of the month. No distribution performed."
 
-    agencies = Agency.objects.filter(created_by__profile__is_kyc_verified=True, created_by__profile__is_kyc=True,
-                                     status='active')
+    agencies = Agency.objects.filter(status='active')
 
     for agency in agencies:
         user = agency.created_by
 
-        first_transaction = Transaction.objects.filter(
-            receiver=user,
-            transaction_type='rent',
-            transaction_status='approved'
-        ).order_by('verified_on').first()
+        first_transaction = AgencyPackagePurchase.objects.filter(
+            user=user, package__isnull=False, buy_for='agency', status='completed', agency__isnull=False
+        ).last()
 
-        start_date = first_transaction.verified_on.date() if first_transaction else today
+        paid_amount = first_transaction.amount_paid
+        one_percent = paid_amount * Decimal('0.01')
+
+        if one_percent < 1:
+            continue
+
+        start_date = first_transaction.purchased_at.date() if first_transaction else today
         end_date = start_date + timedelta(days=365 * 10)
 
         if not (start_date <= today <= end_date):
             print(f"Rent payment period has ended for {user.username}. No distribution performed.")
             continue
 
-        rent_sent_this_month = Transaction.objects.filter(
-            receiver=user,
-            transaction_type='rent',
-            transaction_status='approved',
-            verified_on__year=today.year,
-            verified_on__month=today.month
+        rent_sent_this_month = Commission.objects.filter(
+            commission_to=user, commission_type='rent', earned_at__date=first_of_month,
+            applicable_for='agency'
         ).exists()
 
         if rent_sent_this_month:
@@ -151,13 +155,18 @@ def distribute_monthly_rent_for_agency():
             continue
 
         wallet, _ = UserWallet.objects.get_or_create(user=user)
-        wallet.app_wallet_balance += 25000
+        wallet.app_wallet_balance += one_percent
         wallet.save()
 
+        Commission.objects.create(
+            commission_by=user, commission_to=user, commission_amount=one_percent, commission_type='rent',
+            description='Agency Rent Payment sent by CLICKNPAY REAL ESTATE.', earned_at=first_of_month,
+            applicable_for='agency', created_by=user, is_paid=True
+        )
+
         Transaction.objects.create(
-            verified_on=today,
-            receiver=user,
-            amount=25000,
+            verified_on=today, receiver=user,
+            amount=one_percent,
             transaction_type='rent',
             transaction_status='approved',
             remarks='Agency Rent Payment sent by CLICKNPAY REAL ESTATE',
@@ -393,3 +402,70 @@ def calculate_p2pmb_rewards():
                     turnover_at_earning=total_turnover
                 )
     return results
+
+
+def calculate_and_send_super_agency_commission(super_agency_id, purchase, company_name):
+    super_agency = SuperAgency.objects.filter(id=super_agency_id).last()
+
+    if not super_agency:
+        return False
+
+    commission_amount = purchase.amount_paid * Decimal('0.25')
+    wallet, created = UserWallet.objects.get_or_create(user=super_agency.profile.user)
+    wallet.app_wallet_balance += commission_amount
+    wallet.save()
+
+    Commission.objects.create(
+        commission_by=purchase.user, commission_to=super_agency.profile.user, commission_amount=commission_amount,
+        commission_type='agency_commission', description=f'Commission Added for adding {company_name} Agency',
+        earned_at=datetime.today().now(), applicable_for='super_agency'
+    )
+    Transaction.objects.create(
+        verified_on=datetime.today().now(), receiver=super_agency.profile.user,
+        amount=commission_amount, transaction_type='commission', transaction_status='approved',
+        remarks=f'Agency Commission added by {company_name}', payment_method='wallet'
+    )
+
+
+def calculate_and_send_agency_commission(super_agency_id, purchase):
+    agency = Agency.objects.filter(id=super_agency_id).last()
+
+    if not agency:
+        return False
+
+    commission_amount = purchase.amount_paid * Decimal('0.25')
+    wallet, created = UserWallet.objects.get_or_create(user=agency.created_by)
+    wallet.app_wallet_balance += commission_amount
+    wallet.save()
+
+    Commission.objects.create(
+        commission_by=purchase.user, commission_to=agency.created_by, commission_amount=commission_amount,
+        commission_type='field_agent_commission', description=f'Commission Added for adding '
+                                                              f'{purchase.user.get_full_name()} Field Agent',
+        earned_at=datetime.today().now(), applicable_for='agency'
+    )
+    Transaction.objects.create(
+        verified_on=datetime.today().now(), receiver=agency.created_by,
+        amount=commission_amount, transaction_type='commission', transaction_status='approved',
+        remarks=f'Field Agent Commission added by {purchase.user.get_full_name()} Field Agent', payment_method='wallet'
+    )
+    calculate_and_send_field_agent_commission_to_super_agency(agency, purchase)
+
+
+def calculate_and_send_field_agent_commission_to_super_agency(agency, purchase):
+    commission_amount = purchase.amount_paid * Decimal('0.05')
+    wallet, created = UserWallet.objects.get_or_create(user=agency.company.profile.user)
+    wallet.app_wallet_balance += commission_amount
+    wallet.save()
+
+    Commission.objects.create(
+        commission_by=purchase.user, commission_to=agency.company.profile.user, commission_amount=commission_amount,
+        commission_type='field_agent_commission', description=f'Commission Added for adding '
+                                                              f'{purchase.user.get_full_name()} Field Agent',
+        earned_at=datetime.today().now(), applicable_for='agency'
+    )
+    Transaction.objects.create(
+        verified_on=datetime.today().now(), receiver=agency.created_by,
+        amount=commission_amount, transaction_type='commission', transaction_status='approved',
+        remarks=f'Field Agent Commission added by {purchase.user.get_full_name()}', payment_method='wallet'
+    )
