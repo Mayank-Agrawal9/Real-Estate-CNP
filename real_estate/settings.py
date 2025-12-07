@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     'storages',
     'django_ckeditor_5',
     'django_crontab',
+    'vendor',
 ]
 
 CUSTOM_APPS = [
