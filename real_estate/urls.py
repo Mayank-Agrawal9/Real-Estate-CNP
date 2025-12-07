@@ -33,6 +33,7 @@ urlpatterns = [
     path("api/property/", include('property.urls')),
     path("api/mlm/", include('p2pmb.urls')),
     path("api/admin/", include('web_admin.urls')),
+    path("api/vendor/", include('vendor.urls')),
 ]
 if not PRODUCTION:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
