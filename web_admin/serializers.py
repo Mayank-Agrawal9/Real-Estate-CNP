@@ -639,18 +639,41 @@ class ExtraRewardEarnedUserSerializer(serializers.ModelSerializer):
 class ROIEarnedAdminSerializer(serializers.ModelSerializer):
     investment = serializers.SerializerMethodField()
 
-    def get_investment(self, obj):
-        if obj.investment and obj.investment.user:
-            return {
-                'id': obj.investment.user.id,
-                'name': obj.investment.user.get_full_name(),
-                'email': obj.investment.user.email
-            }
-        return None
-
     class Meta:
         model = InvestmentInterest
         fields = '__all__'
+
+    def get_investment(self, obj):
+        investment = getattr(obj, "investment", None)
+        user = getattr(investment, "user", None)
+
+        if not investment or not user:
+            return None
+
+        investment_amount = investment.amount or 0
+        interest_amount = obj.interest_amount or 0
+
+        roi_percentage = (
+            round((interest_amount / investment_amount) * 100, 2)
+            if investment_amount > 0
+            else None
+        )
+
+        referral_count = self._get_referral_count(user)
+        multiplier = Decimal('4.4') if referral_count >= 2 else Decimal('2.1')
+        total_return_amount = investment_amount * multiplier
+
+        return {
+            'id': user.id,
+            'name': user.get_full_name(),
+            'email': user.email,
+            'id_value': total_return_amount,
+            'roi_percentage': roi_percentage,
+        }
+
+    def _get_referral_count(self, user):
+        """Optimized: single point for referral count."""
+        return MLMTree.objects.filter(is_show=True, referral_by=user).count()
 
 
 class GetAllMLMChildSerializer(serializers.ModelSerializer):
