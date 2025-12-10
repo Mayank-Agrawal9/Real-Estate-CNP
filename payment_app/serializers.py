@@ -83,8 +83,8 @@ class WithdrawRequestSerializer(serializers.Serializer):
         wallet = UserWallet.objects.filter(user=self.context['request'].user).last()
         if not wallet:
             raise serializers.ValidationError("You do not have a wallet. Please connect to web_admin.")
-        if wallet.main_wallet_balance < data['amount']:
-            raise serializers.ValidationError("Insufficient balance.")
+        if wallet.app_wallet_balance < data['amount']:
+            raise serializers.ValidationError("Insufficient balance in your app wallet.")
 
         allowed_dates = [10, 20, 30]
         current_date = datetime.datetime.now()
