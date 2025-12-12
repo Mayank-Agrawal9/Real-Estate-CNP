@@ -218,7 +218,8 @@ class UserWalletViewSet(viewsets.ModelViewSet):
         serializer = WithdrawRequestSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         amount = serializer.validated_data['amount']
-        taxable_amount = (Decimal(amount) * Decimal('0.05'))
+        admin_charges = (Decimal(amount) * Decimal('0.05'))
+        taxable_amount = (Decimal(amount) * Decimal('0.10'))
 
         user_wallet = UserWallet.objects.filter(status='active', user=self.request.user).last()
 
@@ -226,8 +227,8 @@ class UserWalletViewSet(viewsets.ModelViewSet):
             return Response({"error": "You are not linked with wallet, please connect to admin."},
                             status=status.HTTP_400_BAD_REQUEST)
 
-        user_wallet.main_wallet_balance -= Decimal(str(amount))
-        user_wallet.admin_amount += taxable_amount
+        user_wallet.app_wallet_balance -= Decimal(str(amount))
+        user_wallet.admin_amount += admin_charges
         user_wallet.save()
 
         transaction_history = Transaction.objects.create(

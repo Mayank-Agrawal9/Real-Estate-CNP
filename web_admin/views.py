@@ -1728,6 +1728,7 @@ class ROIAggregateAPIView(APIView):
         month = request.query_params.get("month")
         year = request.query_params.get("year")
         user_id = request.query_params.get("user")
+        search = request.query_params.get("search")
 
         month = int(month) if month else None
         year = int(year) if year else None
@@ -1743,6 +1744,13 @@ class ROIAggregateAPIView(APIView):
 
         if user_id:
             investment = investment.filter(investment__user__id=user_id)
+
+        if search:
+            investment = investment.filter(
+                Q(investment__user__username__icontains=search) |
+                Q(investment__user__first_name__icontains=search) |
+                Q(investment__user__last_name__icontains=search)
+            )
 
         total_user = investment.values('investment__user').distinct().count()
         total_amount = investment.aggregate(total=Sum('interest_amount'))['total'] or 0
@@ -1760,6 +1768,7 @@ class CoreGroupIncomeAggregateAPIView(APIView):
         month = request.query_params.get("month")
         year = request.query_params.get("year")
         user_id = request.query_params.get("user")
+        search = request.query_params.get("search")
 
         month = int(month) if month else None
         year = int(year) if year else None
@@ -1773,6 +1782,13 @@ class CoreGroupIncomeAggregateAPIView(APIView):
 
         if user_id:
             investment = investment.filter(user__id=user_id)
+
+        if search:
+            investment = investment.filter(
+                Q(user__username__icontains=search) |
+                Q(user__first_name__icontains=search) |
+                Q(user__last_name__icontains=search)
+            )
 
         total_user = investment.values('user').distinct().count()
         total_amount = investment.aggregate(total=Sum('income_earned'))['total'] or 0
@@ -1790,6 +1806,7 @@ class RewardAggregateAPIView(APIView):
         month = request.query_params.get("month")
         year = request.query_params.get("year")
         user_id = request.query_params.get("user")
+        search = request.query_params.get("search")
 
         month = int(month) if month else None
         year = int(year) if year else datetime.datetime.now().year
@@ -1803,6 +1820,13 @@ class RewardAggregateAPIView(APIView):
 
         if user_id:
             rewards = rewards.filter(user__id=user_id)
+
+        if search:
+            rewards = rewards.filter(
+                Q(user__username__icontains=search) |
+                Q(user__first_name__icontains=search) |
+                Q(user__last_name__icontains=search)
+            )
 
         total_user = rewards.values('user').distinct().count()
         total_amount = rewards.aggregate(total=Sum('reward__gift_amount'))['total'] or 0
@@ -1820,6 +1844,7 @@ class ExtraRewardAggregateAPIView(APIView):
         month = request.query_params.get("month")
         year = request.query_params.get("year")
         user_id = request.query_params.get("user")
+        search = request.query_params.get("search")
 
         month = int(month) if month else None
         year = int(year) if year else None
@@ -1833,6 +1858,13 @@ class ExtraRewardAggregateAPIView(APIView):
 
         if user_id:
             extra_rewards = extra_rewards.filter(user__id=user_id)
+
+        if search:
+            extra_rewards = extra_rewards.filter(
+                Q(user__username__icontains=search) |
+                Q(user__first_name__icontains=search) |
+                Q(user__last_name__icontains=search)
+            )
 
         total_user = extra_rewards.values('user').distinct().count()
         total_amount = extra_rewards.aggregate(total=Sum('amount'))['total'] or 0
@@ -1850,6 +1882,7 @@ class LevelIncomeEarnedAPIView(APIView):
         month = request.query_params.get("month")
         year = request.query_params.get("year")
         user_id = request.query_params.get("user")
+        search = request.query_params.get("search")
         type = request.query_params.get("type")
 
         month = int(month) if month else None
@@ -1868,6 +1901,13 @@ class LevelIncomeEarnedAPIView(APIView):
         if user_id:
             commissions = commissions.filter(commission_to__id=user_id)
 
+        if search:
+            commissions = commissions.filter(
+                Q(commission_to__username__icontains=search) |
+                Q(commission_to__first_name__icontains=search) |
+                Q(commission_to__last_name__icontains=search)
+            )
+
         total_user = commissions.values('commission_to').distinct().count()
         total_amount = commissions.aggregate(total=Sum('amount'))['total'] or 0
 
@@ -1884,6 +1924,7 @@ class RoyaltyEarnedAggregateAPIView(APIView):
         month = request.query_params.get("month")
         year = request.query_params.get("year")
         user_id = request.query_params.get("user")
+        search = request.query_params.get("search")
 
         month = int(month) if month else None
         year = int(year) if year else None
@@ -1897,6 +1938,13 @@ class RoyaltyEarnedAggregateAPIView(APIView):
 
         if user_id:
             royaltys = royaltys.filter(user__id=user_id)
+
+        if search:
+            royaltys = royaltys.filter(
+                Q(user__username__icontains=search) |
+                Q(user__first_name__icontains=search) |
+                Q(user__last_name__icontains=search)
+            )
 
         total_user = royaltys.values('user').distinct().count()
         total_amount = royaltys.aggregate(total=Sum('earned_amount'))['total'] or 0
@@ -1914,6 +1962,7 @@ class RewardEarnedAPIView(APIView):
         month = request.query_params.get("month")
         year = request.query_params.get("year")
         user_id = request.query_params.get("user")
+        search = request.query_params.get("search")
 
         month = int(month) if month else None
         year = int(year) if year else None
@@ -1922,6 +1971,13 @@ class RewardEarnedAPIView(APIView):
 
         if user_id:
             queryset = queryset.filter(user=user_id)
+
+        if search:
+            queryset = queryset.filter(
+                Q(user__username__icontains=search) |
+                Q(user__first_name__icontains=search) |
+                Q(user__last_name__icontains=search)
+            )
 
         if month and year:
             queryset = queryset.filter(earned_at__month=month, earned_at__year=year)
@@ -1941,8 +1997,16 @@ class CommissionEarnedAPIView(APIView):
         month = request.query_params.get("month")
         year = request.query_params.get("year")
         user_id = request.query_params.get("user")
+        search = request.query_params.get("search")
         commission_type = request.query_params.get("commission_type")
         queryset = Commission.objects.filter(status='active')
+
+        if search:
+            queryset = queryset.filter(
+                Q(commission_to__username__icontains=search) |
+                Q(commission_to__first_name__icontains=search) |
+                Q(commission_to__last_name__icontains=search)
+            )
 
         if user_id:
             queryset = queryset.filter(commission_to=user_id)
@@ -2049,6 +2113,7 @@ class RoyaltyEarnedAPIView(APIView):
         month = request.query_params.get("month")
         year = request.query_params.get("year")
         user_id = request.query_params.get("user")
+        search = request.query_params.get("search")
 
         month = int(month) if month else None
         year = int(year) if year else None
@@ -2057,6 +2122,13 @@ class RoyaltyEarnedAPIView(APIView):
 
         if user_id:
             queryset = queryset.filter(user=user_id)
+
+        if search:
+            queryset = queryset.filter(
+                Q(user__username__icontains=search) |
+                Q(user__first_name__icontains=search) |
+                Q(user__last_name__icontains=search)
+            )
 
         if month and year:
             queryset = queryset.filter(earned_date__month=month, earned_date__year=year)
@@ -2076,6 +2148,7 @@ class CoreIncomeEarnedAPIView(APIView):
         month = request.query_params.get("month")
         year = request.query_params.get("year")
         user_id = request.query_params.get("user")
+        search = request.query_params.get("search")
 
         month = int(month) if month else None
         year = int(year) if year else None
@@ -2084,6 +2157,13 @@ class CoreIncomeEarnedAPIView(APIView):
 
         if user_id:
             queryset = queryset.filter(user=user_id)
+
+        if search:
+            queryset = queryset.filter(
+                Q(user__username__icontains=search) |
+                Q(user__first_name__icontains=search) |
+                Q(user__last_name__icontains=search)
+            )
 
         if month and year:
             queryset = queryset.filter(date_created__month=month, date_created__year=year)
@@ -2103,6 +2183,7 @@ class ExtraRewardEarnedAPIView(APIView):
         month = request.query_params.get("month")
         year = request.query_params.get("year")
         user_id = request.query_params.get("user")
+        search = request.query_params.get("search")
 
         month = int(month) if month else None
         year = int(year) if year else None
@@ -2111,6 +2192,13 @@ class ExtraRewardEarnedAPIView(APIView):
 
         if user_id:
             queryset = queryset.filter(user=user_id)
+
+        if search:
+            queryset = queryset.filter(
+                Q(user__username__icontains=search) |
+                Q(user__first_name__icontains=search) |
+                Q(user__last_name__icontains=search)
+            )
 
         if month and year:
             queryset = queryset.filter(date_created__month=month, date_created__year=year)
@@ -2129,11 +2217,19 @@ class GetExtraRewardEarnedUser(APIView):
     def get(self, request, extra_reward_id):
         month = request.query_params.get("month")
         year = request.query_params.get("year")
+        search = request.query_params.get("search")
 
         month = int(month) if month else None
         year = int(year) if year else None
 
         queryset = ExtraRewardEarned.objects.filter(extra_reward=extra_reward_id)
+
+        if search:
+            queryset = queryset.filter(
+                Q(user__username__icontains=search) |
+                Q(user__first_name__icontains=search) |
+                Q(user__last_name__icontains=search)
+            )
 
         if month and year:
             queryset = queryset.filter(date_created__month=month, date_created__year=year)
@@ -2153,6 +2249,7 @@ class ROIEarnedListAPIView(APIView):
         month = request.query_params.get("month")
         year = request.query_params.get("year")
         user_id = request.query_params.get("user")
+        search = request.query_params.get("search", None)
 
         month = int(month) if month else None
         year = int(year) if year else None
@@ -2161,6 +2258,13 @@ class ROIEarnedListAPIView(APIView):
 
         if user_id:
             queryset = queryset.filter(investment__user=user_id)
+
+        if search:
+            queryset = queryset.filter(
+                Q(investment__user__username__icontains=search) |
+                Q(investment__user__first_name__icontains=search) |
+                Q(investment__user__last_name__icontains=search)
+            )
 
         if month and year:
             queryset = queryset.filter(interest_send_date__month=month, interest_send_date__year=year)
@@ -2178,7 +2282,17 @@ class ActiveUserWalletListView(ListAPIView):
     serializer_class = UserWalletSerializer
 
     def get_queryset(self):
-        return UserWallet.objects.active().select_related('user')
+        queryset = (
+            UserWallet.objects.active().select_related("user")
+        )
+        search = self.request.query_params.get("search")
+        if search:
+            queryset = queryset.filter(
+                Q(user__username__icontains=search) |
+                Q(user__first_name__icontains=search) |
+                Q(user__last_name__icontains=search)
+            )
+        return queryset
 
 
 class StopSendingROIListView(APIView):

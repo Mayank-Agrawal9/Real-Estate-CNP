@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     'storages',
     'django_ckeditor_5',
     'django_crontab',
+    'vendor',
 ]
 
 CUSTOM_APPS = [
@@ -163,28 +164,12 @@ LANGUAGES = [
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# EMAIL_HOST = 'smtp-relay.sendinblue.com'
-# EMAIL_HOST_USER = 'clicknpaydigital@gmail.com'
-# DEFAULT_FROM_EMAIL = 'clicknpaydigital@gmail.com'
-# EMAIL_HOST_PASSWORD = 'WHkxQ8J6KZhE2rTv'
-# EMAIL_PORT = 587
-# EMAIL_USE_TLS = True
-# EMAIL_USE_SSL = False
-
-EMAIL_HOST = 'smtp.zeptomail.in'
-EMAIL_HOST_USER = 'noreply@clicknpayrealestate.com'
-DEFAULT_FROM_EMAIL = 'noreply@clicknpayrealestate.com'
-EMAIL_HOST_PASSWORD = 'PHtE6r1fQbu+3TZ5+hYJsPCwE5GjZol99e9gKQERtIpAD/YDSU1drNouwGLj+B4sB/EQR6aZyoNr4L2ctLrQLDnoMWYdWmqyqK3sx/VYSPOZsbq6x00bs1oddkbcUIbmddJo0CPVs9bSNA=='
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_USE_SSL = False
-
 
 if PRODUCTION:
-    AWS_ACCESS_KEY_ID = 'AKIAWL5SMRGLVFTNZLOH'
-    AWS_SECRET_ACCESS_KEY = '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'
-    AWS_STORAGE_BUCKET_NAME = 'cnp-realestate-dev'
-    AWS_S3_REGION_NAME = 'ap-south-1'
+    AWS_ACCESS_KEY_ID = AWS_ACCESS_KEY_ID
+    AWS_SECRET_ACCESS_KEY = AWS_SECRET_ACCESS_KEY
+    AWS_STORAGE_BUCKET_NAME = AWS_STORAGE_BUCKET_NAME
+    AWS_S3_REGION_NAME = AWS_S3_REGION_NAME
     AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com'
     AWS_S3_OBJECT_PARAMETERS = {
         'CacheControl': 'max-age=86400',
