@@ -150,6 +150,7 @@ class VendorDetailSerializer(serializers.ModelSerializer):
 
     average_rating = serializers.SerializerMethodField()
     total_ratings = serializers.SerializerMethodField()
+    user = serializers.SerializerMethodField()
 
     class Meta:
         model = Vendor
@@ -164,6 +165,13 @@ class VendorDetailSerializer(serializers.ModelSerializer):
 
     def get_total_ratings(self, obj):
         return obj.total_ratings()
+
+    def get_user(self, obj):
+        return {
+            'id': obj.user.id,
+            'name': obj.user.get_full_name(),
+            'email': obj.user.username,
+        }
 
     def validate(self, data):
         offering_type = data.get('offering_type')

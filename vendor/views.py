@@ -79,33 +79,16 @@ class VendorDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
         )
 
 
-class RequestVendorDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Vendor.objects.filter(status='active').select_related(
-        'category', 'city'
-    ).prefetch_related('images', 'products', 'ratings', 'certifications', 'awards')
+class RequestVendorDetailAPIView(generics.RetrieveAPIView):
     serializer_class = VendorDetailSerializer
 
-    def get_queryset(self):
-        return Vendor.objects.filter(user=self.request.user, status='active').select_related(
+    def get_object(self):
+        vendor = Vendor.objects.select_related(
             'category', 'city'
-        ).prefetch_related('images', 'products', 'ratings', 'certifications', 'awards')
-
-    def retrieve(self, request, *args, **kwargs):
-        instance = self.get_object()
-        # Increment view count
-        instance.views_count += 1
-        instance.save(update_fields=['views_count'])
-        serializer = self.get_serializer(instance)
-        return Response(serializer.data)
-
-    def destroy(self, request, *args, **kwargs):
-        instance = self.get_object()
-        instance.status = 'inactive'
-        instance.save()
-        return Response(
-            {'message': 'Vendor deactivated successfully'},
-            status=status.HTTP_204_NO_CONTENT
-        )
+        ).prefetch_related(
+            'images', 'products', 'ratings', 'certifications', 'awards'
+        ).get(user=self.request.user, status='active')
+        return vendor
 
 
 # ===== Vendor Image Views =====
