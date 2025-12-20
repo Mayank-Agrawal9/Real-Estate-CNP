@@ -8,6 +8,7 @@ urlpatterns = [
     path('cities/by-state/<int:state_id>/', CityByStateAPIView.as_view(), name='city-by-state'),
     path('vendors/', VendorListCreateAPIView.as_view(), name='vendor-list'),
     path('request-vendors/', RequestVendorDetailAPIView.as_view(), name='request-vendor-detail'),
+    path('vendors/<int:pk>/', VendorDetailAPIView.as_view(), name='vendor-detail'),
     path('vendors/search/', VendorSearchAPIView.as_view(), name='vendor-search'),
     path('vendors/stats/', VendorStatsAPIView.as_view(), name='vendor-stats'),
     path('vendors/<int:vendor_id>/images/', VendorImageListAPIView.as_view(), name='vendor-image-list'),
