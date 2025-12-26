@@ -127,7 +127,6 @@ class VendorImage(ModelMixin):
         return f"{self.vendor.business_name} - {self.image_type}"
 
 
-
 class Rating(ModelMixin):
     vendor = models.ForeignKey(Vendor, on_delete=models.CASCADE, related_name='ratings')
     rating_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='rating_user')
@@ -159,7 +158,7 @@ class Rating(ModelMixin):
         unique_together = ['vendor']
 
     def __str__(self):
-        return f"{self.user_name} - {self.vendor.business_name} ({self.rating}★)"
+        return f"{self.id}"
 
 
 class Enquiry(ModelMixin):
