@@ -165,34 +165,34 @@ LANGUAGES = [
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
-if PRODUCTION:
-    AWS_ACCESS_KEY_ID = AWS_ACCESS_KEY_ID
-    AWS_SECRET_ACCESS_KEY = AWS_SECRET_ACCESS_KEY
-    AWS_STORAGE_BUCKET_NAME = AWS_STORAGE_BUCKET_NAME
-    AWS_S3_REGION_NAME = AWS_S3_REGION_NAME
-    AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com'
-    AWS_S3_OBJECT_PARAMETERS = {
-        'CacheControl': 'max-age=86400',
-    }
-
-    # Static files settings
-    AWS_STATIC_LOCATION = 'static'
-    STATIC_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/{AWS_STATIC_LOCATION}/'
-    STATICFILES_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
-
-    # Media files settings
-    AWS_MEDIA_LOCATION = 'media'
-    MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/{AWS_MEDIA_LOCATION}/'
-    DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
-else:
-    STATIC_URL = '/static/'
-    STATIC_ROOT = location('public/static/')
-    STATICFILES_DIRS = (
-        location('static'),
-    )
-    MEDIA_ROOT = os.path.join(BASE_DIR, 'public/media')
-    MEDIA_URL = '/media/'
-    STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
+# if PRODUCTION:
+#     AWS_ACCESS_KEY_ID = AWS_ACCESS_KEY_ID
+#     AWS_SECRET_ACCESS_KEY = AWS_SECRET_ACCESS_KEY
+#     AWS_STORAGE_BUCKET_NAME = AWS_STORAGE_BUCKET_NAME
+#     AWS_S3_REGION_NAME = AWS_S3_REGION_NAME
+#     AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com'
+#     AWS_S3_OBJECT_PARAMETERS = {
+#         'CacheControl': 'max-age=86400',
+#     }
+#
+#     # Static files settings
+#     AWS_STATIC_LOCATION = 'static'
+#     STATIC_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/{AWS_STATIC_LOCATION}/'
+#     STATICFILES_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+#
+#     # Media files settings
+#     AWS_MEDIA_LOCATION = 'media'
+#     MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/{AWS_MEDIA_LOCATION}/'
+#     DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+# else:
+STATIC_URL = '/static/'
+STATIC_ROOT = location('public/static/')
+STATICFILES_DIRS = (
+    location('static'),
+)
+MEDIA_ROOT = os.path.join(BASE_DIR, 'public/media')
+MEDIA_URL = '/media/'
+STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
 
 
 CKEDITOR_UPLOAD_PATH = "ckeditor_uploads/"

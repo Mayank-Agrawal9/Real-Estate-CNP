@@ -20,10 +20,18 @@ class CategorySerializer(serializers.ModelSerializer):
 
 
 class VendorImageSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
+
     class Meta:
         model = VendorImage
         fields = ['id', 'image', 'image_type', 'caption', 'is_primary', 'date_created']
         read_only_fields = ['id', 'date_created']
+
+    def get_image(self, obj):
+        request = self.context.get('request')
+        if obj.image and request:
+            return request.build_absolute_uri(obj.image.url)
+        return None
 
 
 class VendorImageViewSetSerializer(serializers.ModelSerializer):
@@ -73,8 +81,9 @@ class ProductSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'date_created', 'date_updated']
 
     def get_images(self, obj):
+        request = self.context.get('request')
         images = VendorImage.objects.filter(product=obj, image_type='product')
-        return VendorImageSerializer(images, many=True).data
+        return VendorImageSerializer(images, many=True, context=request).data
 
 
 class ProductVendorDetailSerializer(serializers.ModelSerializer):
@@ -89,8 +98,9 @@ class ProductVendorDetailSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'date_created', 'date_updated']
 
     def get_images(self, obj):
+        request = self.context.get('request')
         images = VendorImage.objects.filter(product=obj, image_type='product')
-        return VendorImageSerializer(images, many=True).data
+        return VendorImageSerializer(images, many=True, context={'request': request}).data
 
 
 class RatingSerializer(serializers.ModelSerializer):
@@ -231,8 +241,9 @@ class VendorDetailSerializer(serializers.ModelSerializer):
         }
 
     def get_images(self, obj):
+        request = self.context.get('request')
         images = VendorImage.objects.filter(vendor=obj, product__isnull=True)
-        return VendorImageSerializer(images, many=True).data
+        return VendorImageSerializer(images, many=True, context={'request': request}).data
 
     def validate(self, data):
         offering_type = data.get('offering_type')
