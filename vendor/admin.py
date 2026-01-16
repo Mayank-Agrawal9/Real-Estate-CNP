@@ -11,10 +11,9 @@ from .models import (
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
-    list_display = ('name', 'slug', 'parent', 'status')
+    list_display = ('name', 'parent', 'status')
     search_fields = ('name', 'description')
     list_filter = ('status',)
-    prepopulated_fields = {'slug': ('name',)}
     raw_id_fields = ('created_by', 'updated_by')
 
 

@@ -10,7 +10,7 @@ class CategorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Category
-        fields = ['id', 'name', 'slug', 'description', 'icon', 'parent', 'subcategories']
+        fields = ['id', 'name', 'description', 'icon', 'parent', 'subcategories']
         read_only_fields = ['id']
 
     def get_subcategories(self, obj):

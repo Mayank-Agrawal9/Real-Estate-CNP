@@ -5,6 +5,7 @@ from vendor.views import *
 
 router = DefaultRouter()
 router.register(r'vendor-image', VendorImageViewSet)
+router.register(r'vendor-category', VendorCategoryViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),
