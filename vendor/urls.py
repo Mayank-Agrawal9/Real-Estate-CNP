@@ -1,12 +1,19 @@
-from django.urls import path
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
 
 from vendor.views import *
 
+router = DefaultRouter()
+router.register(r'vendor-image', VendorImageViewSet)
+router.register(r'vendor-category', VendorCategoryViewSet)
+
 urlpatterns = [
+    path('', include(router.urls)),
     path('categories/', CategoryListCreateAPIView.as_view(), name='category-list'),
     path('categories/<int:pk>/', CategoryDetailAPIView.as_view(), name='category-detail'),
     path('cities/by-state/<int:state_id>/', CityByStateAPIView.as_view(), name='city-by-state'),
     path('vendors/', VendorListCreateAPIView.as_view(), name='vendor-list'),
+    path('request-vendors/', RequestVendorDetailAPIView.as_view(), name='request-vendor-detail'),
     path('vendors/<int:pk>/', VendorDetailAPIView.as_view(), name='vendor-detail'),
     path('vendors/search/', VendorSearchAPIView.as_view(), name='vendor-search'),
     path('vendors/stats/', VendorStatsAPIView.as_view(), name='vendor-stats'),

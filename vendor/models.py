@@ -13,7 +13,6 @@ from vendor.helpers import PHONE_REGEX
 
 class Category(ModelMixin):
     name = models.CharField(max_length=100, unique=True)
-    slug = models.SlugField(max_length=100, unique=True)
     description = models.TextField(blank=True)
     icon = models.ImageField(upload_to='category_icons/', blank=True, null=True)
     parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='subcategories')
@@ -93,23 +92,6 @@ class Vendor(ModelMixin):
         return self.ratings.count()
 
 
-class VendorImage(ModelMixin):
-    vendor = models.ForeignKey(Vendor, on_delete=models.CASCADE, related_name='images')
-    # product = models.ForeignKey(
-    #     'Product', on_delete=models.CASCADE, null=True, blank=True, related_name='images'
-    # )
-    image = models.ImageField(upload_to='vendor_images/')
-    image_type = models.CharField(max_length=20, choices=IMAGE_TYPE_CHOICES, default='gallery')
-    caption = models.CharField(max_length=200, blank=True)
-    is_primary = models.BooleanField(default=False)
-
-    class Meta:
-        ordering = ['-is_primary', '-date_created']
-
-    def __str__(self):
-        return f"{self.vendor.business_name} - {self.image_type}"
-
-
 class Product(ModelMixin):
     vendor = models.ForeignKey(Vendor, on_delete=models.CASCADE, related_name='products')
     name = models.CharField(max_length=200)
@@ -125,6 +107,23 @@ class Product(ModelMixin):
 
     def __str__(self):
         return f"{self.name} - {self.vendor.business_name}"
+
+
+class VendorImage(ModelMixin):
+    vendor = models.ForeignKey(Vendor, on_delete=models.CASCADE, related_name='images')
+    product = models.ForeignKey(
+        Product, on_delete=models.CASCADE, null=True, blank=True, related_name='product_image'
+    )
+    image = models.ImageField(upload_to='vendor_images/')
+    image_type = models.CharField(max_length=20, choices=IMAGE_TYPE_CHOICES, default='gallery')
+    caption = models.CharField(max_length=200, blank=True)
+    is_primary = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['-is_primary', '-date_created']
+
+    def __str__(self):
+        return f"{self.vendor.business_name} - {self.image_type}"
 
 
 class Rating(ModelMixin):
@@ -158,7 +157,7 @@ class Rating(ModelMixin):
         unique_together = ['vendor']
 
     def __str__(self):
-        return f"{self.user_name} - {self.vendor.business_name} ({self.rating}★)"
+        return f"{self.id}"
 
 
 class Enquiry(ModelMixin):

@@ -1,8 +1,11 @@
 from django.db.models import Avg, Count, Q
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import generics, filters, status
+from rest_framework import generics, filters, status, viewsets
+from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
+from rest_framework.filters import SearchFilter
 from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -77,6 +80,18 @@ class VendorDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
             {'message': 'Vendor deactivated successfully'},
             status=status.HTTP_204_NO_CONTENT
         )
+
+
+class RequestVendorDetailAPIView(generics.RetrieveAPIView):
+    serializer_class = VendorDetailSerializer
+
+    def get_object(self):
+        vendor = Vendor.objects.select_related(
+            'category', 'city'
+        ).prefetch_related(
+            'images', 'products', 'ratings', 'certifications', 'awards'
+        ).get(user=self.request.user, status='active')
+        return vendor
 
 
 # ===== Vendor Image Views =====
@@ -242,3 +257,30 @@ class VendorStatsAPIView(APIView):
                 top_rated, many=True, context={'request': request}
             ).data
         })
+
+
+class VendorImageViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    queryset = VendorImage.objects.filter(status='active')
+    serializer_class = VendorImageSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_fields = ['product', 'vendor']
+    search_fields = ['product__name',]
+
+    @action(detail=False, methods=["post"], url_path="upload-images")
+    def upload_images(self, request):
+        data = request.data.copy()
+        data.setlist("images", request.FILES.getlist("images"))
+        serializer = VendorMultipleImageUploadSerializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({"message": "Image Upload successfully."}, status=status.HTTP_201_CREATED)
+
+
+class VendorCategoryViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    queryset = Category.objects.filter(status='active')
+    serializer_class = CategorySerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_fields = ['name', 'description']
+    search_fields = ['name',]

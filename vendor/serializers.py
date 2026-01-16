@@ -10,7 +10,7 @@ class CategorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Category
-        fields = ['id', 'name', 'slug', 'description', 'icon', 'parent', 'subcategories']
+        fields = ['id', 'name', 'description', 'icon', 'parent', 'subcategories']
         read_only_fields = ['id']
 
     def get_subcategories(self, obj):
@@ -20,13 +20,58 @@ class CategorySerializer(serializers.ModelSerializer):
 
 
 class VendorImageSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
+
     class Meta:
         model = VendorImage
         fields = ['id', 'image', 'image_type', 'caption', 'is_primary', 'date_created']
         read_only_fields = ['id', 'date_created']
 
+    def get_image(self, obj):
+        request = self.context.get('request')
+        if obj.image and request:
+            return request.build_absolute_uri(obj.image.url)
+        return None
+
+
+class VendorImageViewSetSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = VendorImage
+        fields = '__all__'
+
+
+class VendorMultipleImageUploadSerializer(serializers.Serializer):
+    vendor = serializers.PrimaryKeyRelatedField(queryset=Vendor.objects.filter(status='active'))
+    product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all(), required=False, allow_null=True)
+    images = serializers.ListField(child=serializers.ImageField(), write_only=True)
+    image_type = serializers.ChoiceField(choices=IMAGE_TYPE_CHOICES, default='product')
+    caption = serializers.CharField(max_length=200, required=False, allow_blank=True)
+
+    def create(self, validated_data):
+        images = validated_data.pop('images')
+        vendor = validated_data.get('vendor')
+        product = validated_data.get('product')
+        image_type = validated_data.get('image_type', 'gallery')
+        caption = validated_data.get('caption', '')
+        is_primary = validated_data.get('is_primary', False)
+        
+        created_images = []
+        for image in images:
+            vendor_image = VendorImage.objects.create(
+                vendor=vendor,
+                product=product,
+                image=image,
+                image_type=image_type,
+                caption=caption,
+                is_primary=is_primary
+            )
+            created_images.append(vendor_image)
+        return created_images
+
 
 class ProductSerializer(serializers.ModelSerializer):
+    images = serializers.SerializerMethodField()
+
     class Meta:
         model = Product
         fields = [
@@ -34,6 +79,28 @@ class ProductSerializer(serializers.ModelSerializer):
             'sku', 'is_available', 'stock_quantity', 'date_created', 'date_updated'
         ]
         read_only_fields = ['id', 'date_created', 'date_updated']
+
+    def get_images(self, obj):
+        request = self.context.get('request')
+        images = VendorImage.objects.filter(product=obj, image_type='product')
+        return VendorImageSerializer(images, many=True, context=request).data
+
+
+class ProductVendorDetailSerializer(serializers.ModelSerializer):
+    images = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Product
+        fields = [
+            'id', 'name', 'description', 'price', 'discount_price',
+            'sku', 'is_available', 'stock_quantity', 'date_created', 'date_updated', 'images'
+        ]
+        read_only_fields = ['id', 'date_created', 'date_updated']
+
+    def get_images(self, obj):
+        request = self.context.get('request')
+        images = VendorImage.objects.filter(product=obj, image_type='product')
+        return VendorImageSerializer(images, many=True, context={'request': request}).data
 
 
 class RatingSerializer(serializers.ModelSerializer):
@@ -106,7 +173,7 @@ class VendorListSerializer(serializers.ModelSerializer):
         return obj.total_ratings()
 
     def get_primary_image(self, obj):
-        image = obj.images.filter(is_primary=True).first()
+        image = obj.images.filter(image_type="logo").first()
         if image:
             request = self.context.get('request')
             if request:
@@ -138,8 +205,8 @@ class VendorDetailSerializer(serializers.ModelSerializer):
         write_only=True
     )
 
-    images = VendorImageSerializer(many=True, read_only=True)
-    products = ProductSerializer(many=True, read_only=True)
+    images = serializers.SerializerMethodField()
+    products = ProductVendorDetailSerializer(many=True, read_only=True)
 
     # WRITE (for creation)
     products_data = ProductCreateSerializer(many=True, write_only=True, required=False)
@@ -150,6 +217,7 @@ class VendorDetailSerializer(serializers.ModelSerializer):
 
     average_rating = serializers.SerializerMethodField()
     total_ratings = serializers.SerializerMethodField()
+    user = serializers.SerializerMethodField()
 
     class Meta:
         model = Vendor
@@ -164,6 +232,18 @@ class VendorDetailSerializer(serializers.ModelSerializer):
 
     def get_total_ratings(self, obj):
         return obj.total_ratings()
+
+    def get_user(self, obj):
+        return {
+            'id': obj.user.id,
+            'name': obj.user.get_full_name(),
+            'email': obj.user.username,
+        }
+
+    def get_images(self, obj):
+        request = self.context.get('request')
+        images = VendorImage.objects.filter(vendor=obj, product__isnull=True)
+        return VendorImageSerializer(images, many=True, context={'request': request}).data
 
     def validate(self, data):
         offering_type = data.get('offering_type')
@@ -190,6 +270,7 @@ class VendorDetailSerializer(serializers.ModelSerializer):
         products_data = validated_data.pop('products_data', [])
         request = self.context.get('request')
         user = request.user
+
         vendor = Vendor.objects.create(**validated_data, user=user, created_by=user)
         for product in products_data:
             Product.objects.create(vendor=vendor, created_by=user, **product)
