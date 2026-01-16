@@ -13,7 +13,6 @@ from vendor.helpers import PHONE_REGEX
 
 class Category(ModelMixin):
     name = models.CharField(max_length=100, unique=True)
-    slug = models.SlugField(max_length=100, unique=True)
     description = models.TextField(blank=True)
     icon = models.ImageField(upload_to='category_icons/', blank=True, null=True)
     parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='subcategories')

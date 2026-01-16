@@ -275,3 +275,12 @@ class VendorImageViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response({"message": "Image Upload successfully."}, status=status.HTTP_201_CREATED)
+
+
+class VendorCategoryViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    queryset = Category.objects.filter(status='active')
+    serializer_class = CategorySerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_fields = ['name', 'description']
+    search_fields = ['name',]
