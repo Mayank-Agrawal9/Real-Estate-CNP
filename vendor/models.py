@@ -50,6 +50,7 @@ class Vendor(ModelMixin):
     # Business Details
     offering_type = models.CharField(max_length=10, choices=OFFERING_CHOICES)
     service_description = models.TextField(blank=True, null=True)
+    product_description = models.TextField(blank=True, null=True)
     year_established = models.IntegerField(null=True, blank=True)
     number_of_employees = models.IntegerField(null=True, blank=True)
 
